@@ -52,9 +52,13 @@ lista_afinacoes = [
 indice_afinacao = 0
 
 tom_atual = 'C'
-indice_cor_tonica = 0
+indice_cor_tonica = 0  # Vermelho (CORES_TONICA[1])
+indice_cor_terca = 0   # Verde (CORES_TONICA[2])
+indice_cor_quinta = 0  # Azul (CORES_TONICA[4])
 dropdown_tom_aberto = False
-
+rects_cores_tonica = []
+rects_cores_terca = []
+rects_cores_quinta = []
 # --- MEDIDAS DINÂMICAS DO BRAÇO ---
 # NOVO: Desci o braço para o Y=90 para caber o menu superior
 OFFSET_X = 100 
@@ -129,7 +133,7 @@ class DesenhoEscala:
         self.num_casas_total = num_casas_total
         self.num_casas_desenho = len(padrao[0]) 
         
-        self.padding_x = 0  
+        self.padding_x = 5  
         self.padding_y = 20  
         raio = 18
         
@@ -141,9 +145,9 @@ class DesenhoEscala:
         
         self.imagem_braco = pygame.Surface((w_surf, h_surf))
         self.imagem_braco.fill((0, 0, 0)) 
-        self.imagem_braco.set_alpha(200) 
+        self.imagem_braco.set_alpha(255) 
         
-        COR_TRANSPARENTE = (255, 0, 255)
+        COR_TRANSPARENTE = (255, 255, 255)
         self.imagem_braco.set_colorkey(COR_TRANSPARENTE)
         pygame.draw.rect(self.imagem_braco, (255, 255, 255), self.imagem_braco.get_rect(), 2)
         
@@ -325,7 +329,7 @@ def desenhar_guitarra():
 
         for casa in range(NUM_CASAS + 1):
             nota_calculada = escalas.obter_nota(nota_aberta_atual, casa)
-            
+            cor_fundo = BRANCO
             if casa == 0:
                 x_nota = OFFSET_X - 40 
             else:
@@ -333,8 +337,10 @@ def desenhar_guitarra():
 
             if nota_calculada == tom_atual:
                 cor_fundo = CORES_TONICA[indice_cor_tonica]
-            else:
-                cor_fundo = BRANCO
+            elif nota_calculada == escalas.obter_terca(tom_atual): # Você precisará criar essa função
+                cor_fundo = CORES_TONICA[indice_cor_terca]
+            elif nota_calculada == escalas.obter_quinta(tom_atual): # E essa também
+                cor_fundo = CORES_TONICA[indice_cor_quinta]
 
             pygame.draw.circle(tela, cor_fundo, (int(x_nota), int(y)), raio_circulo)
             pygame.draw.circle(tela, PRETO, (int(x_nota), int(y)), raio_circulo, 2)
@@ -345,35 +351,48 @@ def desenhar_guitarra():
             tela.blit(txt_nota, (txt_x, txt_y))
 
 def desenhar_painel_lateral():
-    global rect_btn_tom, rects_notas_dropdown, rects_cores
+    global rect_btn_tom, rects_notas_dropdown
+    global rects_cores_tonica, rects_cores_terca, rects_cores_quinta
 
+    # 1. Afinação (Igual)
     info = lista_afinacoes[indice_afinacao]["nome"]
     tela.blit(fonte_ui.render(f"Afinação: {info}", True, BRANCO), (X_PAINEL, Y_PAINEL - 40))
-
     pygame.draw.rect(tela, AZUL_BOTAO, btn_up, border_radius=5)
     tela.blit(fonte_ui.render("^", True, BRANCO), (btn_up.centerx - 5, btn_up.centery - 10))
     pygame.draw.rect(tela, AZUL_BOTAO, btn_down, border_radius=5)
     tela.blit(fonte_ui.render("v", True, BRANCO), (btn_down.centerx - 5, btn_down.centery - 10))
 
-    y_cor_base = Y_PAINEL + 150
-    tela.blit(fonte_ui.render("Tônica:", True, BRANCO), (X_PAINEL, y_cor_base))
-    
-    rects_cores.clear()
-    for i, cor in enumerate(CORES_TONICA):
-        bx = X_PAINEL + 75 + (i * 24) 
-        by = y_cor_base + 10
-        raio_cor = 10
+    # --- SELEÇÃO DE CORES (TÔNICA, TERÇA, QUINTA) ---
+    y_base_cores = Y_PAINEL + 120
+    categorias = [
+        {"nome": "Tônica", "indice": indice_cor_tonica, "lista": rects_cores_tonica},
+        {"nome": "Terça",  "indice": indice_cor_terca,  "lista": rects_cores_terca},
+        {"nome": "Quinta", "indice": indice_cor_quinta, "lista": rects_cores_quinta}
+    ]
+
+    for j, cat in enumerate(categorias):
+        y_linha = y_base_cores + (j * 40)
+        tela.blit(fonte_ui.render(cat["nome"] + ":", True, BRANCO), (X_PAINEL, y_linha))
         
-        pygame.draw.circle(tela, cor, (bx, by), raio_cor)
-        if i == indice_cor_tonica:
-            pygame.draw.circle(tela, BRANCO, (bx, by), raio_cor + 3, 2) 
-        else:
-            pygame.draw.circle(tela, PRETO, (bx, by), raio_cor, 1)
+        cat["lista"].clear()
+        for i, cor in enumerate(CORES_TONICA):
+            bx = X_PAINEL + 75 + (i * 24)
+            by = y_linha + 10
+            raio = 10
+            
+            pygame.draw.circle(tela, cor, (bx, by), raio)
+            if i == cat["indice"]:
+                pygame.draw.circle(tela, BRANCO, (bx, by), raio + 3, 2)
+            else:
+                pygame.draw.circle(tela, PRETO, (bx, by), raio, 1)
 
-        rects_cores.append({'rect': pygame.Rect(bx - raio_cor, by - raio_cor, raio_cor*2, raio_cor*2), 'indice': i})
+            cat["lista"].append({'rect': pygame.Rect(bx-raio, by-raio, raio*2, raio*2), 'indice': i})
 
-    y_tom_base = y_cor_base + 50
+    # 2. Seleção de Tom (Desci um pouco para não bater nas cores)
+    y_tom_base = y_base_cores + 130
     tela.blit(fonte_ui.render("Tom:", True, BRANCO), (X_PAINEL, y_tom_base))
+
+
 
     cx, cy = X_PAINEL + 75, y_tom_base + 10
     pygame.draw.circle(tela, BRANCO, (cx, cy), 18)
@@ -448,25 +467,24 @@ def desenhar_painel_inferior():
         tela.blit(txt_sub, (rect_sub.centerx - (txt_sub.get_width()/2), rect_sub.centery - (txt_sub.get_height()/2)))
 
 def main():
+    # Adicionamos as novas variáveis de cor como globais aqui!
     global indice_afinacao, aba_atual, memoria_sub_abas
-    global tom_atual, indice_cor_tonica, dropdown_tom_aberto, NUM_CASAS
+    global tom_atual, indice_cor_tonica, indice_cor_terca, indice_cor_quinta
+    global dropdown_tom_aberto, NUM_CASAS
 
-    # Organizamos as listas em um dicionário para o gerenciador externo
     dicionario_escalas = {
-    'maior': lista_modulos_maior,
-    'menor': lista_modulos_menor,
-    'penta': lista_modulos_penta,
-    'blues': lista_modulos_blues,
-    'modos': lista_modulos_modos, 
-    'triades_maior': lista_modulos_triades_maior, # Maiores
-    'triades_menor': lista_modulos_triades_menor, # Menores
-
-}
+        'maior': lista_modulos_maior,
+        'menor': lista_modulos_menor,
+        'penta': lista_modulos_penta,
+        'blues': lista_modulos_blues,
+        'modos': lista_modulos_modos, 
+        'triades_maior': lista_modulos_triades_maior,
+        'triades_menor': lista_modulos_triades_menor,
+    }
 
     rodando = True
     
     while rodando:
-        # Posição do mouse necessária para o arraste (Drag and Drop)
         pos_mouse = pygame.mouse.get_pos()
 
         for evento in pygame.event.get():
@@ -480,7 +498,7 @@ def main():
             if evento.type == pygame.MOUSEBUTTONDOWN:
                 clicou_em_algo_do_dropdown = False
 
-                # 1. LÓGICA DE MAIS OU MENOS CASAS
+                # 1. Lógica de Casas
                 if btn_menos_casa.collidepoint(evento.pos):
                     if NUM_CASAS > 12:
                         NUM_CASAS -= 1
@@ -493,16 +511,14 @@ def main():
                         recriar_modulos_escala()
                         continue
 
+                # 2. Gerenciador de Escalas/Acordes (Arrastar)
                 if gerenciador_interface.tratar_cliques_escalas(
-                    evento.pos, 
-                    aba_atual, 
-                    memoria_sub_abas[aba_atual], # <--- Mudei de [0] para [aba_atual]
-                    dicionario_escalas, 
-                    rect_braco_colisao
+                    evento.pos, aba_atual, memoria_sub_abas[aba_atual], 
+                    dicionario_escalas, rect_braco_colisao
                 ):
                     continue
 
-                # 3. LÓGICA DO DROPDOWN DE TOM
+                # 3. Dropdown de Tom
                 if dropdown_tom_aberto:
                     for item in rects_notas_dropdown:
                         if item['rect'].collidepoint(evento.pos):
@@ -515,15 +531,29 @@ def main():
                     dropdown_tom_aberto = not dropdown_tom_aberto
                     clicou_em_algo_do_dropdown = True
 
+                # --- 4. SELEÇÃO DE CORES (CORRIGIDO) ---
+                # Verifica Tônica
+                for item in rects_cores_tonica:
+                    if item['rect'].collidepoint(evento.pos):
+                        indice_cor_tonica = item['indice']
+                        clicou_em_algo_do_dropdown = True
+
+                # Verifica Terça
+                for item in rects_cores_terca:
+                    if item['rect'].collidepoint(evento.pos):
+                        indice_cor_terca = item['indice']
+                        clicou_em_algo_do_dropdown = True
+
+                # Verifica Quinta
+                for item in rects_cores_quinta:
+                    if item['rect'].collidepoint(evento.pos):
+                        indice_cor_quinta = item['indice']
+                        clicou_em_algo_do_dropdown = True
+
                 if not clicou_em_algo_do_dropdown and dropdown_tom_aberto:
                     dropdown_tom_aberto = False
 
-                # 4. SELEÇÃO DE CORES DA TÔNICA
-                for item in rects_cores:
-                    if item['rect'].collidepoint(evento.pos):
-                        indice_cor_tonica = item['indice']
-
-                # 5. ALTERAÇÃO DE AFINAÇÃO
+                # 5. Afinação
                 if btn_up.collidepoint(evento.pos):
                     indice_afinacao = (indice_afinacao - 1) % len(lista_afinacoes)
                     recriar_modulos_escala() 
@@ -531,7 +561,7 @@ def main():
                     indice_afinacao = (indice_afinacao + 1) % len(lista_afinacoes)
                     recriar_modulos_escala()
                 
-                # 6. NAVEGAÇÃO DE ABAS E SUB-ABAS
+                # 6. Abas
                 for i, rect in enumerate(rects_abas):
                     if rect.collidepoint(evento.pos):
                         aba_atual = i
@@ -539,28 +569,17 @@ def main():
                     if rect.collidepoint(evento.pos):
                         memoria_sub_abas[aba_atual] = j
 
-        # --- RENDERIZAÇÃO (ORDEM DE CAMADAS) ---
-        
-        # Camada 0: Guitarra e Background
+        # Renderização
         desenhar_guitarra()
-        
-        # Camada 1: UI Superior (Casas)
         desenhar_painel_superior() 
-        
-        # Camada 2: Painel de Seleção Inferior
         desenhar_painel_inferior()
         
-        # Camada 3: Escalas Ativas (Via Gerenciador Externo)
-        # Os módulos são desenhados aqui para ficarem entre o painel e o menu lateral
-        # Errado: fixo no índice 0
         gerenciador_interface.desenhar_escalas_ativas(
             tela, pos_mouse, aba_atual, memoria_sub_abas[aba_atual], 
             dicionario_escalas, rect_braco_colisao
         )
         
-        # Camada 4: Painel Lateral (Dropdown sempre no topo)
         desenhar_painel_lateral() 
-        
         pygame.display.flip()
 
     pygame.quit()

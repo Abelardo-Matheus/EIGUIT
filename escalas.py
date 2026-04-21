@@ -21,3 +21,23 @@ def obter_nota(nota_aberta, casa):
     indice_atual = (indice_inicial + casa) % 12
     
     return NOTAS[indice_atual]
+
+NOTAS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+
+def obter_nota_por_intervalo(tom_fundamental, semitons):
+    """Função genérica para encontrar qualquer nota a partir de um tom e semitons."""
+    try:
+        idx_base = NOTAS.index(tom_fundamental)
+        idx_destino = (idx_base + semitons) % 12
+        return NOTAS[idx_destino]
+    except ValueError:
+        return tom_fundamental
+
+def obter_terca(tom_fundamental, menor=False):
+    # Terça Maior = 4 semitons | Terça Menor = 3 semitons
+    intervalo = 3 if menor else 4
+    return obter_nota_por_intervalo(tom_fundamental, intervalo)
+
+def obter_quinta(tom_fundamental):
+    # Quinta Justa = 7 semitons
+    return obter_nota_por_intervalo(tom_fundamental, 7)
