@@ -7,6 +7,7 @@ import modulos_escala_menor
 import gerenciador_interface # Importe o novo mestre de cerimônias
 import modulos_teoria_avancada as teoria
 import modulos_acordes as acordes
+import modulo_metronomo
 
 # Inicialização
 pygame.init()
@@ -95,7 +96,7 @@ ALTURA_CAIXA = ALTURA - Y_CAIXA - 50
 nomes_abas = ["Escalas", "Acordes", "Análise de IA", "Configurações"]
 aba_atual = 0
 rects_abas = []
-
+meu_metronomo = modulo_metronomo.Metronomo(OFFSET_X + 50, Y_CAIXA + 80)
 nomes_sub_abas = [
     ["Maior", "Menor", "Pentatônica", "Blues", "Modos Gregos"],
     ["Tríades", "Tétrades", "Inversões", "Diminutos", "Suspensos"],
@@ -500,26 +501,32 @@ def main():
     rodando = True
     
     while rodando:
+        
         pos_mouse = pygame.mouse.get_pos()
-
+        meu_metronomo.processar_logica(pos_mouse)
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
                 rodando = False
             
             if evento.type == pygame.KEYDOWN:
+                meu_metronomo.tratar_teclado(evento)
                 if evento.key == pygame.K_ESCAPE:
                     rodando = False
 
             if evento.type == pygame.MOUSEBUTTONDOWN:
                 clicou_em_algo_do_dropdown = False
-
+                esta_na_config = (aba_atual == 3 and memoria_sub_abas[3] == 3)
+                if meu_metronomo.tratar_clique(evento.pos, esta_na_config):
+                    continue # Se o clique foi no metrônomo, não faz mais nada neste frame
                 # 1. Lógica de Casas
                 if btn_menos_casa.collidepoint(evento.pos):
                     if NUM_CASAS > 12:
                         NUM_CASAS -= 1
                         recriar_modulos_escala()
                         continue
-                
+                if aba_atual == 3 and memoria_sub_abas[3] == 3:
+                    if meu_metronomo.tratar_clique(evento.pos):
+                        continue
                 if btn_mais_casa.collidepoint(evento.pos):
                     if NUM_CASAS < 24:
                         NUM_CASAS += 1
@@ -584,17 +591,30 @@ def main():
                     if rect.collidepoint(evento.pos):
                         memoria_sub_abas[aba_atual] = j
 
+        
         # Renderização
         desenhar_guitarra()
         desenhar_painel_superior() 
         desenhar_painel_inferior()
         
-        gerenciador_interface.desenhar_escalas_ativas(
-            tela, pos_mouse, aba_atual, memoria_sub_abas[aba_atual], 
-            dicionario_escalas, rect_braco_colisao
-        )
+        # 1. Desenha as Escalas e Acordes apenas nas abas corretas (0 e 1)
+        if aba_atual in [0, 1]:
+            gerenciador_interface.desenhar_escalas_ativas(
+                tela, pos_mouse, aba_atual, memoria_sub_abas[aba_atual], 
+                dicionario_escalas, rect_braco_colisao
+            )
+            
+        # 2. Desenha a interface do Metrônomo (Slider, botões, input) na Aba de Configurações
+        if aba_atual == 3 and memoria_sub_abas[3] == 3:
+            # É ESSA FUNÇÃO QUE FALTAVA PARA DESENHAR OS BOTÕES:
+            meu_metronomo.desenhar_config(tela, fonte_ui)
         
+        meu_metronomo.desenhar_mini_metronomo(tela, LARGURA, ALTURA, fonte_ui)
+        
+        # 4. Painel Lateral sempre no topo
         desenhar_painel_lateral() 
+        
+        
         pygame.display.flip()
 
     pygame.quit()
