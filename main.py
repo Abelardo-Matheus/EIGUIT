@@ -2,6 +2,11 @@ import pygame
 import sys
 import escalas 
 import modulos_penta 
+import modulos_escala_maior
+import modulos_escala_menor
+import gerenciador_interface # Importe o novo mestre de cerimônias
+import modulos_teoria_avancada as teoria
+import modulos_acordes as acordes
 
 # Inicialização
 pygame.init()
@@ -95,39 +100,190 @@ nomes_sub_abas = [
 ]
 memoria_sub_abas = [0, 0, 0, 0] 
 rects_sub_abas = []
-
+lista_modulos_maior = []
 # --- INICIALIZAÇÃO DINÂMICA DAS ESCALAS ---
 lista_modulos_penta = []
 
+# --- INICIALIZAÇÃO DINÂMICA DAS ESCALAS ---
+lista_modulos_penta = []
+lista_modulos_maior = []
+lista_modulos_menor = []
+lista_modulos_penta = []
+lista_modulos_blues = []
+lista_modulos_modos = []
+
+# --- LISTAS GLOBAIS DE ACORDES ---
+lista_modulos_triades_maior = []
+lista_modulos_triades_menor = []
+
+# MUDAMOS DE "def DesenhoEscala():" PARA "class DesenhoEscala:"
+class DesenhoEscala:
+    # NOVO: Adicionei 'nome=""' no final dos parâmetros
+    def __init__(self, x_painel, y_painel, espaco_casas, espaco_cordas, altura_braco, offset_x, num_casas_total, padrao, nome=""):
+        self.x_original = x_painel
+        self.y_original = y_painel
+        self.nome = nome # Salva o nome para usar depois
+        
+        self.espaco_casas = espaco_casas
+        self.offset_x = offset_x
+        self.num_casas_total = num_casas_total
+        self.num_casas_desenho = len(padrao[0]) 
+        
+        self.padding_x = 0  
+        self.padding_y = 20  
+        raio = 18
+        
+        self.largura_real = espaco_casas * self.num_casas_desenho
+        self.altura_real = altura_braco
+        
+        w_surf = int(self.largura_real + (self.padding_x * 2))
+        h_surf = int(self.altura_real + (self.padding_y * 2))
+        
+        self.imagem_braco = pygame.Surface((w_surf, h_surf))
+        self.imagem_braco.fill((0, 0, 0)) 
+        self.imagem_braco.set_alpha(200) 
+        
+        COR_TRANSPARENTE = (255, 0, 255)
+        self.imagem_braco.set_colorkey(COR_TRANSPARENTE)
+        pygame.draw.rect(self.imagem_braco, (255, 255, 255), self.imagem_braco.get_rect(), 2)
+        
+        for corda in range(7):
+            for casa_interna in range(self.num_casas_desenho):
+                if padrao[corda][casa_interna] == 1:
+                    x_bolinha = self.padding_x + (casa_interna * espaco_casas) + (espaco_casas / 2)
+                    y_bolinha = self.padding_y + self.altura_real - (corda * espaco_cordas)
+                    pygame.draw.circle(self.imagem_braco, COR_TRANSPARENTE, (int(x_bolinha), int(y_bolinha)), raio)
+                    pygame.draw.circle(self.imagem_braco, (255, 255, 255), (int(x_bolinha), int(y_bolinha)), raio, 3)
+
+        escala = 0.40
+        w_painel = int(w_surf * escala)
+        h_painel = int(h_surf * escala)
+        
+        self.imagem_painel = pygame.transform.scale(self.imagem_braco, (w_painel, h_painel))
+        self.imagem_painel.set_colorkey(COR_TRANSPARENTE) 
+        self.rect_painel = self.imagem_painel.get_rect(topleft=(x_painel, y_painel))
+        self.rect_braco = self.imagem_braco.get_rect()
+        self.estado = 'painel' 
+
+    # (O tratar_clique continua igualzinho)
+    def tratar_clique(self, pos_mouse, rect_braco_colisao):
+        if self.estado == 'painel':
+            if self.rect_painel.collidepoint(pos_mouse):
+                self.estado = 'mouse'
+                return True
+        elif self.estado == 'braco':
+            if self.rect_braco.collidepoint(pos_mouse):
+                self.estado = 'painel'
+                return True
+        elif self.estado == 'mouse':
+            if rect_braco_colisao.collidepoint(pos_mouse):
+                self.estado = 'braco'
+            else:
+                self.estado = 'painel'
+            return True
+        return False
+
+    def atualizar_e_desenhar(self, tela, pos_mouse, rect_braco_colisao):
+        if self.estado == 'painel':
+            tela.blit(self.imagem_painel, self.rect_painel.topleft)
+            
+            # --- NOVO: DESENHA O NOME EM CIMA DA MINIATURA ---
+            if self.nome != "":
+                # Cria o texto usando a sua fonte branca
+                texto_nome = fonte_pequena.render(self.nome, True, BRANCO)
+                # Calcula o meio exato do bloco para centralizar o texto
+                txt_x = self.rect_painel.centerx - (texto_nome.get_width() / 2)
+                # Coloca o texto 25 pixels acima do bloco
+                txt_y = self.rect_painel.top - 25 
+                tela.blit(texto_nome, (txt_x, txt_y))
+            
+        elif self.estado == 'mouse' or self.estado == 'braco':
+            if self.estado == 'mouse':
+                if rect_braco_colisao.collidepoint(pos_mouse):
+                    x_relativo = pos_mouse[0] - self.offset_x
+                    casa_atual = int(x_relativo // self.espaco_casas)
+                    casa_atual = max(0, min(casa_atual, self.num_casas_total - self.num_casas_desenho))
+                    
+                    self.rect_braco.x = self.offset_x + (casa_atual * self.espaco_casas) - self.padding_x
+                    self.rect_braco.y = rect_braco_colisao.y - self.padding_y
+                    
+                    pygame.draw.rect(tela, (0, 255, 0), self.rect_braco, 4)
+                else:
+                    self.rect_braco.center = pos_mouse
+                    pygame.draw.rect(tela, (255, 0, 0), self.rect_braco, 4)
+
+            tela.blit(self.imagem_braco, self.rect_braco.topleft)
+
 def recriar_modulos_escala():
-    """NOVO: Recalcula o tamanho dos blocos pretos de acordo com o nº de casas"""
-    global lista_modulos_penta, ESPACO_CASAS
+    global lista_modulos_penta, lista_modulos_maior, lista_modulos_menor
+    global lista_modulos_modos, lista_modulos_triades_maior, lista_modulos_triades_menor, lista_modulos_blues
+    global ESPACO_CASAS
     
-    # Atualiza a matemática do espaçamento da casa
+    
     ESPACO_CASAS = LARGURA_BRACO / NUM_CASAS
     
-    lista_modulos_penta.clear() # Limpa os módulos antigos da memória
+    # Limpeza de todas as listas
+    listas_para_limpar = [
+        lista_modulos_penta, 
+        lista_modulos_maior, 
+        lista_modulos_menor,
+        lista_modulos_modos, 
+        lista_modulos_triades_maior, # Atualizado
+        lista_modulos_triades_menor, # Novo
+        lista_modulos_blues
+    ]
+
+    for lista in listas_para_limpar:
+        lista.clear()
     
     offset_inicial_x = OFFSET_X + 20     
-    distancia_entre_shapes = 150         
-    offset_y_painel = Y_CAIXA + 130      
+    offset_y_painel = Y_CAIXA + 150 
+    espaco_entre_imagens = 30 
+    
+    # Nomes para exibir em cima dos desenhos
+    nomes_caged = ["Forma C", "Forma A", "Forma G", "Forma E", "Forma D"]
+    nomes_shapes = ["Shape 1", "Shape 2", "Shape 3", "Shape 4", "Shape 5", "Completo"]
+    nomes_modos = ["Jônico", "Dórico", "Frígio", "Lídio", "Mixolídio", "Eólio", "Lócrio"]
+    nomes_acordes = ["Maior", "Menor", "Aumentado", "Diminuto", "Sus2", "Sus4"]
 
-    # Cria os módulos novinhos em folha com o novo tamanho (ESPACO_CASAS)
-    for indice, padrao in enumerate(modulos_penta.TODOS_OS_SHAPES):
-        x_pos = offset_inicial_x + (indice * distancia_entre_shapes)
-        novo_modulo = modulos_penta.DesenhoEscala(
-            x_painel=x_pos, 
-            y_painel=offset_y_painel, 
-            espaco_casas=ESPACO_CASAS, 
-            espaco_cordas=ESPACO_CORDAS, 
-            altura_braco=ALTURA_BRACO,
-            offset_x=OFFSET_X,
-            num_casas_total=NUM_CASAS,
-            padrao=padrao
-        )
-        lista_modulos_penta.append(novo_modulo)
+    
 
-# Chama a função pela primeira vez para carregar o programa
+    # --- FUNÇÃO AUXILIAR INTERNA PARA EVITAR REPETIÇÃO (DRY) ---
+    def carregar_categoria(lista_destino, matrizes, nomes):
+        nonlocal offset_inicial_x, offset_y_painel, espaco_entre_imagens
+        pos_x = offset_inicial_x
+        for i, padrao in enumerate(matrizes):
+            nome_label = nomes[i] if i < len(nomes) else f"Shape {i+1}"
+            modulo = DesenhoEscala(
+                x_painel=pos_x, y_painel=offset_y_painel, espaco_casas=ESPACO_CASAS,
+                espaco_cordas=ESPACO_CORDAS, altura_braco=ALTURA_BRACO, offset_x=OFFSET_X,
+                num_casas_total=NUM_CASAS, padrao=padrao, nome=nome_label
+            )
+            lista_destino.append(modulo)
+            pos_x += modulo.imagem_painel.get_width() + espaco_entre_imagens
+
+    # --- CARREGAMENTO DAS CATEGORIAS ---
+    nomes_caged = ["Forma C", "Forma A", "Forma G", "Forma E", "Forma D"]
+    # 1. Pentatônica
+    carregar_categoria(lista_modulos_penta, modulos_penta.TODOS_OS_SHAPES, nomes_shapes)
+
+    # 2. Escala Maior
+    carregar_categoria(lista_modulos_maior, modulos_escala_maior.TODOS_OS_SHAPES, nomes_shapes)
+        
+    # 3. Escala Menor
+    carregar_categoria(lista_modulos_menor, modulos_escala_menor.TODOS_OS_SHAPES, nomes_shapes)
+
+    # 4. Blues (Penta + Blue Note)
+    carregar_categoria(lista_modulos_blues, teoria.TODOS_OS_SHAPES_BLUES, nomes_shapes)
+
+    # 5. Modos Gregos (7 Shapes ou 3 notas por corda)
+    carregar_categoria(lista_modulos_modos, teoria.TODOS_OS_MODOS, nomes_modos)
+
+    # Acordes Maiores (Aba 1, Sub-aba 0)
+    carregar_categoria(lista_modulos_triades_maior, acordes.TODOS_AS_TRIADES_MAIORES, ["C Major", "A Major", "G Major", "E Major", "D Major"])
+
+    # Acordes Menores (Aba 1, Sub-aba 1) - Você precisará criar a 'lista_modulos_triades_menor'
+    carregar_categoria(lista_modulos_triades_menor, acordes.TODOS_AS_TRIADES_MENORES, ["C Minor", "A Minor", "G Minor", "E Minor", "D Minor"])
 recriar_modulos_escala()
 
 def desenhar_painel_superior():
@@ -295,9 +451,22 @@ def main():
     global indice_afinacao, aba_atual, memoria_sub_abas
     global tom_atual, indice_cor_tonica, dropdown_tom_aberto, NUM_CASAS
 
+    # Organizamos as listas em um dicionário para o gerenciador externo
+    dicionario_escalas = {
+    'maior': lista_modulos_maior,
+    'menor': lista_modulos_menor,
+    'penta': lista_modulos_penta,
+    'blues': lista_modulos_blues,
+    'modos': lista_modulos_modos, 
+    'triades_maior': lista_modulos_triades_maior, # Maiores
+    'triades_menor': lista_modulos_triades_menor, # Menores
+
+}
+
     rodando = True
     
     while rodando:
+        # Posição do mouse necessária para o arraste (Drag and Drop)
         pos_mouse = pygame.mouse.get_pos()
 
         for evento in pygame.event.get():
@@ -311,32 +480,29 @@ def main():
             if evento.type == pygame.MOUSEBUTTONDOWN:
                 clicou_em_algo_do_dropdown = False
 
-                # --- NOVO: LÓGICA DE MAIS OU MENOS CASAS ---
+                # 1. LÓGICA DE MAIS OU MENOS CASAS
                 if btn_menos_casa.collidepoint(evento.pos):
-                    if NUM_CASAS > 12: # Limite mínimo: 12 casas
+                    if NUM_CASAS > 12:
                         NUM_CASAS -= 1
                         recriar_modulos_escala()
                         continue
                 
                 if btn_mais_casa.collidepoint(evento.pos):
-                    if NUM_CASAS < 24: # Limite máximo: 24 casas
+                    if NUM_CASAS < 24:
                         NUM_CASAS += 1
                         recriar_modulos_escala()
                         continue
 
-                # 1. LÓGICA DOS MÓDULOS DA PENTATÔNICA
-                if aba_atual == 0 and memoria_sub_abas[0] == 2:
-                    clicou_num_modulo = False
-                    
-                    for modulo in lista_modulos_penta:
-                        if modulo.tratar_clique(evento.pos, rect_braco_colisao):
-                            clicou_num_modulo = True
-                            break 
-                    
-                    if clicou_num_modulo:
-                        continue 
+                if gerenciador_interface.tratar_cliques_escalas(
+                    evento.pos, 
+                    aba_atual, 
+                    memoria_sub_abas[aba_atual], # <--- Mudei de [0] para [aba_atual]
+                    dicionario_escalas, 
+                    rect_braco_colisao
+                ):
+                    continue
 
-                # 2. Dropdown Tom
+                # 3. LÓGICA DO DROPDOWN DE TOM
                 if dropdown_tom_aberto:
                     for item in rects_notas_dropdown:
                         if item['rect'].collidepoint(evento.pos):
@@ -345,7 +511,6 @@ def main():
                             clicou_em_algo_do_dropdown = True
                             break
 
-                # 3. Botão Tom
                 if not clicou_em_algo_do_dropdown and rect_btn_tom.collidepoint(evento.pos):
                     dropdown_tom_aberto = not dropdown_tom_aberto
                     clicou_em_algo_do_dropdown = True
@@ -353,20 +518,20 @@ def main():
                 if not clicou_em_algo_do_dropdown and dropdown_tom_aberto:
                     dropdown_tom_aberto = False
 
-                # 4. Cores Tônica
+                # 4. SELEÇÃO DE CORES DA TÔNICA
                 for item in rects_cores:
                     if item['rect'].collidepoint(evento.pos):
                         indice_cor_tonica = item['indice']
 
-                # 5. Afinação
+                # 5. ALTERAÇÃO DE AFINAÇÃO
                 if btn_up.collidepoint(evento.pos):
                     indice_afinacao = (indice_afinacao - 1) % len(lista_afinacoes)
-                    recriar_modulos_escala() # Garante que os modulos recalculem caso a afinação mude o grid (opcional, mas seguro)
+                    recriar_modulos_escala() 
                 if btn_down.collidepoint(evento.pos):
                     indice_afinacao = (indice_afinacao + 1) % len(lista_afinacoes)
                     recriar_modulos_escala()
                 
-                # 6 e 7. Abas
+                # 6. NAVEGAÇÃO DE ABAS E SUB-ABAS
                 for i, rect in enumerate(rects_abas):
                     if rect.collidepoint(evento.pos):
                         aba_atual = i
@@ -374,16 +539,28 @@ def main():
                     if rect.collidepoint(evento.pos):
                         memoria_sub_abas[aba_atual] = j
 
-        # --- RENDERIZAÇÃO ---
+        # --- RENDERIZAÇÃO (ORDEM DE CAMADAS) ---
+        
+        # Camada 0: Guitarra e Background
         desenhar_guitarra()
-        desenhar_painel_superior() # Desenha os botões de +- casas
+        
+        # Camada 1: UI Superior (Casas)
+        desenhar_painel_superior() 
+        
+        # Camada 2: Painel de Seleção Inferior
         desenhar_painel_inferior()
         
-        if aba_atual == 0 and memoria_sub_abas[0] == 2:
-            for modulo in lista_modulos_penta:
-                modulo.atualizar_e_desenhar(tela, pos_mouse, rect_braco_colisao)
-            
+        # Camada 3: Escalas Ativas (Via Gerenciador Externo)
+        # Os módulos são desenhados aqui para ficarem entre o painel e o menu lateral
+        # Errado: fixo no índice 0
+        gerenciador_interface.desenhar_escalas_ativas(
+            tela, pos_mouse, aba_atual, memoria_sub_abas[aba_atual], 
+            dicionario_escalas, rect_braco_colisao
+        )
+        
+        # Camada 4: Painel Lateral (Dropdown sempre no topo)
         desenhar_painel_lateral() 
+        
         pygame.display.flip()
 
     pygame.quit()
