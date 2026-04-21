@@ -151,13 +151,28 @@ class DesenhoEscala:
         self.imagem_braco.set_colorkey(COR_TRANSPARENTE)
         pygame.draw.rect(self.imagem_braco, (255, 255, 255), self.imagem_braco.get_rect(), 2)
         
+        # Definimos uma cor fixa de destaque para a tônica dentro da miniatura
+        COR_DESTAQUE_TONICA = (255, 80, 80) # Vermelho claro
+        COR_NORMAL = (255, 255, 255)        # Branco
+
         for corda in range(7):
             for casa_interna in range(self.num_casas_desenho):
-                if padrao[corda][casa_interna] == 1:
+                valor_matriz = padrao[corda][casa_interna]
+                
+                # Se for 1 (Nota Normal) ou 2 (Tônica)
+                if valor_matriz in [1, 2]:
                     x_bolinha = self.padding_x + (casa_interna * espaco_casas) + (espaco_casas / 2)
                     y_bolinha = self.padding_y + self.altura_real - (corda * espaco_cordas)
+                    
+                    # Desenha o "fundo" transparente que não apaga o braço
                     pygame.draw.circle(self.imagem_braco, COR_TRANSPARENTE, (int(x_bolinha), int(y_bolinha)), raio)
-                    pygame.draw.circle(self.imagem_braco, (255, 255, 255), (int(x_bolinha), int(y_bolinha)), raio, 3)
+                    
+                    # Desenha a borda da bolinha
+                    # Se for a tônica (valor 2), a borda fica vermelha e mais grossa
+                    if valor_matriz == 2:
+                        pygame.draw.circle(self.imagem_braco, COR_DESTAQUE_TONICA, (int(x_bolinha), int(y_bolinha)), raio, 5)
+                    else:
+                        pygame.draw.circle(self.imagem_braco, COR_NORMAL, (int(x_bolinha), int(y_bolinha)), raio, 3)
 
         escala = 0.40
         w_painel = int(w_surf * escala)
