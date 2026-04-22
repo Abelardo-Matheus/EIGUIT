@@ -14,7 +14,6 @@ def main():
     pygame.init()
     try: pygame.mixer.Sound(buffer=bytearray(b'\x00' * 4096)).play()
     except: pass
-
     tela = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
     pygame.display.set_caption("Guitar Studio IA")
 
