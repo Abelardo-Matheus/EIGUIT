@@ -8,7 +8,6 @@ import estado_app
 import fabrica_escalas
 import renderizador_ui
 import controlador_eventos
-
 def main():
     pygame.mixer.pre_init(44100, -16, 2, 512)
     pygame.init()
