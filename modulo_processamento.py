@@ -6,12 +6,10 @@ class ProcessadorAudio:
     def __init__(self, taxa_amostragem=48000):
         self.sr = taxa_amostragem
         
-        self.freqs_referencia = {
-            'B': 61.74, 'E': 82.41, 'A': 110.00, 'D': 146.83, 
-            'G': 196.00, 'B2': 246.94, 'E2': 329.63
-        }
-        self.ordem_cordas = ['B', 'E', 'A', 'D', 'G', 'B2', 'E2']
-        self.nomes_exibicao = ['B', 'E', 'A', 'D', 'G', 'B', 'E']
+        # Agora as listas nascem vazias e se adaptam à afinação do usuário
+        self.nomes_exibicao = []
+        self.ordem_cordas = []
+        self.freqs_referencia = []
         
         self.nota_detectada = "Microfone Desligado"
         self.freq_atual = 0.0
@@ -20,23 +18,51 @@ class ProcessadorAudio:
         self.ultimo_tempo_analise = 0
         self.intervalo_analise = 100 
         
-        # --- NOVAS VARIÁVEIS DO SELETOR DE DISPOSITIVOS ---
         self.lista_dispositivos = []
         self.indice_dispositivo = 0
         self.carregou_dispositivos = False
         
-        # Retângulos das setinhas < e >
         self.rect_seta_esq = pygame.Rect(0, 0, 30, 30)
         self.rect_seta_dir = pygame.Rect(0, 0, 30, 30)
         self.rects_cordas = []
         
-        # Cores
         self.AZUL_BOTAO = (0, 120, 215)
         self.VERDE = (0, 255, 100)
         self.VERMELHO = (255, 50, 50)
         self.BRANCO = (255, 255, 255)
         self.CINZA = (150, 150, 150)
         self.FUNDO_ESCURO = (40, 40, 40)
+
+    def atualizar_afinacao(self, notas_abertas):
+        """Lê a lista de notas e calcula automaticamente as oitavas e frequências (Hz)"""
+        if self.nomes_exibicao == notas_abertas: 
+            return # Só recalcula se a afinação do painel mudou!
+
+        self.nomes_exibicao = notas_abertas
+        self.ordem_cordas = []
+        self.freqs_referencia = []
+        
+        # Algoritmo Inteligente de Oitavas: Se a nota passar por Dó (C), a oitava sobe
+        notas_escala = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+        oitava_atual = 1 # A 7ª corda de uma guitarra geralmente fica na oitava 1
+        
+        if len(notas_abertas) > 0:
+            ultimo_idx = notas_escala.index(notas_abertas[0])
+            for nota in notas_abertas:
+                idx = notas_escala.index(nota)
+                if idx < ultimo_idx: 
+                    oitava_atual += 1
+                ultimo_idx = idx
+                
+                nome_completo = f"{nota}{oitava_atual}"
+                self.ordem_cordas.append(nome_completo)
+                
+                # Usa o librosa para pegar a frequência matemática exata da nota!
+                freq = float(librosa.note_to_hz(nome_completo))
+                self.freqs_referencia.append(freq)
+        
+        # Reseta o afinador caso o usuário troque de afinação enquanto afina
+        self.corda_selecionada = None 
 
     def extrair_pitch_exato(self, audio_array):
         if audio_array is None or len(audio_array) == 0: return 0.0
@@ -75,32 +101,31 @@ class ProcessadorAudio:
                 self.freq_atual = 0.0
 
     def tratar_clique(self, pos_mouse, rect_botao, gravador):
-        # 1. Botão Principal
         if rect_botao.collidepoint(pos_mouse):
             gravador.alternar_microfone()
             return True
             
-        # 2. Seletor de Dispositivos (< ou >)
         if len(self.lista_dispositivos) > 0:
             if self.rect_seta_esq.collidepoint(pos_mouse):
                 self.indice_dispositivo = (self.indice_dispositivo - 1) % len(self.lista_dispositivos)
                 gravador.mudar_dispositivo(self.lista_dispositivos[self.indice_dispositivo]['id'])
                 return True
-                
             if self.rect_seta_dir.collidepoint(pos_mouse):
                 self.indice_dispositivo = (self.indice_dispositivo + 1) % len(self.lista_dispositivos)
                 gravador.mudar_dispositivo(self.lista_dispositivos[self.indice_dispositivo]['id'])
                 return True
 
-        # 3. Afinador (Cordas)
         for i, rect in enumerate(self.rects_cordas):
             if rect.collidepoint(pos_mouse):
                 self.corda_selecionada = None if self.corda_selecionada == i else i
                 return True
         return False
 
-    def desenhar_aba_ia(self, tela, offset_x, y_caixa, rect_botao, gravador, fonte_ui, fonte_titulo):
-        # --- INICIALIZAÇÃO DOS DRIVERS NA PRIMEIRA VEZ QUE ABRE A TELA ---
+    def desenhar_aba_ia(self, tela, offset_x, y_caixa, rect_botao, gravador, fonte_ui, fonte_titulo, notas_abertas):
+        
+        # --- ATUALIZA A AFINAÇÃO DINAMICAMENTE AQUI ---
+        self.atualizar_afinacao(notas_abertas)
+
         if not self.carregou_dispositivos:
             self.lista_dispositivos = gravador.obter_lista_entradas()
             for i, disp in enumerate(self.lista_dispositivos):
@@ -109,7 +134,6 @@ class ProcessadorAudio:
                     break
             self.carregou_dispositivos = True
 
-        # --- SETOR 1: BOTÃO LIGAR MIC E DETECÇÃO ---
         txt = fonte_titulo.render("Detecção em Tempo Real", True, self.BRANCO)
         tela.blit(txt, (offset_x + 20, y_caixa + 20))
 
@@ -122,7 +146,6 @@ class ProcessadorAudio:
         txt_res = fonte_titulo.render(self.nota_detectada, True, cor_res)
         tela.blit(txt_res, (rect_botao.right + 20, rect_botao.y + 8))
 
-        # --- SETOR 1.5: SELETOR DE PLACA DE SOM (A MÁGICA ACONTECE AQUI) ---
         y_seletor = rect_botao.bottom + 15
         tela.blit(fonte_ui.render("Microfone:", True, self.BRANCO), (offset_x + 20, y_seletor + 5))
         
@@ -132,7 +155,6 @@ class ProcessadorAudio:
         largura_caixa = 320
         pygame.draw.rect(tela, self.FUNDO_ESCURO, (self.rect_seta_esq.right + 5, y_seletor, largura_caixa, 30), border_radius=5)
         
-        # Pega o nome do dispositivo e corta se for muito grande
         if len(self.lista_dispositivos) > 0:
             nome_disp = self.lista_dispositivos[self.indice_dispositivo]['nome']
             if len(nome_disp) > 35: nome_disp = nome_disp[:32] + "..."
@@ -144,13 +166,11 @@ class ProcessadorAudio:
         
         self.rect_seta_dir.topleft = (self.rect_seta_esq.right + 5 + largura_caixa + 5, y_seletor)
 
-        # Desenha as setinhas
         pygame.draw.rect(tela, self.CINZA, self.rect_seta_esq, border_radius=5)
         pygame.draw.rect(tela, self.CINZA, self.rect_seta_dir, border_radius=5)
         tela.blit(fonte_ui.render("<", True, self.BRANCO), (self.rect_seta_esq.x + 8, self.rect_seta_esq.y + 4))
         tela.blit(fonte_ui.render(">", True, self.BRANCO), (self.rect_seta_dir.x + 8, self.rect_seta_dir.y + 4))
 
-        # --- SETOR 2: SELEÇÃO DE CORDAS PARA AFINAÇÃO ---
         y_afinador_base = y_seletor + 45
         tela.blit(fonte_ui.render("Afinador (Clique para focar na corda):", True, self.BRANCO), (offset_x + 20, y_afinador_base))
         
@@ -170,10 +190,9 @@ class ProcessadorAudio:
             tela.blit(txt_n, (cx - txt_n.get_width()//2, y_cordas - txt_n.get_height()//2))
             self.rects_cordas.append(circ)
 
-        # --- SETOR 3: AGULHA DO AFINADOR ---
         if self.corda_selecionada is not None and gravador.gravando:
             nome_nota = self.ordem_cordas[self.corda_selecionada]
-            freq_alvo = self.freqs_referencia[nome_nota]
+            freq_alvo = self.freqs_referencia[self.corda_selecionada]
             
             x_agulha_base = offset_x + 20
             y_agulha = y_cordas + 65
@@ -199,4 +218,4 @@ class ProcessadorAudio:
                 lbl_st = fonte_ui.render(f"{txt_status} ({cents:.1f} cents)", True, cor_agulha)
                 tela.blit(lbl_st, (x_agulha_base + largura_barra//2 - lbl_st.get_width()//2, y_agulha - 45))
             
-            tela.blit(fonte_ui.render(f"Alvo: {nome_nota} ({freq_alvo}Hz)", True, self.BRANCO), (x_agulha_base + largura_barra + 30, y_agulha - 10))
+            tela.blit(fonte_ui.render(f"Alvo: {nome_nota} ({freq_alvo:.2f}Hz)", True, self.BRANCO), (x_agulha_base + largura_barra + 30, y_agulha - 10))

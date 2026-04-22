@@ -160,6 +160,11 @@ def desenhar_tudo(tela, estado, configs, dicionario_escalas, fontes, meu_metrono
     if estado.aba_atual == 3 and estado.memoria_sub_abas[3] == 3: meu_metronomo.desenhar_config(tela, fontes['ui'])
     if estado.aba_atual == 2 and estado.memoria_sub_abas[2] == 0:
         btn_gravar_ia = pygame.Rect(estado.OFFSET_X + 50, estado.Y_CAIXA + 80, 150, 40)
-        meu_processador.desenhar_aba_ia(tela, estado.OFFSET_X, estado.Y_CAIXA, btn_gravar_ia, meu_gravador, fontes['ui'], fontes['titulo'])
+        notas_abertas_atual = lista_afinacoes[estado.indice_afinacao]["notas"]
+        
+        meu_processador.desenhar_aba_ia(
+            tela, estado.OFFSET_X, estado.Y_CAIXA, btn_gravar_ia, 
+            meu_gravador, fontes['ui'], fontes['titulo'], notas_abertas_atual
+        )
         
     meu_metronomo.desenhar_mini_metronomo(tela, tela.get_width(), tela.get_height(), fontes['ui'])
