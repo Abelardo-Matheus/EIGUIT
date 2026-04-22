@@ -10,7 +10,7 @@ import renderizador_ui
 import controlador_eventos
 
 def main():
-    pygame.mixer.pre_init(48000, -16, 2, 512)
+    pygame.mixer.pre_init(44100, -16, 2, 512)
     pygame.init()
     try: pygame.mixer.Sound(buffer=bytearray(b'\x00' * 4096)).play()
     except: pass

@@ -1,4 +1,6 @@
 import pygame
+import os
+import sys 
 
 class Metronomo:
     def __init__(self, x_painel, y_painel):
@@ -50,14 +52,27 @@ class Metronomo:
         self.rect_input = pygame.Rect(0, 0, 50, 30)
         self.arrastando_slider = False
 
-        # Áudio
-        # Áudio
+        # --- ÁUDIO À PROVA DE PYINSTALLER ---
         try:
-            self.som_acento = pygame.mixer.Sound("tick_high.wav") 
-            self.som_tick = pygame.mixer.Sound("tick.wav")
+                # --- CAMINHO COMPATÍVEL COM --ONEFILE ---
+            if getattr(sys, 'frozen', False):
+                # Se for o .exe (inclusive no modo --onefile)
+                # O PyInstaller extrai os arquivos para sys._MEIPASS
+                pasta_raiz = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+            else:
+                # Se for rodando via Python
+                pasta_modulos = os.path.dirname(os.path.abspath(__file__))
+                pasta_raiz = os.path.dirname(pasta_modulos)
+
+            caminho_tick = os.path.join(pasta_raiz, "tick.wav")
+            caminho_tick_high = os.path.join(pasta_raiz, "tick_high.wav")
+            
+            # Carrega
+            self.som_acento = pygame.mixer.Sound(caminho_tick_high) 
+            self.som_tick = pygame.mixer.Sound(caminho_tick)
             
         except Exception as e:
-            print(f"Erro ao carregar áudio do metrônomo: {e}")
+            print(f"❌ ERRO CRÍTICO DE ÁUDIO: {e}")
             self.som_tick = None
             self.som_acento = None
 
