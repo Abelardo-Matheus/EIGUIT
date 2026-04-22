@@ -9,6 +9,13 @@ import modulos_teoria_avancada as teoria
 import modulos_acordes as acordes
 import modulo_metronomo
 import config 
+# --- NOVAS VARIÁVEIS PARA IA ---
+import modulo_gravador
+import modulo_processamento
+
+meu_gravador = modulo_gravador.GravadorAudio(device_id=3)
+meu_processador = modulo_processamento.ProcessadorAudio()
+
 
 # Inicialização
 pygame.init()
@@ -94,6 +101,11 @@ rects_cores = []
 # Lógica das Abas
 Y_CAIXA = OFFSET_Y + ALTURA_BRACO + 80
 ALTURA_CAIXA = ALTURA - Y_CAIXA - 50 
+
+# Botão de gravação (dentro da caixa inferior)
+btn_gravar_ia = pygame.Rect(OFFSET_X + 50, Y_CAIXA + 80, 150, 40)
+
+
 nomes_abas = ["Escalas", "Acordes", "Análise de IA", "Configurações"]
 aba_atual = 0
 rects_abas = []
@@ -555,6 +567,7 @@ def main():
         
         # Processamento Contínuo
         meu_metronomo.processar_logica(pos_mouse)
+        meu_processador.processar_logica_continua(meu_gravador)
         minhas_configs.processar_logica(pos_mouse)
         
         for evento in pygame.event.get():
@@ -565,10 +578,12 @@ def main():
                 meu_metronomo.tratar_teclado(evento)
                 if evento.key == pygame.K_ESCAPE:
                     rodando = False
-
+                
             if evento.type == pygame.MOUSEBUTTONDOWN:
                 clicou_em_algo_do_dropdown = False
-                
+                if aba_atual == 2 and memoria_sub_abas[2] == 0:
+                    if meu_processador.tratar_clique(evento.pos, btn_gravar_ia, meu_gravador):
+                        continue
                 # --- TRATAMENTO CONFIGURAÇÕES DE VISUAL ---
                 # A aba de Cores/Visual é a Aba 3, Sub-aba 0
                 esta_na_config_cores = (aba_atual == 3 and memoria_sub_abas[3] == 0)
@@ -675,7 +690,12 @@ def main():
         # 3. Desenha os Controles do Metrônomo (Aba 3, Sub-aba 3)
         if aba_atual == 3 and memoria_sub_abas[3] == 3:
             meu_metronomo.desenhar_config(tela, fonte_ui)
-        
+        # 3. Desenha a Aba de IA
+        if aba_atual == 2 and memoria_sub_abas[2] == 0:
+            meu_processador.desenhar_aba_ia(
+                tela, OFFSET_X, Y_CAIXA, btn_gravar_ia, meu_gravador, 
+                fonte_ui, fonte_titulo, fonte_pequena
+            )
         # O Mini-metrônomo pisca no canto da tela sempre que estiver ativado
         meu_metronomo.desenhar_mini_metronomo(tela, LARGURA, ALTURA, fonte_ui)
         
