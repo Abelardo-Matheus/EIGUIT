@@ -1,5 +1,5 @@
 import pygame
-import escalas
+import Modulos.escalas as escalas # <- Mudou aqui!
 import gerenciador_interface
 from constantes_ui import *
 

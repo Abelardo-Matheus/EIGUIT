@@ -1,8 +1,9 @@
-import modulos_penta 
-import modulos_escala_maior
-import modulos_escala_menor
-import modulos_teoria_avancada as teoria
-import modulos_acordes as acordes
+import Modulos.modulos_penta as modulos_penta
+import Modulos.modulos_escala_maior as modulos_escala_maior
+import Modulos.modulos_escala_menor as modulos_escala_menor
+import Modulos.modulos_teoria_avancada as teoria
+import Modulos.modulos_acordes as acordes
+
 from constantes_ui import BRANCO
 from ui_componentes import DesenhoEscala
 

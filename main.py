@@ -1,9 +1,9 @@
 import pygame
 import sys
 import config 
-import modulo_metronomo
-import modulo_gravador
-import modulo_processamento
+import Modulos.modulo_metronomo as modulo_metronomo
+import Modulos.modulo_gravador as modulo_gravador
+import Modulos.modulo_processamento as modulo_processamento
 import estado_app
 import fabrica_escalas
 import renderizador_ui
