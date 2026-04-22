@@ -1,124 +1,75 @@
 import sounddevice as sd
 import numpy as np
-from scipy.io.wavfile import write
-import threading
-import os 
-
-print("\n--- LISTA DE DISPOSITIVOS DE ÁUDIO ---")
-print(sd.query_devices())
-
-print("\n--- DISPOSITIVO PADRÃO ---")
-print(sd.default.device)
-
 
 class GravadorAudio:
     def __init__(self, device_id=None):
-        # Configurações padrão de estúdio
-        self.taxa_amostragem = 48000  
-        self.canais = 1
-        self.device_id = device_id
-        # Estados
-        self.gravando = False
-        self.audio_dados = None       # Aqui ficará a matriz de áudio (Numpy Array)
-        self.thread_gravacao = None
-
-    def iniciar_gravacao(self, duracao_segundos=3):
-        """Inicia a gravação sem travar a interface gráfica (Pygame)"""
-        if self.gravando:
-            print("Já existe uma gravação em andamento!")
-            return
-
-        self.gravando = True
-        self.audio_dados = None
+        self.taxa_amostragem = 48000
+        self.canais = 1               
         
-        # Cria uma linha de execução separada para não congelar a tela
-        self.thread_gravacao = threading.Thread(target=self._gravar_bloqueante, args=(duracao_segundos,))
-        self.thread_gravacao.start()
+        # Pega a placa de som padrão do Windows se não passarmos nada
+        self.device_id = device_id if device_id is not None else sd.default.device[0]
+        
+        self.stream = None
+        self.gravando = False 
+        self.tamanho_buffer = int(self.taxa_amostragem * 0.2)
+        self.buffer = np.zeros(self.tamanho_buffer, dtype=np.float32)
 
-    def _gravar_bloqueante(self, duracao):
-        """Função interna que realmente captura o áudio do microfone"""
-        try:
-            print(f"🎤 Gravando por {duracao} segundos no dispositivo [{self.device_id}]...")
-            
-            # --- NOVO: Adicionamos o parâmetro 'device' aqui ---
-            gravacao = sd.rec(
-                int(duracao * self.taxa_amostragem), 
-                samplerate=self.taxa_amostragem, 
-                channels=self.canais, 
-                dtype='float32',
-                device=self.device_id 
-            )
-            
-            sd.wait() 
-            
-            self.audio_dados = gravacao
-            print("✅ Gravação concluída com sucesso!")
-            
-        except Exception as e:
-            print(f"\n❌ ERRO FATAL NO MICROFONE: {e}")
-            self.audio_dados = None
-            
-        finally:
-            self.gravando = False
+    def obter_lista_entradas(self):
+        """Varre o computador e retorna apenas equipamentos que gravam áudio"""
+        dispositivos = sd.query_devices()
+        entradas = []
+        for i, d in enumerate(dispositivos):
+            if d['max_input_channels'] > 0: # Filtra apenas Microfones/Inputs
+                entradas.append({'id': i, 'nome': d['name']})
+        return entradas
 
-    def salvar_wav(self, nome_arquivo="teste_ia.wav"):
-        """Exporta o array de áudio para um arquivo .wav na mesma pasta do script"""
-        if self.audio_dados is not None and not self.gravando:
+    def mudar_dispositivo(self, novo_id):
+        """Troca o microfone em tempo real sem travar"""
+        estava_gravando = self.gravando
+        if estava_gravando:
+            self.parar_stream()
+            
+        self.device_id = novo_id
+        
+        if estava_gravando:
+            self.iniciar_stream()
+
+    def callback_audio(self, indata, frames, time, status):
+        if status: print(status)
+        self.buffer = np.roll(self.buffer, -frames)
+        self.buffer[-frames:] = indata[:, 0]
+
+    def alternar_microfone(self):
+        if self.gravando: self.parar_stream()
+        else: self.iniciar_stream()
+
+    def iniciar_stream(self):
+        if not self.gravando:
             try:
-                # Pega o caminho exato onde este arquivo .py está salvo
-                pasta_do_script = os.path.dirname(os.path.abspath(__file__))
-                caminho_completo = os.path.join(pasta_do_script, nome_arquivo)
-                
-                # Converte e salva
-                audio_int16 = np.int16(self.audio_dados * 32767)
-                write(caminho_completo, self.taxa_amostragem, audio_int16)
-                
-                # Agora ele vai te dizer EXATAMENTE onde salvou!
-                print(f"💾 Áudio salvo com sucesso em: {caminho_completo}")
-                
+                print(f"🎤 Abrindo microfone ID [{self.device_id}]...")
+                self.stream = sd.InputStream(
+                    samplerate=self.taxa_amostragem,
+                    channels=self.canais,
+                    device=self.device_id,
+                    callback=self.callback_audio,
+                    blocksize=2048
+                )
+                self.stream.start()
+                self.gravando = True
+                print("✅ Microfone ABERTO!")
             except Exception as e:
-                print(f"❌ Erro ao tentar salvar o arquivo: {e}")
-        else:
-            print("Nenhum áudio válido para salvar ou gravação ainda em andamento.")
+                print(f"❌ Erro ao abrir microfone: {e}")
+
+    def parar_stream(self):
+        if self.gravando and self.stream is not None:
+            self.stream.stop()
+            self.stream.close()
+            self.gravando = False
+            self.buffer = np.zeros(self.tamanho_buffer, dtype=np.float32) 
+            print("🔇 Microfone FECHADO.")
 
     def obter_array_para_ia(self):
-        """Retorna o áudio puro em formato Numpy para passar pelo Librosa/TensorFlow depois"""
-        if not self.gravando and self.audio_dados is not None:
-            # Achata a matriz de 2D (amostras, canais) para 1D (amostras,)
-            return self.audio_dados.flatten()
+        if self.gravando:
+            if np.max(np.abs(self.buffer)) > 0.01:
+                return self.buffer.copy()
         return None
-
-# --- ÁREA DE TESTE BLINDADA ---
-if __name__ == "__main__":
-    import time
-    
-    print("\n--- LISTA DE DISPOSITIVOS DE ÁUDIO DISPONÍVEIS ---")
-    # Isso vai imprimir todos os microfones e alto-falantes do seu PC
-    print(sd.query_devices())
-    print("-" * 50)
-    
-    # === MUDE ESTE NÚMERO ===
-    # Olhe a lista impressa acima e coloque o número [ID] do seu microfone ou Behringer aqui.
-    # Exemplo: se na lista estiver " 1 In 1 - Behringer...", mude o None para 1
-    ID_DO_MEU_MICROFONE = 3 
-    
-    print("\nIniciando Sistema de Áudio...")
-    # Passamos o ID escolhido para o gravador
-    meu_gravador = GravadorAudio(device_id=ID_DO_MEU_MICROFONE)
-    meu_gravador.iniciar_gravacao(duracao_segundos=3)
-    
-    tempo_decorrido = 0
-    limite_timeout = 10 
-    
-    while meu_gravador.gravando and tempo_decorrido < limite_timeout:
-        print(".", end="", flush=True)
-        time.sleep(0.5)
-        tempo_decorrido += 0.5
-        
-    print("\n")
-    
-    if meu_gravador.gravando:
-        print("⚠️ O loop travou e foi forçado a parar pelo Timeout de segurança!")
-        meu_gravador.gravando = False
-        
-    meu_gravador.salvar_wav()

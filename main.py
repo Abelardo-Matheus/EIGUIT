@@ -691,10 +691,11 @@ def main():
         if aba_atual == 3 and memoria_sub_abas[3] == 3:
             meu_metronomo.desenhar_config(tela, fonte_ui)
         # 3. Desenha a Aba de IA
+        
         if aba_atual == 2 and memoria_sub_abas[2] == 0:
             meu_processador.desenhar_aba_ia(
                 tela, OFFSET_X, Y_CAIXA, btn_gravar_ia, meu_gravador, 
-                fonte_ui, fonte_titulo, fonte_pequena
+                fonte_ui, fonte_titulo 
             )
         # O Mini-metrônomo pisca no canto da tela sempre que estiver ativado
         meu_metronomo.desenhar_mini_metronomo(tela, LARGURA, ALTURA, fonte_ui)
