@@ -51,11 +51,13 @@ class Metronomo:
         self.arrastando_slider = False
 
         # Áudio
+        # Áudio
         try:
             self.som_acento = pygame.mixer.Sound("tick_high.wav") 
             self.som_tick = pygame.mixer.Sound("tick.wav")
             
-        except:
+        except Exception as e:
+            print(f"Erro ao carregar áudio do metrônomo: {e}")
             self.som_tick = None
             self.som_acento = None
 
@@ -103,6 +105,8 @@ class Metronomo:
                 if self.tocando:
                     self.ultimo_tick = pygame.time.get_ticks()
                     self.tempo_atual = 0 
+                    
+                    # Toca a primeira nota imediatamente e no volume máximo!
                     if self.som_tick:
                         if self.som_acento:
                             self.som_acento.play()
@@ -147,7 +151,7 @@ class Metronomo:
                 self.tocando = not self.tocando
                 if self.tocando:
                     self.ultimo_tick = pygame.time.get_ticks()
-                    self.tempo_atual = 0 # Reinicia no tempo 1
+                    self.tempo_atual = 0 
                     
                     # Toca a primeira nota imediatamente
                     if self.som_tick:

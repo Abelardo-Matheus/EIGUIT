@@ -16,10 +16,15 @@ import modulo_processamento
 meu_gravador = modulo_gravador.GravadorAudio(device_id=3)
 meu_processador = modulo_processamento.ProcessadorAudio()
 
-
+pygame.mixer.pre_init(48000, -16, 2, 512)
 # Inicialização
 pygame.init()
-
+# Isso força o Windows a abrir e estabilizar o canal de áudio antes de você apertar o Play.
+try:
+    som_silencio = pygame.mixer.Sound(buffer=bytearray(b'\x00' * 4096))
+    som_silencio.play()
+except:
+    pass
 tela = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 LARGURA, ALTURA = tela.get_size()
 pygame.display.set_caption("Guitar Studio IA - Tela Cheia")
@@ -44,12 +49,8 @@ COR_ABA_INATIVA = (35, 35, 35)
 COR_SUB_ATIVA = (100, 100, 100)
 COR_SUB_INATIVA = (55, 55, 55)
 COR_TEXTO_INATIVO = (150, 150, 150)
+minhas_configs = None
 
-# Fontes
-fonte_ui = pygame.font.SysFont("Arial", 18, bold=True)
-fonte_pequena = pygame.font.SysFont("Arial", 15, bold=True)
-fonte_titulo = pygame.font.SysFont("Arial", 22, bold=True)
-fonte_notas_pequena = pygame.font.SysFont("Arial", 20, bold=True) 
 
 # --- BANCO DE DADOS DE AFINAÇÕES ---
 lista_afinacoes = [
@@ -59,7 +60,7 @@ lista_afinacoes = [
     {"nome": "All 4ths",   "notas": ["B", "E", "A", "D", "G", "C", "F"]}
 ]
 indice_afinacao = 0
-minhas_configs = None
+
 tom_atual = 'C'
 indice_cor_tonica = 0  # Vermelho (CORES_TONICA[1])
 indice_cor_terca = 0   # Verde (CORES_TONICA[2])
@@ -101,7 +102,19 @@ rects_cores = []
 # Lógica das Abas
 Y_CAIXA = OFFSET_Y + ALTURA_BRACO + 80
 ALTURA_CAIXA = ALTURA - Y_CAIXA - 50 
+# 2º - INICIALIZE AS CONFIGURAÇÕES 
+# (Ele usa o OFFSET_X e Y_CAIXA que você definiu logo acima)
+minhas_configs = config.Configuracoes(OFFSET_X + 20, Y_CAIXA + 20)
 
+# 3º - RESGATE O NOME DA FONTE
+# (Ele vai no arquivo de config e volta com "Arial" na primeira vez)
+nome_fonte_atual = minhas_configs.get_fonte()
+
+# Criamos as fontes usando a variável, não o texto "Arial"
+fonte_ui = pygame.font.SysFont(nome_fonte_atual, 18, bold=True)
+fonte_pequena = pygame.font.SysFont(nome_fonte_atual, 15, bold=True)
+fonte_titulo = pygame.font.SysFont(nome_fonte_atual, 22, bold=True)
+fonte_notas_pequena = pygame.font.SysFont(nome_fonte_atual, 20, bold=True)
 # Botão de gravação (dentro da caixa inferior)
 btn_gravar_ia = pygame.Rect(OFFSET_X + 50, Y_CAIXA + 80, 150, 40)
 
@@ -541,7 +554,10 @@ def desenhar_painel_inferior():
         txt_sub = fonte_pequena.render(nome_sub, True, cor_texto_sub)
         tela.blit(txt_sub, (rect_sub.centerx - (txt_sub.get_width()/2), rect_sub.centery - (txt_sub.get_height()/2)))
 
+
+
 def main():
+    global nome_fonte_atual, fonte_ui, fonte_pequena, fonte_titulo, fonte_notas_pequena
     global indice_afinacao, aba_atual, memoria_sub_abas
     global tom_atual, indice_cor_tonica, indice_cor_terca, indice_cor_quinta
     global dropdown_tom_aberto, NUM_CASAS, minhas_configs
@@ -561,15 +577,35 @@ def main():
     recriar_modulos_escala() # Chamamos aqui para pegar a cor base correta logo de início
     
     rodando = True
+
     
     while rodando:
+
         pos_mouse = pygame.mouse.get_pos()
-        
+        # Pega o nome da fonte inicial (Ex: 'Arial')
+        fonte_ui = pygame.font.SysFont(nome_fonte_atual, 18, bold=True)
+        fonte_pequena = pygame.font.SysFont(nome_fonte_atual, 15, bold=True)
+        fonte_titulo = pygame.font.SysFont(nome_fonte_atual, 22, bold=True)
+        fonte_notas_pequena = pygame.font.SysFont(nome_fonte_atual, 20, bold=True)
         # Processamento Contínuo
         meu_metronomo.processar_logica(pos_mouse)
         meu_processador.processar_logica_continua(meu_gravador)
         minhas_configs.processar_logica(pos_mouse)
-        
+        # --- VERIFICADOR DE MUDANÇA DE FONTE ---
+        # Isso garante que não percamos FPS criando fontes à toa!
+        if nome_fonte_atual != minhas_configs.get_fonte():
+            # Avisamos ao Python para alterar as variáveis que estão lá fora
+            
+            
+            nome_fonte_atual = minhas_configs.get_fonte()
+            print(f"🔄 Alterando fontes para: {nome_fonte_atual}")
+            
+            # Recarregamos os objetos de fonte na memória
+            fonte_ui = pygame.font.SysFont(nome_fonte_atual, 18, bold=True)
+            fonte_pequena = pygame.font.SysFont(nome_fonte_atual, 15, bold=True)
+            fonte_titulo = pygame.font.SysFont(nome_fonte_atual, 22, bold=True)
+            fonte_notas_pequena = pygame.font.SysFont(nome_fonte_atual, 20, bold=True)
+
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
                 rodando = False

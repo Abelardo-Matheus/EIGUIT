@@ -2,6 +2,15 @@ import pygame
 
 class Configuracoes:
     def __init__(self, x_painel, y_painel):
+        self.modos_texto = ['letras', 'graus', 'vazio']
+        self.nomes_modos = ['C D E (Notas)', '1 2 3 (Graus)', 'Apenas Bolinha']
+        self.indice_modo = 0
+
+        # --- NOVO: FONTES DO SISTEMA ---
+        # Escolha fontes que são nativas do Windows/Mac para evitar erros
+        self.fontes_disponiveis = ['Arial', 'Verdana', 'Courier New', 'Consolas', 'Impact']
+        self.indice_fonte = 0
+        self.rects_fontes = []
         self.x = x_painel
         self.y = y_painel
         self.largura_maxima = 650 # Quando passar daqui, os itens descem para a próxima linha
@@ -57,8 +66,19 @@ class Configuracoes:
 
     # --- EVENTOS ---
     def tratar_clique(self, pos_mouse, aba_config_ativa):
+        
         if not aba_config_ativa: return False
+        # 4. Modos de Texto
+        for i, rect in enumerate(self.rects_modos):
+            if rect.collidepoint(pos_mouse):
+                self.indice_modo = i
+                return True
 
+        # --- NOVO: Clique nas Fontes ---
+        for i, rect in enumerate(self.rects_fontes):
+            if rect.collidepoint(pos_mouse):
+                self.indice_fonte = i
+                return True
         # 1. Se o Seletor de Cores estiver aberto, ele bloqueia os outros cliques (Modal)
         if self.picker_aberto:
             if self.rect_picker.collidepoint(pos_mouse):
@@ -102,9 +122,12 @@ class Configuracoes:
             if rect.collidepoint(pos_mouse):
                 self.indice_modo = i
                 return True
-
+        
         return False
-
+    
+    def get_fonte(self): 
+        return self.fontes_disponiveis[self.indice_fonte]    
+    
     def processar_logica(self, pos_mouse):
         if self.arrastando_transp:
             if not pygame.mouse.get_pressed()[0]:
@@ -156,10 +179,9 @@ class Configuracoes:
         pygame.draw.rect(tela, self.cor_notas, self.rect_btn_cor_notas, border_radius=5)
         pygame.draw.rect(tela, self.BRANCO, self.rect_btn_cor_notas, 2, border_radius=5)
         x_atual += largura_b3 + espacamento_x
-
-        # BLOCO 4: Estilo do Texto (Largura aprox: 200px)
+# BLOCO 4: Estilo do Texto (Largura aprox: 200px)
         largura_b4 = 200
-        quebrar_linha_se_precisar(largura_b4)
+        quebrar_linha_se_precisar(largura_b4) # 1. CORREÇÃO: Mude de b3 para b4 aqui!
         tela.blit(fonte_ui.render("Texto nas Notas:", True, self.BRANCO), (x_atual, y_atual))
         self.rects_modos.clear()
         for i, nome in enumerate(self.nomes_modos):
@@ -168,7 +190,26 @@ class Configuracoes:
             cor_fundo = self.AZUL_DESTAQUE if i == self.indice_modo else self.CINZA
             pygame.draw.rect(tela, cor_fundo, rect_botao, border_radius=5)
             tela.blit(fonte_ui.render(nome, True, self.BRANCO), (rect_botao.x + 10, rect_botao.y + 3))
+            
+        x_atual += largura_b4 + espacamento_x # 2. CORREÇÃO: Adicione esta linha no final do bloco!
+        # BLOCO 5: Escolha da Fonte (Largura aprox: 200px)
+        largura_b5 = 200
+        quebrar_linha_se_precisar(largura_b5)
+        tela.blit(fonte_ui.render("Fonte do Sistema:", True, self.BRANCO), (x_atual, y_atual))
+        self.rects_fontes.clear()
         
+        for i, nome_fonte in enumerate(self.fontes_disponiveis):
+            rect_botao = pygame.Rect(x_atual, y_atual + 25 + (i * 30), 180, 25)
+            self.rects_fontes.append(rect_botao)
+            
+            cor_fundo = self.AZUL_DESTAQUE if i == self.indice_fonte else self.CINZA
+            pygame.draw.rect(tela, cor_fundo, rect_botao, border_radius=5)
+            
+            # Escreve o nome da fonte no botão
+            tela.blit(fonte_ui.render(nome_fonte, True, self.BRANCO), (rect_botao.x + 10, rect_botao.y + 3))
+            
+        x_atual += largura_b5 + espacamento_x
+
         # --- DESENHO DO POP-UP DO SELETOR DE CORES ---
         # Fica no final para ser desenhado por cima de tudo
         if self.picker_aberto:
