@@ -16,7 +16,7 @@ def desenhar_painel_superior(tela, estado, fontes):
     pygame.draw.rect(tela, AZUL_BOTAO, btn_mais_casa, border_radius=5)
     tela.blit(fontes['titulo'].render("+", True, BRANCO), (btn_mais_casa.centerx - 7, btn_mais_casa.centery - 15))
 
-def desenhar_guitarra(tela, estado, configs, fontes):
+def desenhar_guitarra(tela, estado, configs, fontes, meu_processador):
     notas_abertas = lista_afinacoes[estado.indice_afinacao]["notas"]
     cor_madeira = configs.get_cor_braco() if configs else MADEIRA
     pygame.draw.rect(tela, cor_madeira, (estado.OFFSET_X, estado.OFFSET_Y, estado.LARGURA_BRACO, estado.ALTURA_BRACO))
@@ -27,10 +27,54 @@ def desenhar_guitarra(tela, estado, configs, fontes):
         if casa > 0:
             num = fontes['ui'].render(str(casa), True, (150, 150, 150))
             tela.blit(num, (x - (estado.ESPACO_CASAS/2) - 5, estado.OFFSET_Y + estado.ALTURA_BRACO + 15))
+    
 
     modo_texto = configs.get_modo_texto() if configs else 'letras'
     cor_base_escala = configs.get_cor_notas() if configs else BRANCO
+    for i in range(estado.NUM_CORDAS):
+        y = estado.OFFSET_Y + estado.ALTURA_BRACO - (i * estado.ESPACO_CORDAS)
+        espessura = 1 + ((estado.NUM_CORDAS - 1 - i) * 0.7)
+        pygame.draw.line(tela, COR_CORDA, (estado.OFFSET_X, y), (estado.OFFSET_X + estado.LARGURA_BRACO, y), int(espessura))
+        
+        nota_aberta_atual = notas_abertas[i]
 
+        for casa in range(estado.NUM_CASAS + 1):
+            nota_calculada = escalas.obter_nota(nota_aberta_atual, casa)
+            cor_fundo = cor_base_escala 
+            raio_atual = 18 # Raio padrão da bolinha
+            
+            x_nota = estado.OFFSET_X - 40 if casa == 0 else estado.OFFSET_X + (casa * estado.ESPACO_CASAS) - (estado.ESPACO_CASAS / 2)
+
+            # Pintura padrão do menu lateral
+            if nota_calculada == estado.tom_atual: cor_fundo = CORES_TONICA[estado.indice_cor_tonica]
+            elif nota_calculada == escalas.obter_terca(estado.tom_atual): cor_fundo = CORES_TONICA[estado.indice_cor_terca]
+            elif nota_calculada == escalas.obter_quinta(estado.tom_atual): cor_fundo = CORES_TONICA[estado.indice_cor_quinta]
+
+            # ========================================================
+            # --- MAGIA DA IA: DETECÇÃO EXATA EM TEMPO REAL ---
+            # ========================================================
+            if estado.aba_atual == 2 and estado.freq_detectada > 0 and len(meu_processador.freqs_referencia) > i:
+                freq_aberta = meu_processador.freqs_referencia[i]
+                
+                # Fórmula física: freq_da_casa = freq_aberta * 2^(casa/12)
+                freq_desta_casa = freq_aberta * (2 ** (casa / 12.0))
+                
+                # Tolerância de 3% (meio semitom) para cobrir bends e entonação
+                margem = freq_desta_casa * 0.03
+                
+                if abs(estado.freq_detectada - freq_desta_casa) < margem:
+                    cor_fundo = (255, 255, 0) # AMARELO NEON!
+                    raio_atual = 26 # A bolinha infla para dar destaque
+            # ========================================================
+
+            pygame.draw.circle(tela, cor_fundo, (int(x_nota), int(y)), raio_atual)
+            pygame.draw.circle(tela, PRETO, (int(x_nota), int(y)), raio_atual, 2)
+            
+            if modo_texto != 'vazio':
+                texto_str = nota_calculada if modo_texto == 'letras' else obter_grau(estado.tom_atual, nota_calculada)
+                txt_nota = fontes['notas'].render(texto_str, True, PRETO)
+                tela.blit(txt_nota, (x_nota - (txt_nota.get_width()/2), y - (txt_nota.get_height()/2)))
+                
     def obter_grau(tonica, nota_alvo):
         try:
             dist = (escalas.NOTAS.index(nota_alvo) - escalas.NOTAS.index(tonica)) % 12
@@ -145,7 +189,7 @@ def desenhar_painel_inferior(tela, estado, fontes):
 def desenhar_tudo(tela, estado, configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador):
     tela.fill(FUNDO_ESCURO)
     
-    desenhar_guitarra(tela, estado, configs, fontes)
+    desenhar_guitarra(tela, estado, configs, fontes, meu_processador) 
     desenhar_painel_superior(tela, estado, fontes)
     desenhar_painel_lateral(tela, estado, fontes)
     desenhar_painel_inferior(tela, estado, fontes) 

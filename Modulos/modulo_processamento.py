@@ -77,10 +77,11 @@ class ProcessadorAudio:
         notas = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
         return notas[np.argmax(np.mean(chroma, axis=1))]
 
-    def processar_logica_continua(self, gravador):
+    def processar_logica_continua(self, gravador, estado):
         if not gravador.gravando:
             self.nota_detectada = "Microfone Desligado"
             self.freq_atual = 0.0
+            estado.freq_detectada = 0.0 # <--- Zera quando desliga
             return
 
         tempo_atual = pygame.time.get_ticks()
@@ -89,16 +90,21 @@ class ProcessadorAudio:
             
             audio_cru = gravador.obter_array_para_ia()
             if audio_cru is not None:
+                # 1. Extrai a frequência exata SEMPRE, mesmo fora do afinador
+                freq_exata = self.extrair_pitch_exato(audio_cru)
+                estado.freq_detectada = freq_exata # <--- Salva no cérebro da UI
+                
                 if self.corda_selecionada is not None:
-                    self.freq_atual = self.extrair_pitch_exato(audio_cru)
+                    self.freq_atual = freq_exata
                     self.nota_detectada = f"Frequência: {self.freq_atual:.2f} Hz"
                 else:
                     nota = self.extrair_nota_dominante(audio_cru)
                     self.nota_detectada = f"Nota no Braço: {nota}"
-                    self.freq_atual = 0.0
+                    self.freq_atual = freq_exata
             else:
                 self.nota_detectada = "Aguardando som..."
                 self.freq_atual = 0.0
+                estado.freq_detectada = 0.0 # <--- Zera no silêncio
 
     def tratar_clique(self, pos_mouse, rect_botao, gravador):
         if rect_botao.collidepoint(pos_mouse):

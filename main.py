@@ -37,7 +37,7 @@ def main():
         pos_mouse = pygame.mouse.get_pos()
         
         meu_metronomo.processar_logica(pos_mouse)
-        meu_processador.processar_logica_continua(meu_gravador)
+        meu_processador.processar_logica_continua(meu_gravador, estado)
         minhas_configs.processar_logica(pos_mouse)
         
         if nome_fonte != minhas_configs.get_fonte():

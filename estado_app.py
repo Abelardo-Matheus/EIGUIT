@@ -4,6 +4,7 @@ class EstadoGlobal:
     def __init__(self, largura_tela, altura_tela):
         self.indice_afinacao = 0
         self.tom_atual = 'C'
+        self.freq_detectada = 0.0 
         self.indice_cor_tonica = 0  
         self.indice_cor_terca = 0   
         self.indice_cor_quinta = 0  
