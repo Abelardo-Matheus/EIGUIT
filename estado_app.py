@@ -5,6 +5,12 @@ class EstadoGlobal:
         self.indice_afinacao = 0
         self.tom_atual = 'C'
         self.freq_detectada = 0.0 
+
+        # --- CALIBRAÇÃO DO AFINADOR ---
+        self.afinador_suavizacao = 5 # 1 (Nervoso/Rápido) a 10 (Lento/Estável)
+        self.afinador_sensibilidade = 0.5 # 0.1 (Fácil de detectar) a 0.9 (Rigoroso)
+        self.historico_freqs = [] # Guarda as últimas frequências para tirar a média
+
         self.indice_cor_tonica = 0  
         self.indice_cor_terca = 0   
         self.indice_cor_quinta = 0  
@@ -24,7 +30,7 @@ class EstadoGlobal:
         
         self.X_PAINEL = largura_tela - 220
         self.Y_PAINEL = self.OFFSET_Y + 50
-        self.Y_CAIXA = self.OFFSET_Y + self.ALTURA_BRACO + 80
+        self.Y_CAIXA = self.OFFSET_Y + self.ALTURA_BRACO + 100
         self.ALTURA_CAIXA = altura_tela - self.Y_CAIXA - 50 
         
         # --- MEMÓRIA DOS BOTÕES LATERAIS ---

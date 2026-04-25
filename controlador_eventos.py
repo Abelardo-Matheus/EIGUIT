@@ -18,8 +18,15 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
         if evento.type == pygame.MOUSEBUTTONDOWN:
             # IA
             if estado.aba_atual == 2 and estado.memoria_sub_abas[2] == 0:
-                btn_gravar_ia = pygame.Rect(estado.OFFSET_X + 50, estado.Y_CAIXA + 80, 150, 40)
-                if meu_processador.tratar_clique(evento.pos, btn_gravar_ia, meu_gravador): continue
+                btn_gravar_ia = pygame.Rect(estado.OFFSET_X + 50, estado.Y_CAIXA + 110, 150, 40)
+                
+                # 1. Checa se clicou no botão de ligar o MIC ou nos Afinadores redondos
+                if meu_processador.tratar_clique(evento.pos, btn_gravar_ia, meu_gravador): 
+                    continue
+                
+                # 2. NOVO: Checa se clicou nos botões de + e - da calibração
+                if meu_processador.tratar_clique_calibracao(evento.pos, estado, estado.OFFSET_X, estado.Y_CAIXA):
+                    continue
             
             # Configurações e Metrônomo
             esta_na_config_cores = (estado.aba_atual == 3 and estado.memoria_sub_abas[3] == 0)

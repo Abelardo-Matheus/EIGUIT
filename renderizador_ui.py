@@ -74,7 +74,7 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador):
                 texto_str = nota_calculada if modo_texto == 'letras' else obter_grau(estado.tom_atual, nota_calculada)
                 txt_nota = fontes['notas'].render(texto_str, True, PRETO)
                 tela.blit(txt_nota, (x_nota - (txt_nota.get_width()/2), y - (txt_nota.get_height()/2)))
-                
+
     def obter_grau(tonica, nota_alvo):
         try:
             dist = (escalas.NOTAS.index(nota_alvo) - escalas.NOTAS.index(tonica)) % 12
@@ -203,12 +203,13 @@ def desenhar_tudo(tela, estado, configs, dicionario_escalas, fontes, meu_metrono
     if estado.aba_atual == 3 and estado.memoria_sub_abas[3] == 0: configs.desenhar(tela, fontes['titulo'], fontes['ui'])
     if estado.aba_atual == 3 and estado.memoria_sub_abas[3] == 3: meu_metronomo.desenhar_config(tela, fontes['ui'])
     if estado.aba_atual == 2 and estado.memoria_sub_abas[2] == 0:
-        btn_gravar_ia = pygame.Rect(estado.OFFSET_X + 50, estado.Y_CAIXA + 80, 150, 40)
+        btn_gravar_ia = pygame.Rect(estado.OFFSET_X + 20, estado.Y_CAIXA + 100, 150, 40)
+        
         notas_abertas_atual = lista_afinacoes[estado.indice_afinacao]["notas"]
         
         meu_processador.desenhar_aba_ia(
-            tela, estado.OFFSET_X, estado.Y_CAIXA, btn_gravar_ia, 
-            meu_gravador, fontes['ui'], fontes['titulo'], notas_abertas_atual
+            tela, estado.OFFSET_X, estado.Y_CAIXA+50, btn_gravar_ia, 
+            meu_gravador, fontes['ui'], fontes['titulo'], notas_abertas_atual, estado 
         )
         
     meu_metronomo.desenhar_mini_metronomo(tela, tela.get_width(), tela.get_height(), fontes['ui'])

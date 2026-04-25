@@ -179,6 +179,7 @@ class Configuracoes:
         pygame.draw.rect(tela, self.cor_notas, self.rect_btn_cor_notas, border_radius=5)
         pygame.draw.rect(tela, self.BRANCO, self.rect_btn_cor_notas, 2, border_radius=5)
         x_atual += largura_b3 + espacamento_x
+        
 # BLOCO 4: Estilo do Texto (Largura aprox: 200px)
         largura_b4 = 200
         quebrar_linha_se_precisar(largura_b4) # 1. CORREÇÃO: Mude de b3 para b4 aqui!
