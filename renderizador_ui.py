@@ -111,7 +111,7 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador):
             elif nota_calculada == escalas.obter_quinta(estado.tom_atual): cor_fundo = CORES_TONICA[estado.indice_cor_quinta]
 
             # Frequência da IA mapeada para o índice correto da corda
-            if estado.aba_atual == 2 and estado.freq_detectada > 0 and len(meu_processador.freqs_referencia) > indice_nota:
+            if estado.freq_detectada > 0 and len(meu_processador.freqs_referencia) > indice_nota:
                 freq_aberta = meu_processador.freqs_referencia[indice_nota]
                 freq_desta_casa = freq_aberta * (2 ** (casa / 12.0))
                 margem = freq_desta_casa * 0.03
