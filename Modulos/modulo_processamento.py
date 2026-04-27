@@ -1,16 +1,23 @@
 import librosa
 import numpy as np
 import pygame
+from Modulos.detector_palhetadas import DetectorPalhetadas
+from Modulos.gerenciador_ritmo import MaestroRitmo
 
 class ProcessadorAudio:
-    def __init__(self, taxa_amostragem=48000):
+    def __init__(self, taxa_amostragem=48000, sample_rate=44100):
         self.sr = taxa_amostragem
         
         # Agora as listas nascem vazias e se adaptam à afinação do usuário
         self.nomes_exibicao = []
         self.ordem_cordas = []
         self.freqs_referencia = []
-        
+        self.detector_ritmo = DetectorPalhetadas()
+        self.maestro = MaestroRitmo()
+        self.ritmo_bpm = 90
+        self.ritmo_subdivisao = 1 # 1=Semínima
+        self.nomes_ritmos = {1: "Semínima (1 por tempo)", 2: "Colcheia (2 por tempo)", 3: "Tercina (3 por tempo)", 4: "Semicolcheia (4 por tempo)"}
+
         self.nota_detectada = "Microfone Desligado"
         self.freq_atual = 0.0
         self.corda_selecionada = None 
@@ -33,6 +40,134 @@ class ProcessadorAudio:
         self.CINZA = (150, 150, 150)
         self.FUNDO_ESCURO = (40, 40, 40)
 
+    def tratar_cliques_treino_ritmo(self, pos_mouse, tempo_atual, gravador, meu_metronomo):
+        # Se NÃO estiver treinando (Tela de Lobby)
+        if not self.maestro.ativo:
+            if hasattr(self, 'btn_menos_bpm') and self.btn_menos_bpm.collidepoint(pos_mouse):
+                self.ritmo_bpm = max(40, self.ritmo_bpm - 5)
+                return True
+            if hasattr(self, 'btn_mais_bpm') and self.btn_mais_bpm.collidepoint(pos_mouse):
+                self.ritmo_bpm = min(240, self.ritmo_bpm + 5)
+                return True
+            if hasattr(self, 'btn_menos_ritmo') and self.btn_menos_ritmo.collidepoint(pos_mouse):
+                self.ritmo_subdivisao = max(1, self.ritmo_subdivisao - 1)
+                return True
+            if hasattr(self, 'btn_mais_ritmo') and self.btn_mais_ritmo.collidepoint(pos_mouse):
+                self.ritmo_subdivisao = min(4, self.ritmo_subdivisao + 1)
+                return True
+            if hasattr(self, 'btn_play_ritmo') and self.btn_play_ritmo.collidepoint(pos_mouse):
+                # 1. LIGA O MICROFONE AUTOMATICAMENTE
+                if not gravador.gravando:
+                    gravador.alternar_microfone()
+                
+                # 2. INICIA O MAESTRO PASSANDO O METRÔNOMO <-- A CORREÇÃO ESTÁ AQUI
+                self.maestro.iniciar_treino(self.ritmo_bpm, self.ritmo_subdivisao, tempo_atual, meu_metronomo)
+                return True
+                
+        # Se JÁ ESTIVER treinando (Tela de Ação)
+        else:
+            if hasattr(self, 'btn_stop_ritmo') and self.btn_stop_ritmo.collidepoint(pos_mouse):
+                self.maestro.parar_treino()
+                return True
+                
+        return False
+    
+    def desenhar_aba_treino_ritmo(self, tela, offset_x, y_caixa, fonte_ui, fonte_titulo):
+        # Caixa invisível para centralizar os elementos
+        x_centro = offset_x + 400
+        y_base = y_caixa + 50
+        
+        if not self.maestro.ativo:
+            # ==========================================
+            # TELA 1: CONFIGURAÇÃO DO TREINO (LOBBY)
+            # ==========================================
+            txt_tit = fonte_titulo.render("Configurar Treino de Ritmo", True, self.BRANCO)
+            tela.blit(txt_tit, (offset_x + 20, y_base))
+            
+            # --- Controle de BPM ---
+            tela.blit(fonte_ui.render("Andamento (BPM):", True, self.CINZA), (offset_x + 20, y_base + 60))
+            self.btn_menos_bpm = pygame.Rect(offset_x + 20, y_base + 90, 40, 40)
+            self.btn_mais_bpm = pygame.Rect(offset_x + 140, y_base + 90, 40, 40)
+            
+            pygame.draw.rect(tela, self.AZUL_BOTAO, self.btn_menos_bpm, border_radius=5)
+            pygame.draw.rect(tela, self.AZUL_BOTAO, self.btn_mais_bpm, border_radius=5)
+            tela.blit(fonte_titulo.render("-", True, self.BRANCO), (self.btn_menos_bpm.centerx - 8, self.btn_menos_bpm.centery - 15))
+            tela.blit(fonte_titulo.render("+", True, self.BRANCO), (self.btn_mais_bpm.centerx - 10, self.btn_mais_bpm.centery - 15))
+            
+            txt_bpm = fonte_titulo.render(str(self.ritmo_bpm), True, self.BRANCO)
+            tela.blit(txt_bpm, (offset_x + 80, y_base + 95))
+            
+            # --- Controle de Ritmo (Subdivisão) ---
+            tela.blit(fonte_ui.render("Ritmo / Subdivisão:", True, self.CINZA), (offset_x + 300, y_base + 60))
+            self.btn_menos_ritmo = pygame.Rect(offset_x + 300, y_base + 90, 40, 40)
+            self.btn_mais_ritmo = pygame.Rect(offset_x + 600, y_base + 90, 40, 40)
+            
+            pygame.draw.rect(tela, self.AZUL_BOTAO, self.btn_menos_ritmo, border_radius=5)
+            pygame.draw.rect(tela, self.AZUL_BOTAO, self.btn_mais_ritmo, border_radius=5)
+            tela.blit(fonte_titulo.render("<", True, self.BRANCO), (self.btn_menos_ritmo.centerx - 10, self.btn_menos_ritmo.centery - 15))
+            tela.blit(fonte_titulo.render(">", True, self.BRANCO), (self.btn_mais_ritmo.centerx - 10, self.btn_mais_ritmo.centery - 15))
+            
+            nome_ritmo = self.nomes_ritmos[self.ritmo_subdivisao]
+            txt_ritmo = fonte_ui.render(nome_ritmo, True, self.BRANCO)
+            tela.blit(txt_ritmo, (offset_x + 355, y_base + 100))
+            
+            # --- Botão PLAY GIGANTE ---
+            self.btn_play_ritmo = pygame.Rect(x_centro - 100, y_base + 200, 200, 60)
+            pygame.draw.rect(tela, self.VERDE, self.btn_play_ritmo, border_radius=10)
+            txt_play = fonte_titulo.render("INICIAR TREINO", True, self.FUNDO_ESCURO)
+            tela.blit(txt_play, (self.btn_play_ritmo.centerx - txt_play.get_width()//2, self.btn_play_ritmo.centery - txt_play.get_height()//2))
+            
+        else:
+            # ==========================================
+            # TELA 2: A ARENA DE TREINO (AÇÃO)
+            # ==========================================
+            nome_ritmo = self.nomes_ritmos[self.ritmo_subdivisao]
+            txt_header = fonte_ui.render(f"Treinando: {nome_ritmo} a {self.ritmo_bpm} BPM", True, self.CINZA)
+            tela.blit(txt_header, (x_centro - txt_header.get_width()//2, y_base))
+            
+            tempo_atual = pygame.time.get_ticks()
+
+            # --- FÍSICA DA ESTEIRA ---
+            y_spawn = y_base + 30    
+            y_alvo = y_base + 230    
+            distancia_queda = y_alvo - y_spawn
+            
+            # Aqui fazemos a nota demorar exatamente 4 batidas pra cair, não importa o BPM!
+            tempo_queda_ms = 4 * self.maestro.ms_por_batida  
+            
+            pygame.draw.rect(tela, (30, 30, 30), (x_centro - 50, y_spawn, 100, distancia_queda + 50), border_radius=10)
+            pygame.draw.line(tela, (70, 70, 70), (x_centro, y_spawn), (x_centro, y_spawn + distancia_queda + 50), 3)
+
+            # O Alvo
+            pygame.draw.circle(tela, self.BRANCO, (x_centro, y_alvo), 30, 3)
+            pygame.draw.circle(tela, (100, 100, 100), (x_centro, y_alvo), 8) 
+
+            # As Notas Caindo
+            for nota in self.maestro.fila_notas:
+                delta_t = nota['tempo'] - tempo_atual
+                
+                if -150 < delta_t < tempo_queda_ms:
+                    pos_y = y_alvo - (delta_t * (distancia_queda / tempo_queda_ms))
+                    pygame.draw.circle(tela, (255, 150, 0), (x_centro, int(pos_y)), 18)
+                    pygame.draw.circle(tela, self.BRANCO, (x_centro, int(pos_y)), 18, 2)
+
+            # --- FEEDBACK E PLACAR ---
+            if self.maestro.texto_feedback != "":
+                f = fonte_titulo.render(self.maestro.texto_feedback, True, self.maestro.cor_feedback)
+                f = pygame.transform.scale(f, (f.get_width() * 1.5, f.get_height() * 1.5))
+                tela.blit(f, (offset_x + 60, y_alvo - 50))
+            
+            y_placar = y_base + 100
+            tela.blit(fonte_ui.render(f"Perfeitos: {self.maestro.acertos_perfeitos}", True, self.VERDE), (offset_x + 50, y_placar))
+            tela.blit(fonte_ui.render(f"Bons: {self.maestro.acertos_bons}", True, (255, 255, 0)), (offset_x + 50, y_placar + 30))
+            tela.blit(fonte_ui.render(f"Miss: {self.maestro.erros}", True, self.VERMELHO), (offset_x + 600, y_placar + 30))
+            
+            # --- BOTÃO PARAR ---
+            self.btn_stop_ritmo = pygame.Rect(x_centro - 75, y_base + 320, 150, 45)
+            pygame.draw.rect(tela, self.VERMELHO, self.btn_stop_ritmo, border_radius=8)
+            txt_stop = fonte_ui.render("PARAR", True, self.BRANCO)
+            tela.blit(txt_stop, (self.btn_stop_ritmo.centerx - txt_stop.get_width()//2, self.btn_stop_ritmo.centery - txt_stop.get_height()//2))
+            
     def atualizar_afinacao(self, notas_abertas):
         """Lê a lista de notas e calcula automaticamente as oitavas e frequências (Hz)"""
         if self.nomes_exibicao == notas_abertas: 
@@ -93,7 +228,7 @@ class ProcessadorAudio:
             self.nota_detectada = "Microfone Desligado"
             self.freq_atual = 0.0
             estado.freq_detectada = 0.0
-            estado.historico_freqs.clear() # Limpa o histórico se desligar
+            estado.historico_freqs.clear() 
             return
 
         tempo_atual = pygame.time.get_ticks()
@@ -102,6 +237,18 @@ class ProcessadorAudio:
             
             audio_cru = gravador.obter_array_para_ia()
             if audio_cru is not None:
+                
+                # ========================================================
+                # --- NOVO: DETECTOR DE PALHETADAS E MAESTRO ---
+                # ========================================================
+                if self.detector_ritmo.processar_buffer(audio_cru):
+                    # Avisa o maestro que uma palhetada real aconteceu agora!
+                    self.maestro.registrar_palhetada(tempo_atual)
+                    
+                # Deixa o maestro checar se alguma nota passou em branco
+                self.maestro.atualizar(tempo_atual)
+                # ========================================================
+
                 # Usa a tolerância do Estado
                 freq_crua = self.extrair_pitch_exato(audio_cru, estado.afinador_sensibilidade)
                 

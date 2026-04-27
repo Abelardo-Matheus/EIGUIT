@@ -232,5 +232,10 @@ def desenhar_tudo(tela, estado, configs, dicionario_escalas, fontes, meu_metrono
             tela, estado.OFFSET_X, estado.Y_CAIXA+50, btn_gravar_ia, 
             meu_gravador, fontes['ui'], fontes['titulo'], notas_abertas_atual, estado 
         )
+    # ==========================================
+    # --- NOVO: Sub-Aba 1 (Treino de Ritmo) ---
+    # ==========================================
+    if estado.aba_atual == 2 and estado.memoria_sub_abas[2] == 1:
+        meu_processador.desenhar_aba_treino_ritmo(tela, estado.OFFSET_X, estado.Y_CAIXA, fontes['ui'], fontes['titulo'])
         
     meu_metronomo.desenhar_mini_metronomo(tela, tela.get_width(), tela.get_height(), fontes['ui'])

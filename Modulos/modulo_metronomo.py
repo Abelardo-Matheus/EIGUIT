@@ -76,6 +76,20 @@ class Metronomo:
             self.som_tick = None
             self.som_acento = None
 
+    def tocar_som(self):
+        """Força o metrônomo a tocar um bip e piscar a bolinha visual (Usado pelo Maestro da IA)"""
+        self.ultimo_tick = pygame.time.get_ticks()
+        
+        # Toca o som (com ou sem acento dependendo do tempo do compasso)
+        if self.som_tick:
+            if self.tempo_atual == 0 and self.som_acento:
+                self.som_acento.play()
+            else:
+                self.som_tick.play()
+                
+        # Avança a bolinha visual para a próxima batida
+        self.tempo_atual = (self.tempo_atual + 1) % self.compasso
+        
     def atualizar_ancoras_ui(self):
         """Atualiza a posição dos controles do mini-metrônomo para o canto da tela"""
         tela = pygame.display.get_surface()
