@@ -1,8 +1,21 @@
 import pygame
-import Modulos.escalas as escalas # <- Mudou aqui!
+import Modulos.escalas as escalas
 import gerenciador_interface
 from constantes_ui import *
 
+def obter_grau(tonica, nota):
+    """Calcula o intervalo musical entre a tônica e a nota atual."""
+    todas_notas = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+    graus = ['1', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7']
+    
+    try:
+        idx_tonica = todas_notas.index(tonica)
+        idx_nota = todas_notas.index(nota)
+        distancia = (idx_nota - idx_tonica) % 12
+        return graus[distancia]
+    except ValueError:
+        return ""
+    
 def desenhar_painel_superior(tela, estado, fontes):
     btn_menos_casa = pygame.Rect(estado.OFFSET_X, 30, 40, 35)
     btn_mais_casa = pygame.Rect(estado.OFFSET_X + 160, 30, 40, 35)
@@ -16,91 +29,99 @@ def desenhar_painel_superior(tela, estado, fontes):
     pygame.draw.rect(tela, AZUL_BOTAO, btn_mais_casa, border_radius=5)
     tela.blit(fontes['titulo'].render("+", True, BRANCO), (btn_mais_casa.centerx - 7, btn_mais_casa.centery - 15))
 
+    instrumento = getattr(estado, 'instrumento', 'guitarra')
+
+    estado.btn_guit = pygame.Rect(estado.OFFSET_X + 250, 30, 110, 35)
+    estado.btn_baixo = pygame.Rect(estado.OFFSET_X + 370, 30, 110, 35)
+
+    cor_guit = AZUL_BOTAO if instrumento == 'guitarra' else (70, 70, 70)
+    cor_baixo = AZUL_BOTAO if instrumento == 'baixo' else (70, 70, 70)
+
+    pygame.draw.rect(tela, cor_guit, estado.btn_guit, border_radius=5)
+    txt_g = fontes['ui'].render("Guitarra", True, BRANCO)
+    tela.blit(txt_g, (estado.btn_guit.centerx - txt_g.get_width()//2, estado.btn_guit.centery - txt_g.get_height()//2))
+
+    pygame.draw.rect(tela, cor_baixo, estado.btn_baixo, border_radius=5)
+    txt_b = fontes['ui'].render("Baixo", True, BRANCO)
+    tela.blit(txt_b, (estado.btn_baixo.centerx - txt_b.get_width()//2, estado.btn_baixo.centery - txt_b.get_height()//2))
+
+
 def desenhar_guitarra(tela, estado, configs, fontes, meu_processador):
     notas_abertas = lista_afinacoes[estado.indice_afinacao]["notas"]
     cor_madeira = configs.get_cor_braco() if configs else MADEIRA
-    pygame.draw.rect(tela, cor_madeira, (estado.OFFSET_X, estado.OFFSET_Y, estado.LARGURA_BRACO, estado.ALTURA_BRACO))
+    
+    # ========================================================
+    # --- MATEMÁTICA DINÂMICA: GUITARRA VS BAIXO ---
+    # ========================================================
+    instrumento = getattr(estado, 'instrumento', 'guitarra')
+    num_cordas_desenho = 4 if instrumento == 'baixo' else estado.NUM_CORDAS
+    
+    # Se for baixo, a madeira "emagrece" o equivalente a 2 cordas e desce um pouco para centralizar
+    if instrumento == 'baixo':
+        altura_braco_atual = estado.ALTURA_BRACO - (2 * estado.ESPACO_CORDAS)
+        offset_y_atual = estado.OFFSET_Y + estado.ESPACO_CORDAS
+    else:
+        altura_braco_atual = estado.ALTURA_BRACO
+        offset_y_atual = estado.OFFSET_Y
 
+    # 1. Desenha a madeira ajustada
+    pygame.draw.rect(tela, cor_madeira, (estado.OFFSET_X, offset_y_atual, estado.LARGURA_BRACO, altura_braco_atual))
+
+    # 2. Desenha os Trastes usando a nova altura
     for casa in range(estado.NUM_CASAS + 1):
         x = estado.OFFSET_X + (casa * estado.ESPACO_CASAS)
-        pygame.draw.line(tela, COR_TRASTE, (x, estado.OFFSET_Y), (x, estado.OFFSET_Y + estado.ALTURA_BRACO), 2)
+        pygame.draw.line(tela, COR_TRASTE, (x, offset_y_atual), (x, offset_y_atual + altura_braco_atual), 2)
         if casa > 0:
             num = fontes['ui'].render(str(casa), True, (150, 150, 150))
-            tela.blit(num, (x - (estado.ESPACO_CASAS/2) - 5, estado.OFFSET_Y + estado.ALTURA_BRACO + 15))
+            tela.blit(num, (x - (estado.ESPACO_CASAS/2) - 5, offset_y_atual + altura_braco_atual + 15))
     
-
     modo_texto = configs.get_modo_texto() if configs else 'letras'
     cor_base_escala = configs.get_cor_notas() if configs else BRANCO
-    for i in range(estado.NUM_CORDAS):
-        y = estado.OFFSET_Y + estado.ALTURA_BRACO - (i * estado.ESPACO_CORDAS)
-        espessura = 1 + ((estado.NUM_CORDAS - 1 - i) * 0.7)
+    
+    # 3. Desenha as Cordas
+    for i in range(num_cordas_desenho):
+        
+        if instrumento == 'baixo':
+            espessura = 2 + ((num_cordas_desenho - 1 - i) * 1.5) 
+            # Calcula o padding para as 4 cordas ficarem perfeitamente no meio da madeira fina
+            padding = (altura_braco_atual - ((num_cordas_desenho - 1) * estado.ESPACO_CORDAS)) / 2
+            y = offset_y_atual + altura_braco_atual - padding - (i * estado.ESPACO_CORDAS)
+            
+            # Pula as 2 cordas mais agudas da afinação da guitarra (E e B)
+            indice_nota = i + 2 
+        else:
+            espessura = 1 + ((estado.NUM_CORDAS - 1 - i) * 0.7)
+            y = estado.OFFSET_Y + estado.ALTURA_BRACO - (i * estado.ESPACO_CORDAS)
+            indice_nota = i
+
         pygame.draw.line(tela, COR_CORDA, (estado.OFFSET_X, y), (estado.OFFSET_X + estado.LARGURA_BRACO, y), int(espessura))
         
-        nota_aberta_atual = notas_abertas[i]
+        nota_aberta_atual = notas_abertas[indice_nota]
 
+        # 4. Desenha as Notas (Bolinhas)
         for casa in range(estado.NUM_CASAS + 1):
             nota_calculada = escalas.obter_nota(nota_aberta_atual, casa)
             cor_fundo = cor_base_escala 
-            raio_atual = 18 # Raio padrão da bolinha
+            raio_atual = 18 
             
             x_nota = estado.OFFSET_X - 40 if casa == 0 else estado.OFFSET_X + (casa * estado.ESPACO_CASAS) - (estado.ESPACO_CASAS / 2)
 
-            # Pintura padrão do menu lateral
             if nota_calculada == estado.tom_atual: cor_fundo = CORES_TONICA[estado.indice_cor_tonica]
             elif nota_calculada == escalas.obter_terca(estado.tom_atual): cor_fundo = CORES_TONICA[estado.indice_cor_terca]
             elif nota_calculada == escalas.obter_quinta(estado.tom_atual): cor_fundo = CORES_TONICA[estado.indice_cor_quinta]
 
-            # ========================================================
-            # --- MAGIA DA IA: DETECÇÃO EXATA EM TEMPO REAL ---
-            # ========================================================
-            if estado.aba_atual == 2 and estado.freq_detectada > 0 and len(meu_processador.freqs_referencia) > i:
-                freq_aberta = meu_processador.freqs_referencia[i]
-                
-                # Fórmula física: freq_da_casa = freq_aberta * 2^(casa/12)
+            # Frequência da IA mapeada para o índice correto da corda
+            if estado.aba_atual == 2 and estado.freq_detectada > 0 and len(meu_processador.freqs_referencia) > indice_nota:
+                freq_aberta = meu_processador.freqs_referencia[indice_nota]
                 freq_desta_casa = freq_aberta * (2 ** (casa / 12.0))
-                
-                # Tolerância de 3% (meio semitom) para cobrir bends e entonação
                 margem = freq_desta_casa * 0.03
                 
                 if abs(estado.freq_detectada - freq_desta_casa) < margem:
-                    cor_fundo = (255, 255, 0) # AMARELO NEON!
-                    raio_atual = 26 # A bolinha infla para dar destaque
-            # ========================================================
+                    cor_fundo = (255, 255, 0) 
+                    raio_atual = 26 
 
             pygame.draw.circle(tela, cor_fundo, (int(x_nota), int(y)), raio_atual)
             pygame.draw.circle(tela, PRETO, (int(x_nota), int(y)), raio_atual, 2)
-            
-            if modo_texto != 'vazio':
-                texto_str = nota_calculada if modo_texto == 'letras' else obter_grau(estado.tom_atual, nota_calculada)
-                txt_nota = fontes['notas'].render(texto_str, True, PRETO)
-                tela.blit(txt_nota, (x_nota - (txt_nota.get_width()/2), y - (txt_nota.get_height()/2)))
-
-    def obter_grau(tonica, nota_alvo):
-        try:
-            dist = (escalas.NOTAS.index(nota_alvo) - escalas.NOTAS.index(tonica)) % 12
-            return {0:"1", 1:"b2", 2:"2", 3:"m3", 4:"3", 5:"4", 6:"b5", 7:"5", 8:"b6", 9:"6", 10:"b7", 11:"7"}[dist]
-        except: return ""
-
-    for i in range(estado.NUM_CORDAS):
-        y = estado.OFFSET_Y + estado.ALTURA_BRACO - (i * estado.ESPACO_CORDAS)
-        espessura = 1 + ((estado.NUM_CORDAS - 1 - i) * 0.7)
-        pygame.draw.line(tela, COR_CORDA, (estado.OFFSET_X, y), (estado.OFFSET_X + estado.LARGURA_BRACO, y), int(espessura))
-        
-        nota_aberta_atual = notas_abertas[i]
-        raio_circulo = 18 
-
-        for casa in range(estado.NUM_CASAS + 1):
-            nota_calculada = escalas.obter_nota(nota_aberta_atual, casa)
-            cor_fundo = cor_base_escala 
-            
-            x_nota = estado.OFFSET_X - 40 if casa == 0 else estado.OFFSET_X + (casa * estado.ESPACO_CASAS) - (estado.ESPACO_CASAS / 2)
-
-            if nota_calculada == estado.tom_atual: cor_fundo = CORES_TONICA[estado.indice_cor_tonica]
-            elif nota_calculada == escalas.obter_terca(estado.tom_atual): cor_fundo = CORES_TONICA[estado.indice_cor_terca]
-            elif nota_calculada == escalas.obter_quinta(estado.tom_atual): cor_fundo = CORES_TONICA[estado.indice_cor_quinta]
-
-            pygame.draw.circle(tela, cor_fundo, (int(x_nota), int(y)), raio_circulo)
-            pygame.draw.circle(tela, PRETO, (int(x_nota), int(y)), raio_circulo, 2)
             
             if modo_texto != 'vazio':
                 texto_str = nota_calculada if modo_texto == 'letras' else obter_grau(estado.tom_atual, nota_calculada)

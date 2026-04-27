@@ -16,6 +16,14 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                 estado.solicitou_saida = True
                 
         if evento.type == pygame.MOUSEBUTTONDOWN:
+        # (Seus cliques das abas e botões de casas atuais...)
+        
+        # --- LÓGICA DO CLIQUE DOS INSTRUMENTOS ---
+            if hasattr(estado, 'btn_guit') and estado.btn_guit.collidepoint(evento.pos):
+                estado.instrumento = 'guitarra'
+                
+            elif hasattr(estado, 'btn_baixo') and estado.btn_baixo.collidepoint(evento.pos):
+                estado.instrumento = 'baixo'
             # IA
             if estado.aba_atual == 2 and estado.memoria_sub_abas[2] == 0:
                 btn_gravar_ia = pygame.Rect(estado.OFFSET_X + 50, estado.Y_CAIXA + 110, 150, 40)

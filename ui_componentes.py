@@ -4,10 +4,11 @@ from constantes_ui import BRANCO
 
 class DesenhoEscala:
     def __init__(self, x_painel, y_painel, espaco_casas, espaco_cordas, altura_braco, offset_x, num_casas_total, padrao, nome="", cor_base=(255, 255, 255)):
+        self.nome = nome 
+        self.aba = 0
+        self.sub_aba = 0
         self.x_original = x_painel
         self.y_original = y_painel
-        self.nome = nome 
-        
         self.espaco_casas = espaco_casas
         self.offset_x = offset_x
         self.num_casas_total = num_casas_total
