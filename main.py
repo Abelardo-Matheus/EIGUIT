@@ -92,7 +92,8 @@ async def main():
         pygame.display.flip()
 
         await asyncio.sleep(0)
-
+        
+        
     pygame.quit()
     # No navegador, o sys.exit() pode quebrar o loop do WebAssembly, então evitamos.
     if not NO_NAVEGADOR:
