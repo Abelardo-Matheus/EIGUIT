@@ -33,4 +33,4 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pygbag
-          pygbag --build . --disable-sound-format-error
+          pygbag --build --disable-sound-format-error .
