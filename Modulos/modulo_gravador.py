@@ -2,12 +2,14 @@
 import sys
 import numpy as np
 
-# Cria o sensor: É True se estiver rodando no navegador!
-NO_NAVEGADOR = sys.platform == "emscripten"
+NO_NAVEGADOR = sys.platform in ["emscripten", "wasm32"]
 
-# Só importa a biblioteca pesada se estiver no PC
+# Só importa o pesado se estiver no PC
 if not NO_NAVEGADOR:
     import sounddevice as sd
+    import numpy as np
+else:
+    np = None # Truque para o Python não dar erro de variável inexistente
 
 class GravadorAudio:
     def __init__(self, device_id=None):
@@ -17,7 +19,12 @@ class GravadorAudio:
         self.stream = None
         self.gravando = False 
         self.tamanho_buffer = int(self.taxa_amostragem * 0.2)
-        self.buffer = np.zeros(self.tamanho_buffer, dtype=np.float32)
+        
+        # O Numpy não existe na web, então criamos uma lista vazia comum
+        if not NO_NAVEGADOR:
+            self.buffer = np.zeros(self.tamanho_buffer, dtype=np.float32)
+        else:
+            self.buffer = []
 
     def obter_lista_entradas(self):
         """Varre o computador e retorna apenas equipamentos que gravam áudio"""

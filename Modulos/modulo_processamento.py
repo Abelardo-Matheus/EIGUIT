@@ -1,12 +1,17 @@
 import sys
 import numpy as np
 import pygame
+import math  # <-- Matemática leve do próprio Python
 from Modulos.detector_palhetadas import DetectorPalhetadas
 from Modulos.gerenciador_ritmo import MaestroRitmo
 
-NO_NAVEGADOR = sys.platform == "emscripten"
+NO_NAVEGADOR = sys.platform in ["emscripten", "wasm32"]
+
 if not NO_NAVEGADOR:
-    import librosa # <-- Fica protegido aqui dentro!
+    import librosa
+    import numpy as np
+else:
+    np = None
 
 class ProcessadorAudio:
     def __init__(self, taxa_amostragem=48000, sample_rate=44100):
@@ -473,7 +478,10 @@ class ProcessadorAudio:
             tela.blit(fonte_ui.render("Sharp (+)", True, self.CINZA), (x_agulha_base + largura_barra - 60, y_agulha + 15))
 
             if self.freq_atual > 0:
-                cents = 1200 * np.log2(self.freq_atual / freq_alvo)
+                if not NO_NAVEGADOR:
+                    cents = 1200 * np.log2(self.freq_atual / freq_alvo)
+                else:
+                    cents = 1200 * math.log2(self.freq_atual / freq_alvo)
                 desvio_x = (cents / 50) * (largura_barra // 2)
                 desvio_x = max(-largura_barra//2, min(largura_barra//2, desvio_x)) 
                 
