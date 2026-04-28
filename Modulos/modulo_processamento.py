@@ -1,29 +1,8 @@
-import sys
+import librosa
 import numpy as np
 import pygame
-import math  # <-- Matemática leve do próprio Python
 from Modulos.detector_palhetadas import DetectorPalhetadas
 from Modulos.gerenciador_ritmo import MaestroRitmo
-
-import sys
-
-NO_NAVEGADOR = sys.platform in ["emscripten", "wasm32"]
-
-if not NO_NAVEGADOR:
-    # O Pygbag lê arquivos de texto procurando a palavra 'import numpy'
-    # Ao fazer assim, ele não percebe que o numpy está sendo carregado!
-    np = __import__('numpy')
-    
-    # Se você usar o librosa, faça a mesma coisa:
-    # librosa = __import__('librosa')
-    
-    # Se você usar o sounddevice:
-    # sd = __import__('sounddevice')
-else:
-    # Quando rodar na web, as variáveis existem para não dar erro, mas estão vazias
-    np = None
-    librosa = None
-    sd = None
 
 class ProcessadorAudio:
     def __init__(self, taxa_amostragem=48000, sample_rate=44100):
@@ -213,15 +192,8 @@ class ProcessadorAudio:
                 nome_completo = f"{nota}{oitava_atual}"
                 self.ordem_cordas.append(nome_completo)
                 
-                # --- TRAVA DE SEGURANÇA WEB ---
-                if NO_NAVEGADOR:
-                    # Usa matemática pura no lugar do librosa
-                    idx_nota = notas_escala.index(nota)
-                    freq = 440.0 * (2.0 ** ((oitava_atual - 4) + (idx_nota - 9) / 12.0))
-                else:
-                    # Usa o librosa normal se estiver no PC
-                    freq = float(librosa.note_to_hz(nome_completo))
-                    
+                # Usa o librosa para pegar a frequência matemática exata da nota!
+                freq = float(librosa.note_to_hz(nome_completo))
                 self.freqs_referencia.append(freq)
         
         # Reseta o afinador caso o usuário troque de afinação enquanto afina
@@ -235,14 +207,11 @@ class ProcessadorAudio:
         return notas[np.argmax(np.mean(chroma, axis=1))]
     
     def extrair_pitch_exato(self, audio_array, tolerancia):
-        if NO_NAVEGADOR:
-            return 0.0
         if audio_array is None or len(audio_array) == 0: return 0.0
         
         # Filtro de Volume (Noise Gate): Ignora som se for muito baixo
         if np.max(np.abs(audio_array)) < 0.01:
             return 0.0
-
 
         # O yin() do librosa aceita um parâmetro de tolerância (trough_threshold)
         # Menor = Mais rigoroso (ignora harmônicos), Maior = Mais fácil
@@ -490,10 +459,7 @@ class ProcessadorAudio:
             tela.blit(fonte_ui.render("Sharp (+)", True, self.CINZA), (x_agulha_base + largura_barra - 60, y_agulha + 15))
 
             if self.freq_atual > 0:
-                if not NO_NAVEGADOR:
-                    cents = 1200 * np.log2(self.freq_atual / freq_alvo)
-                else:
-                    cents = 1200 * math.log2(self.freq_atual / freq_alvo)
+                cents = 1200 * np.log2(self.freq_atual / freq_alvo)
                 desvio_x = (cents / 50) * (largura_barra // 2)
                 desvio_x = max(-largura_barra//2, min(largura_barra//2, desvio_x)) 
                 

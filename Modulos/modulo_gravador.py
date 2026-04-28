@@ -1,47 +1,21 @@
-
-import sys
+import sounddevice as sd
 import numpy as np
-
-
-NO_NAVEGADOR = sys.platform in ["emscripten", "wasm32"]
-
-if not NO_NAVEGADOR:
-    # O Pygbag lê arquivos de texto procurando a palavra 'import numpy'
-    # Ao fazer assim, ele não percebe que o numpy está sendo carregado!
-    np = __import__('numpy')
-    
-    # Se você usar o librosa, faça a mesma coisa:
-    # librosa = __import__('librosa')
-    
-    # Se você usar o sounddevice:
-    # sd = __import__('sounddevice')
-else:
-    # Quando rodar na web, as variáveis existem para não dar erro, mas estão vazias
-    np = None
-    librosa = None
-    sd = None
 
 class GravadorAudio:
     def __init__(self, device_id=None):
         self.taxa_amostragem = 48000
         self.canais = 1               
-        self.device_id = None
+        
+        # Pega a placa de som padrão do Windows se não passarmos nada
+        self.device_id = device_id if device_id is not None else sd.default.device[0]
+        
         self.stream = None
         self.gravando = False 
         self.tamanho_buffer = int(self.taxa_amostragem * 0.2)
-        
-        # O Numpy não existe na web, então criamos uma lista vazia comum
-        if not NO_NAVEGADOR:
-            self.buffer = np.zeros(self.tamanho_buffer, dtype=np.float32)
-        else:
-            self.buffer = []
+        self.buffer = np.zeros(self.tamanho_buffer, dtype=np.float32)
 
     def obter_lista_entradas(self):
         """Varre o computador e retorna apenas equipamentos que gravam áudio"""
-        # --- TRAVA DE SEGURANÇA WEB ---
-        if NO_NAVEGADOR:
-            return [{'id': 0, 'nome': 'Microfone Web (Inativo)'}]
-            
         dispositivos = sd.query_devices()
         entradas = []
         for i, d in enumerate(dispositivos):
@@ -66,9 +40,6 @@ class GravadorAudio:
         self.buffer[-frames:] = indata[:, 0]
 
     def alternar_microfone(self):
-        if NO_NAVEGADOR:
-            print("Microfone desativado na versão Web!")
-            return # Sai da função e não tenta ligar o mic
         if self.gravando: self.parar_stream()
         else: self.iniciar_stream()
 
