@@ -1,4 +1,5 @@
 import pygame
+import asyncio
 import sys
 import config 
 import Modulos.modulo_metronomo as modulo_metronomo
@@ -8,7 +9,7 @@ import estado_app
 import fabrica_escalas
 import renderizador_ui
 import controlador_eventos
-def main():
+async def main():
     pygame.mixer.pre_init(44100, -16, 2, 512)
     pygame.init()
     try: pygame.mixer.Sound(buffer=bytearray(b'\x00' * 4096)).play()
@@ -56,8 +57,10 @@ def main():
         
         pygame.display.flip()
 
+        await asyncio.sleep(0)
+
     pygame.quit()
     sys.exit()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
