@@ -1,19 +1,39 @@
-import pygame
+
 import asyncio
 import sys
+
+
+
+print("1. O código Python começou a rodar!")
+
+NO_NAVEGADOR = sys.platform in ["emscripten", "wasm32"]
+print(f"2. Estamos no navegador? {NO_NAVEGADOR}")
+
+import pygame
+print("3. Pygame importado com sucesso!")
+
+
+# Importações dos seus módulos
 import config 
 import Modulos.modulo_metronomo as modulo_metronomo
 import Modulos.modulo_gravador as modulo_gravador
+print("4. Gravador importado (Escudo funcionou)!")
+
 import Modulos.modulo_processamento as modulo_processamento
+print("5. Processador importado (Escudo funcionou)!")
+
 import estado_app
 import fabrica_escalas
 import renderizador_ui
 import controlador_eventos
+print("6. Todos os módulos importados! Indo iniciar o jogo...")
 
-# Trava de Segurança Web
-NO_NAVEGADOR = sys.platform == "emscripten"
 
 async def main():
+    print("7. Entrou na função main async!")
+    pygame.mixer.pre_init(44100, -16, 2, 1024)
+    pygame.init()
+    print("8. Pygame inicializado!")
     # Aumentando um pouco o buffer para o navegador não "engasgar" o áudio
     pygame.mixer.pre_init(44100, -16, 2, 1024)
     pygame.init()
@@ -93,7 +113,7 @@ async def main():
 
         await asyncio.sleep(0)
         
-        
+
     pygame.quit()
     # No navegador, o sys.exit() pode quebrar o loop do WebAssembly, então evitamos.
     if not NO_NAVEGADOR:

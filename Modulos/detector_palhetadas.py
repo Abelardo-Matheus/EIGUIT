@@ -1,6 +1,12 @@
+import sys
 import numpy as np
 import time
+# Aumentei o escudo para garantir compatibilidade com novas versões do Pygbag
+NO_NAVEGADOR = sys.platform in ["emscripten", "wasm32"]
 
+if not NO_NAVEGADOR:
+    import librosa # <-- Se o seu detector usava librosa, proteja ele aqui!
+    # import scipy (se usar, proteja também!)
 class DetectorPalhetadas:
     def __init__(self):
         # Limiar de volume (0.0 a 1.0). 
