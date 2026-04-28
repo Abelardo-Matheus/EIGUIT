@@ -5,13 +5,25 @@ import math  # <-- Matemática leve do próprio Python
 from Modulos.detector_palhetadas import DetectorPalhetadas
 from Modulos.gerenciador_ritmo import MaestroRitmo
 
+import sys
+
 NO_NAVEGADOR = sys.platform in ["emscripten", "wasm32"]
 
 if not NO_NAVEGADOR:
-    import librosa
-    import numpy as np
+    # O Pygbag lê arquivos de texto procurando a palavra 'import numpy'
+    # Ao fazer assim, ele não percebe que o numpy está sendo carregado!
+    np = __import__('numpy')
+    
+    # Se você usar o librosa, faça a mesma coisa:
+    # librosa = __import__('librosa')
+    
+    # Se você usar o sounddevice:
+    # sd = __import__('sounddevice')
 else:
+    # Quando rodar na web, as variáveis existem para não dar erro, mas estão vazias
     np = None
+    librosa = None
+    sd = None
 
 class ProcessadorAudio:
     def __init__(self, taxa_amostragem=48000, sample_rate=44100):

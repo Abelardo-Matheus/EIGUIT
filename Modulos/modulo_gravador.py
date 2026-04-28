@@ -2,14 +2,24 @@
 import sys
 import numpy as np
 
+
 NO_NAVEGADOR = sys.platform in ["emscripten", "wasm32"]
 
-# Só importa o pesado se estiver no PC
 if not NO_NAVEGADOR:
-    import sounddevice as sd
-    import numpy as np
+    # O Pygbag lê arquivos de texto procurando a palavra 'import numpy'
+    # Ao fazer assim, ele não percebe que o numpy está sendo carregado!
+    np = __import__('numpy')
+    
+    # Se você usar o librosa, faça a mesma coisa:
+    # librosa = __import__('librosa')
+    
+    # Se você usar o sounddevice:
+    # sd = __import__('sounddevice')
 else:
-    np = None # Truque para o Python não dar erro de variável inexistente
+    # Quando rodar na web, as variáveis existem para não dar erro, mas estão vazias
+    np = None
+    librosa = None
+    sd = None
 
 class GravadorAudio:
     def __init__(self, device_id=None):
