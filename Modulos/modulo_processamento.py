@@ -1,8 +1,12 @@
-import librosa
+import sys
 import numpy as np
 import pygame
 from Modulos.detector_palhetadas import DetectorPalhetadas
 from Modulos.gerenciador_ritmo import MaestroRitmo
+
+NO_NAVEGADOR = sys.platform == "emscripten"
+if not NO_NAVEGADOR:
+    import librosa # <-- Fica protegido aqui dentro!
 
 class ProcessadorAudio:
     def __init__(self, taxa_amostragem=48000, sample_rate=44100):
@@ -207,6 +211,8 @@ class ProcessadorAudio:
         return notas[np.argmax(np.mean(chroma, axis=1))]
     
     def extrair_pitch_exato(self, audio_array, tolerancia):
+        if NO_NAVEGADOR:
+            return 0.0
         if audio_array is None or len(audio_array) == 0: return 0.0
         
         # Filtro de Volume (Noise Gate): Ignora som se for muito baixo

@@ -1,14 +1,19 @@
-import sounddevice as sd
+
+import sys
 import numpy as np
+
+# Cria o sensor: É True se estiver rodando no navegador!
+NO_NAVEGADOR = sys.platform == "emscripten"
+
+# Só importa a biblioteca pesada se estiver no PC
+if not NO_NAVEGADOR:
+    import sounddevice as sd
 
 class GravadorAudio:
     def __init__(self, device_id=None):
         self.taxa_amostragem = 48000
         self.canais = 1               
-        
-        # Pega a placa de som padrão do Windows se não passarmos nada
-        self.device_id = device_id if device_id is not None else sd.default.device[0]
-        
+        self.device_id = None
         self.stream = None
         self.gravando = False 
         self.tamanho_buffer = int(self.taxa_amostragem * 0.2)
@@ -40,6 +45,9 @@ class GravadorAudio:
         self.buffer[-frames:] = indata[:, 0]
 
     def alternar_microfone(self):
+        if NO_NAVEGADOR:
+            print("Microfone desativado na versão Web!")
+            return # Sai da função e não tenta ligar o mic
         if self.gravando: self.parar_stream()
         else: self.iniciar_stream()
 
