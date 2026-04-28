@@ -196,8 +196,15 @@ class ProcessadorAudio:
                 nome_completo = f"{nota}{oitava_atual}"
                 self.ordem_cordas.append(nome_completo)
                 
-                # Usa o librosa para pegar a frequência matemática exata da nota!
-                freq = float(librosa.note_to_hz(nome_completo))
+                # --- TRAVA DE SEGURANÇA WEB ---
+                if NO_NAVEGADOR:
+                    # Usa matemática pura no lugar do librosa
+                    idx_nota = notas_escala.index(nota)
+                    freq = 440.0 * (2.0 ** ((oitava_atual - 4) + (idx_nota - 9) / 12.0))
+                else:
+                    # Usa o librosa normal se estiver no PC
+                    freq = float(librosa.note_to_hz(nome_completo))
+                    
                 self.freqs_referencia.append(freq)
         
         # Reseta o afinador caso o usuário troque de afinação enquanto afina

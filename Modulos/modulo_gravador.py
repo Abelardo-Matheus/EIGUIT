@@ -21,6 +21,10 @@ class GravadorAudio:
 
     def obter_lista_entradas(self):
         """Varre o computador e retorna apenas equipamentos que gravam áudio"""
+        # --- TRAVA DE SEGURANÇA WEB ---
+        if NO_NAVEGADOR:
+            return [{'id': 0, 'nome': 'Microfone Web (Inativo)'}]
+            
         dispositivos = sd.query_devices()
         entradas = []
         for i, d in enumerate(dispositivos):
