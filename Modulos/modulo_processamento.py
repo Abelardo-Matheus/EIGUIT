@@ -219,6 +219,7 @@ class ProcessadorAudio:
         if np.max(np.abs(audio_array)) < 0.01:
             return 0.0
 
+
         # O yin() do librosa aceita um parâmetro de tolerância (trough_threshold)
         # Menor = Mais rigoroso (ignora harmônicos), Maior = Mais fácil
         f0 = librosa.yin(audio_array, fmin=60, fmax=400, sr=self.sr, trough_threshold=tolerancia)
