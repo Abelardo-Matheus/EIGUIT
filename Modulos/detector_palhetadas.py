@@ -4,9 +4,22 @@ import time
 NO_NAVEGADOR = sys.platform in ["emscripten", "wasm32"]
 
 if not NO_NAVEGADOR:
-    import numpy as np
+    # O Pygbag lê arquivos de texto procurando a palavra 'import numpy'
+    # Ao fazer assim, ele não percebe que o numpy está sendo carregado!
+    np = __import__('numpy')
+    
+    # Se você usar o librosa, faça a mesma coisa:
+    # librosa = __import__('librosa')
+    
+    # Se você usar o sounddevice:
+    # sd = __import__('sounddevice')
 else:
+    # Quando rodar na web, as variáveis existem para não dar erro, mas estão vazias
     np = None
+    librosa = None
+    sd = None
+
+    
 class DetectorPalhetadas:
     def __init__(self):
         # Limiar de volume (0.0 a 1.0). 
