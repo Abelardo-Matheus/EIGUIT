@@ -64,8 +64,8 @@ class Metronomo:
                 pasta_modulos = os.path.dirname(os.path.abspath(__file__))
                 pasta_raiz = os.path.dirname(pasta_modulos)
 
-            caminho_tick = os.path.join(pasta_raiz, "tick.wav")
-            caminho_tick_high = os.path.join(pasta_raiz, "tick_high.wav")
+            caminho_tick = os.path.join(pasta_raiz, "tick.ogg")
+            caminho_tick_high = os.path.join(pasta_raiz, "tick_high.ogg")
             
             # Carrega
             self.som_acento = pygame.mixer.Sound(caminho_tick_high) 
