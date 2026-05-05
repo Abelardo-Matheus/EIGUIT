@@ -16,7 +16,7 @@ def obter_grau(tonica, nota):
     except ValueError:
         return ""
 
-def desenhar_campo_harmonico(tela, estado, fonte_titulo, fonte_ui, fonte_pequena):
+
     # Agora usa sua própria variável independente!
     y_base = estado.Y_CAMPO_HARMONICO
     x_centro = tela.get_width() // 2
@@ -115,17 +115,13 @@ def desenhar_painel_superior(tela, estado, fontes):
     tela.blit(txt_b, (estado.btn_baixo.centerx - txt_b.get_width()//2, estado.btn_baixo.centery - txt_b.get_height()//2))
 
 
-def desenhar_guitarra(tela, estado, configs, fontes, meu_processador):
+def desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_harmonico):
     notas_abertas = lista_afinacoes[estado.indice_afinacao]["notas"]
-    cor_madeira = configs.get_cor_braco() if configs else MADEIRA
+    cor_madeira = configs.get_cor_braco() if configs else (80, 40, 15)
     
-    # ========================================================
-    # --- MATEMÁTICA DINÂMICA: GUITARRA VS BAIXO ---
-    # ========================================================
     instrumento = getattr(estado, 'instrumento', 'guitarra')
     num_cordas_desenho = 4 if instrumento == 'baixo' else estado.NUM_CORDAS
     
-    # Se for baixo, a madeira "emagrece" o equivalente a 2 cordas e desce um pouco para centralizar
     if instrumento == 'baixo':
         altura_braco_atual = estado.ALTURA_BRACO - (2 * estado.ESPACO_CORDAS)
         offset_y_atual = estado.OFFSET_Y + estado.ESPACO_CORDAS
@@ -133,69 +129,67 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador):
         altura_braco_atual = estado.ALTURA_BRACO
         offset_y_atual = estado.OFFSET_Y
 
-    # 1. Desenha a madeira ajustada
+    # 1. Madeira e Trastes
     pygame.draw.rect(tela, cor_madeira, (estado.OFFSET_X, offset_y_atual, estado.LARGURA_BRACO, altura_braco_atual))
 
-    # 2. Desenha os Trastes usando a nova altura
     for casa in range(estado.NUM_CASAS + 1):
         x = estado.OFFSET_X + (casa * estado.ESPACO_CASAS)
-        pygame.draw.line(tela, COR_TRASTE, (x, offset_y_atual), (x, offset_y_atual + altura_braco_atual), 2)
-        if casa > 0:
-            num = fontes['ui'].render(str(casa), True, (150, 150, 150))
-            tela.blit(num, (x - (estado.ESPACO_CASAS/2) - 5, offset_y_atual + altura_braco_atual + 15))
+        pygame.draw.line(tela, (150, 150, 150), (x, offset_y_atual), (x, offset_y_atual + altura_braco_atual), 2)
     
     modo_texto = configs.get_modo_texto() if configs else 'letras'
-    cor_base_escala = configs.get_cor_notas() if configs else BRANCO
+    cor_base_escala = configs.get_cor_notas() if configs else (255, 255, 255)
     
-    # 3. Desenha as Cordas
+    # 3. Cordas
     for i in range(num_cordas_desenho):
+        y = (offset_y_atual + altura_braco_atual - (i * estado.ESPACO_CORDAS)) if instrumento != 'baixo' else (offset_y_atual + altura_braco_atual - 15 - (i * estado.ESPACO_CORDAS))
+        pygame.draw.line(tela, (200, 200, 200), (estado.OFFSET_X, y), (estado.OFFSET_X + estado.LARGURA_BRACO, y), 1)
         
-        if instrumento == 'baixo':
-            espessura = 2 + ((num_cordas_desenho - 1 - i) * 1.5) 
-            # Calcula o padding para as 4 cordas ficarem perfeitamente no meio da madeira fina
-            padding = (altura_braco_atual - ((num_cordas_desenho - 1) * estado.ESPACO_CORDAS)) / 2
-            y = offset_y_atual + altura_braco_atual - padding - (i * estado.ESPACO_CORDAS)
-            
-            # Pula as 2 cordas mais agudas da afinação da guitarra (E e B)
-            indice_nota = i + 2 
-        else:
-            espessura = 1 + ((estado.NUM_CORDAS - 1 - i) * 0.7)
-            y = estado.OFFSET_Y + estado.ALTURA_BRACO - (i * estado.ESPACO_CORDAS)
-            indice_nota = i
+        nota_aberta_atual = notas_abertas[i if instrumento != 'baixo' else i + 2]
 
-        pygame.draw.line(tela, COR_CORDA, (estado.OFFSET_X, y), (estado.OFFSET_X + estado.LARGURA_BRACO, y), int(espessura))
-        
-        nota_aberta_atual = notas_abertas[indice_nota]
-
-        # 4. Desenha as Notas (Bolinhas)
+        # 4. Loop de Notas
         for casa in range(estado.NUM_CASAS + 1):
             nota_calculada = escalas.obter_nota(nota_aberta_atual, casa)
-            cor_fundo = cor_base_escala 
-            raio_atual = 18 
             
+            # --- NOVA LÓGICA DE TRANSPARÊNCIA ---
+            esta_no_acorde = True
+            alpha_nota = 255 # Opaco (normal)
+            raio_atual = 18
+
+            # Se houver um acorde selecionado, checamos se a nota atual faz parte dele
+            if meu_campo_harmonico.indice_acorde_selecionado != -1:
+                if nota_calculada not in meu_campo_harmonico.notas_acorde_selecionado:
+                    esta_no_acorde = False
+                    alpha_nota = 90  # Fica bem transparente
+                    raio_atual = 14  # Diminui um pouco o tamanho para dar profundidade
+
             x_nota = estado.OFFSET_X - 40 if casa == 0 else estado.OFFSET_X + (casa * estado.ESPACO_CASAS) - (estado.ESPACO_CASAS / 2)
 
-            if nota_calculada == estado.tom_atual: cor_fundo = CORES_TONICA[estado.indice_cor_tonica]
-            elif nota_calculada == escalas.obter_terca(estado.tom_atual): cor_fundo = CORES_TONICA[estado.indice_cor_terca]
-            elif nota_calculada == escalas.obter_quinta(estado.tom_atual): cor_fundo = CORES_TONICA[estado.indice_cor_quinta]
+            # Define a cor base
+            cor_fundo = cor_base_escala 
+            if meu_campo_harmonico.indice_acorde_selecionado != -1 and esta_no_acorde:
+                if nota_calculada == meu_campo_harmonico.notas_acorde_selecionado[0]: cor_fundo = CORES_TONICA[estado.indice_cor_tonica]
+                elif nota_calculada == meu_campo_harmonico.notas_acorde_selecionado[1]: cor_fundo = CORES_TONICA[estado.indice_cor_terca]
+                elif nota_calculada == meu_campo_harmonico.notas_acorde_selecionado[2]: cor_fundo = CORES_TONICA[estado.indice_cor_quinta]
+            else:
+                if nota_calculada == estado.tom_atual: cor_fundo = CORES_TONICA[estado.indice_cor_tonica]
+                elif nota_calculada == escalas.obter_terca(estado.tom_atual): cor_fundo = CORES_TONICA[estado.indice_cor_terca]
+                elif nota_calculada == escalas.obter_quinta(estado.tom_atual): cor_fundo = CORES_TONICA[estado.indice_cor_quinta]
 
-            # Frequência da IA mapeada para o índice correto da corda
-            if estado.freq_detectada > 0 and len(meu_processador.freqs_referencia) > indice_nota:
-                freq_aberta = meu_processador.freqs_referencia[indice_nota]
-                freq_desta_casa = freq_aberta * (2 ** (casa / 12.0))
-                margem = freq_desta_casa * 0.03
-                
-                if abs(estado.freq_detectada - freq_desta_casa) < margem:
-                    cor_fundo = (255, 255, 0) 
-                    raio_atual = 26 
+            # --- RENDERIZAÇÃO COM SUPORTE A ALPHA ---
+            # No Pygame, para desenhar círculos transparentes, usamos uma Surface temporária
+            s = pygame.Surface((raio_atual*2, raio_atual*2), pygame.SRCALPHA)
+            pygame.draw.circle(s, (*cor_fundo, alpha_nota), (raio_atual, raio_atual), raio_atual)
+            pygame.draw.circle(s, (0, 0, 0, alpha_nota), (raio_atual, raio_atual), raio_atual, 2) # Borda
+            tela.blit(s, (int(x_nota - raio_atual), int(y - raio_atual)))
 
-            pygame.draw.circle(tela, cor_fundo, (int(x_nota), int(y)), raio_atual)
-            pygame.draw.circle(tela, PRETO, (int(x_nota), int(y)), raio_atual, 2)
-            
+            # Texto da nota (também com transparência)
             if modo_texto != 'vazio':
-                texto_str = nota_calculada if modo_texto == 'letras' else obter_grau(estado.tom_atual, nota_calculada)
-                txt_nota = fontes['notas'].render(texto_str, True, PRETO)
-                tela.blit(txt_nota, (x_nota - (txt_nota.get_width()/2), y - (txt_nota.get_height()/2)))
+                tom_ref = meu_campo_harmonico.notas_acorde_selecionado[0] if meu_campo_harmonico.indice_acorde_selecionado != -1 else estado.tom_atual
+                texto_str = nota_calculada if modo_texto == 'letras' else obter_grau(tom_ref, nota_calculada)
+                
+                txt_surf = fontes['notas'].render(texto_str, True, (0, 0, 0))
+                txt_surf.set_alpha(alpha_nota) # Aplica a mesma transparência no texto
+                tela.blit(txt_surf, (x_nota - (txt_surf.get_width()/2), y - (txt_surf.get_height()/2)))
 
 def desenhar_painel_lateral(tela, estado, fontes):
     info = lista_afinacoes[estado.indice_afinacao]["nome"]
@@ -276,18 +270,21 @@ def desenhar_painel_inferior(tela, estado, fontes):
         txt_sub = fontes['pequena'].render(nome_sub, True, cor_texto_sub)
         tela.blit(txt_sub, (rect_sub.centerx - (txt_sub.get_width()/2), rect_sub.centery - (txt_sub.get_height()/2)))
 
-def desenhar_tudo(tela, estado, configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador):
+
+def desenhar_tudo(tela, estado, configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico):
     tela.fill(FUNDO_ESCURO)
     
-    desenhar_guitarra(tela, estado, configs, fontes, meu_processador) 
+    desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_harmonico)
     desenhar_painel_superior(tela, estado, fontes)
     desenhar_painel_lateral(tela, estado, fontes)
     desenhar_painel_inferior(tela, estado, fontes) 
-    desenhar_campo_harmonico(tela, estado, fontes['titulo'], fontes['ui'], fontes['pequena'])
     
     alpha_atual = configs.get_alpha() if configs else 255
     
-    # ... (desenhos da guitarra, campo harmônico, etc) ...
+    # ========================================================
+    # --- DESENHAR O CAMPO HARMÔNICO ---
+    # ========================================================
+    meu_campo_harmonico.desenhar(tela, estado.Y_CAMPO_HARMONICO, fontes['titulo'], fontes['ui'], fontes['pequena'])
 
     # ========================================================
     # 1. LIGAR A MÁSCARA (CLIPPING) PARA TODA A CAIXA
@@ -354,6 +351,5 @@ def desenhar_tudo(tela, estado, configs, dicionario_escalas, fontes, meu_metrono
         pygame.draw.rect(tela, (60, 60, 60), (x_scroll, y_corte, 10, altura_corte), border_radius=5)
         pygame.draw.rect(tela, (150, 150, 150), (x_scroll, y_alca, 10, tamanho_alca), border_radius=5)
    
-    
     
     meu_metronomo.desenhar_mini_metronomo(tela, tela.get_width(), tela.get_height(), fontes['ui'])

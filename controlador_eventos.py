@@ -3,7 +3,7 @@ import fabrica_escalas as fabrica_escalas
 import gerenciador_interface as gerenciador_interface
 from constantes_ui import *
 
-def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_processador, meu_gravador):
+def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico):
     pos_mouse = pygame.mouse.get_pos()
     
     for evento in eventos:
@@ -29,22 +29,9 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
         if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
             pos_mouse = pygame.mouse.get_pos()
             
-            # --- CLIQUES DO CAMPO HARMÔNICO ---
-            # Setas da Tônica (Muda a nota raiz: C, C#, D...)
-            if estado.rect_tonica_esq.collidepoint(pos_mouse):
-                idx = estado.notas_base.index(estado.tonica_campo)
-                estado.tonica_campo = estado.notas_base[(idx - 1) % 12]
-                
-            elif estado.rect_tonica_dir.collidepoint(pos_mouse):
-                idx = estado.notas_base.index(estado.tonica_campo)
-                estado.tonica_campo = estado.notas_base[(idx + 1) % 12]
-                
-            # Setas do Tipo de Escala (Muda de Maior para Menor, Dórico, etc)
-            elif estado.rect_escala_esq.collidepoint(pos_mouse):
-                estado.indice_escala_campo = (estado.indice_escala_campo - 1) % len(estado.escalas_campo)
-                
-            elif estado.rect_escala_dir.collidepoint(pos_mouse):
-                estado.indice_escala_campo = (estado.indice_escala_campo + 1) % len(estado.escalas_campo)
+            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+                if meu_campo_harmonico.tratar_clique(evento.pos):
+                    pass # Se clicou no campo harmônico, já foi tratado!
 
             # --- LÓGICA DO CLIQUE DOS INSTRUMENTOS (Guitarra / Baixo) ---
             if hasattr(estado, 'btn_guit') and estado.btn_guit.collidepoint(evento.pos):

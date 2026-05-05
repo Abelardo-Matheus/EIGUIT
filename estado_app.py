@@ -12,22 +12,7 @@ class EstadoGlobal:
         self.tonica_campo = 'C'  # Tônica padrão
         self.indice_escala_campo = 0
         
-        # O "DNA" de todas as escalas possíveis (Modos Gregos)
-        self.escalas_campo = [
-            {"nome": "Maior (Jônio)", "int": [0, 2, 4, 5, 7, 9, 11], "romanos": ["I", "ii", "iii", "IV", "V", "vi", "vii°"], "qualidades": ["", "m", "m", "", "", "m", "dim"]},
-            {"nome": "Menor (Eólio)", "int": [0, 2, 3, 5, 7, 8, 10], "romanos": ["i", "ii°", "III", "iv", "v", "VI", "VII"], "qualidades": ["m", "dim", "", "m", "m", "", ""]},
-            {"nome": "Dórico", "int": [0, 2, 3, 5, 7, 9, 10], "romanos": ["i", "ii", "III", "IV", "v", "vi°", "VII"], "qualidades": ["m", "m", "", "", "m", "dim", ""]},
-            {"nome": "Frígio", "int": [0, 1, 3, 5, 7, 8, 10], "romanos": ["i", "II", "III", "iv", "v°", "VI", "vii"], "qualidades": ["m", "", "", "m", "dim", "", "m"]},
-            {"nome": "Lídio", "int": [0, 2, 4, 6, 7, 9, 11], "romanos": ["I", "II", "iii", "iv°", "V", "vi", "vii"], "qualidades": ["", "", "m", "dim", "", "m", "m"]},
-            {"nome": "Mixolídio", "int": [0, 2, 4, 5, 7, 9, 10], "romanos": ["I", "ii", "iii°", "IV", "v", "vi", "VII"], "qualidades": ["", "m", "dim", "", "m", "m", ""]},
-            {"nome": "Lócrio", "int": [0, 1, 3, 5, 6, 8, 10], "romanos": ["i°", "II", "iii", "iv", "V", "VI", "vii"], "qualidades": ["dim", "", "m", "m", "", "", "m"]},
-        ]
         
-        # Retângulos de colisão para as setinhas (salvamos aqui para o controlador de eventos achar)
-        self.rect_tonica_esq = pygame.Rect(0,0,0,0)
-        self.rect_tonica_dir = pygame.Rect(0,0,0,0)
-        self.rect_escala_esq = pygame.Rect(0,0,0,0)
-        self.rect_escala_dir = pygame.Rect(0,0,0,0)
 
         
         self.indice_afinacao = 0
@@ -86,3 +71,30 @@ class EstadoGlobal:
         self.ESPACO_CORDAS = self.ALTURA_BRACO / (self.NUM_CORDAS - 1)
         self.ESPACO_CASAS = self.LARGURA_BRACO / self.NUM_CASAS
         self.rect_braco_colisao = pygame.Rect(self.OFFSET_X, self.OFFSET_Y, self.LARGURA_BRACO, self.ALTURA_BRACO)
+    
+    def calcular_notas_acorde_selecionado(self):
+        """Descobre a Tônica, Terça e Quinta do acorde que o usuário clicou."""
+        escala_atual = self.escalas_campo[self.indice_escala_campo]
+        idx_tonica_escala = self.notas_base.index(self.tonica_campo)
+
+        # 1. Acha a raiz do acorde clicado
+        idx_raiz_acorde = (idx_tonica_escala + escala_atual["int"][self.indice_acorde_selecionado]) % 12
+        qualidade = escala_atual["qualidades"][self.indice_acorde_selecionado]
+
+        # 2. Calcula os intervalos baseados na qualidade (Maior, Menor, Diminuto)
+        if qualidade == "": # Acorde Maior
+            idx_terca = (idx_raiz_acorde + 4) % 12
+            idx_quinta = (idx_raiz_acorde + 7) % 12
+        elif qualidade == "m": # Acorde Menor
+            idx_terca = (idx_raiz_acorde + 3) % 12
+            idx_quinta = (idx_raiz_acorde + 7) % 12
+        elif qualidade == "dim": # Acorde Diminuto
+            idx_terca = (idx_raiz_acorde + 3) % 12
+            idx_quinta = (idx_raiz_acorde + 6) % 12
+
+        # 3. Salva a tríade exata
+        self.notas_acorde_selecionado = [
+            self.notas_base[idx_raiz_acorde],
+            self.notas_base[idx_terca],
+            self.notas_base[idx_quinta]
+        ]
