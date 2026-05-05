@@ -15,7 +15,76 @@ def obter_grau(tonica, nota):
         return graus[distancia]
     except ValueError:
         return ""
+
+def desenhar_campo_harmonico(tela, estado, fonte_titulo, fonte_ui, fonte_pequena):
+    # Agora usa sua própria variável independente!
+    y_base = estado.Y_CAMPO_HARMONICO
+    x_centro = tela.get_width() // 2
     
+    # Cores
+    COR_FUNDO = (40, 40, 40)
+    COR_BORDA = (100, 100, 100)
+    COR_TEXTO = (255, 255, 255)
+    AZUL_BOTAO = (0, 120, 215)
+    
+    # Pega os dados da escala atual
+    escala_atual = estado.escalas_campo[estado.indice_escala_campo]
+    idx_tonica = estado.notas_base.index(estado.tonica_campo)
+    
+    # --- DESENHAR OS 7 BLOCOS ---
+    largura_bloco = 70
+    altura_bloco = 60
+    espacamento = 15
+    largura_total = (7 * largura_bloco) + (6 * espacamento)
+    x_inicial = x_centro - (largura_total // 2)
+    
+    for i in range(7):
+        x_bloco = x_inicial + i * (largura_bloco + espacamento)
+        
+        # Calcula a nota correta somando o intervalo da escala
+        idx_nota = (idx_tonica + escala_atual["int"][i]) % 12
+        nota_acorde = estado.notas_base[idx_nota]
+        nome_acorde = nota_acorde + escala_atual["qualidades"][i]
+        
+        # 1. Desenha o Algarismo Romano em cima
+        romano = escala_atual["romanos"][i]
+        txt_romano = fonte_pequena.render(romano, True, COR_BORDA)
+        tela.blit(txt_romano, (x_bloco + (largura_bloco//2) - (txt_romano.get_width()//2), y_base - 25))
+        
+        # 2. Desenha o Bloco
+        rect_bloco = pygame.Rect(x_bloco, y_base, largura_bloco, altura_bloco)
+        pygame.draw.rect(tela, COR_FUNDO, rect_bloco, border_radius=8)
+        pygame.draw.rect(tela, COR_BORDA, rect_bloco, width=2, border_radius=8)
+        
+        # 3. Desenha o Acorde dentro do bloco
+        txt_acorde = fonte_titulo.render(nome_acorde, True, COR_TEXTO)
+        tela.blit(txt_acorde, (x_bloco + (largura_bloco//2) - (txt_acorde.get_width()//2), y_base + 15))
+
+    # --- DESENHAR OS CONTROLES (Setinhas em baixo) ---
+    y_controles = y_base + altura_bloco + 20
+    
+    # Controle da Tônica (Ex: < C >)
+    estado.rect_tonica_esq = pygame.Rect(x_centro - 200, y_controles, 30, 30)
+    estado.rect_tonica_dir = pygame.Rect(x_centro - 100, y_controles, 30, 30)
+    pygame.draw.rect(tela, AZUL_BOTAO, estado.rect_tonica_esq, border_radius=5)
+    pygame.draw.rect(tela, AZUL_BOTAO, estado.rect_tonica_dir, border_radius=5)
+    tela.blit(fonte_titulo.render("<", True, COR_TEXTO), (estado.rect_tonica_esq.x + 8, estado.rect_tonica_esq.y + 2))
+    tela.blit(fonte_titulo.render(">", True, COR_TEXTO), (estado.rect_tonica_dir.x + 8, estado.rect_tonica_dir.y + 2))
+    
+    txt_tonica = fonte_titulo.render(estado.tonica_campo, True, COR_TEXTO)
+    tela.blit(txt_tonica, (x_centro - 150 - (txt_tonica.get_width()//2), y_controles + 5))
+
+    # Controle da Escala (Ex: < Maior (Jônio) >)
+    estado.rect_escala_esq = pygame.Rect(x_centro + 10, y_controles, 30, 30)
+    estado.rect_escala_dir = pygame.Rect(x_centro + 240, y_controles, 30, 30)
+    pygame.draw.rect(tela, AZUL_BOTAO, estado.rect_escala_esq, border_radius=5)
+    pygame.draw.rect(tela, AZUL_BOTAO, estado.rect_escala_dir, border_radius=5)
+    tela.blit(fonte_titulo.render("<", True, COR_TEXTO), (estado.rect_escala_esq.x + 8, estado.rect_escala_esq.y + 2))
+    tela.blit(fonte_titulo.render(">", True, COR_TEXTO), (estado.rect_escala_dir.x + 8, estado.rect_escala_dir.y + 2))
+    
+    txt_escala = fonte_ui.render(escala_atual["nome"], True, COR_TEXTO)
+    tela.blit(txt_escala, (x_centro + 140 - (txt_escala.get_width()//2), y_controles + 5))
+
 def desenhar_painel_superior(tela, estado, fontes):
     btn_menos_casa = pygame.Rect(estado.OFFSET_X, 30, 40, 35)
     btn_mais_casa = pygame.Rect(estado.OFFSET_X + 160, 30, 40, 35)
@@ -214,28 +283,77 @@ def desenhar_tudo(tela, estado, configs, dicionario_escalas, fontes, meu_metrono
     desenhar_painel_superior(tela, estado, fontes)
     desenhar_painel_lateral(tela, estado, fontes)
     desenhar_painel_inferior(tela, estado, fontes) 
+    desenhar_campo_harmonico(tela, estado, fontes['titulo'], fontes['ui'], fontes['pequena'])
     
     alpha_atual = configs.get_alpha() if configs else 255
-    gerenciador_interface.desenhar_escalas_ativas(
-        tela, pygame.mouse.get_pos(), estado.aba_atual, estado.memoria_sub_abas[estado.aba_atual], 
-        dicionario_escalas, estado.rect_braco_colisao, alpha_atual, fontes['pequena'] 
-    )
+    
+    # ... (desenhos da guitarra, campo harmônico, etc) ...
+
+    # ========================================================
+    # 1. LIGAR A MÁSCARA (CLIPPING) PARA TODA A CAIXA
+    # ========================================================
+    y_corte = estado.Y_CAIXA + 60
+    altura_corte = estado.ALTURA_CAIXA - 60
+    rect_corte = pygame.Rect(estado.OFFSET_X, y_corte, estado.LARGURA_BRACO, altura_corte)
+    
+    tela.set_clip(rect_corte)
+    
+    # Pega o scroll exato da aba que estamos olhando agora
+    scroll_atual = estado.scroll_y[estado.aba_atual]
+    
+    # --- ABA 0: ESCALAS ---
+    if estado.aba_atual == 0:
+        gerenciador_interface.desenhar_escalas_ativas(
+            tela, pygame.mouse.get_pos(), estado.aba_atual, estado.memoria_sub_abas[0], 
+            dicionario_escalas, estado.rect_braco_colisao, alpha_atual, fontes['pequena'],
+            scroll_atual # Passando o scroll!
+        )
         
-    if estado.aba_atual == 3 and estado.memoria_sub_abas[3] == 0: configs.desenhar(tela, fontes['titulo'], fontes['ui'])
-    if estado.aba_atual == 3 and estado.memoria_sub_abas[3] == 3: meu_metronomo.desenhar_config(tela, fontes['ui'])
+    # --- ABA 2: ANÁLISE DE IA ---
     if estado.aba_atual == 2 and estado.memoria_sub_abas[2] == 0:
-        btn_gravar_ia = pygame.Rect(estado.OFFSET_X + 20, estado.Y_CAIXA + 100, 150, 40)
-        
+        # A Mágica aqui: Subtraímos o scroll direto no Y da criação do botão e da aba!
+        y_botao_ia = (estado.Y_CAIXA + 100) - scroll_atual
+        btn_gravar_ia = pygame.Rect(estado.OFFSET_X + 20, y_botao_ia, 150, 40)
         notas_abertas_atual = lista_afinacoes[estado.indice_afinacao]["notas"]
         
+        y_base_ia = (estado.Y_CAIXA + 50) - scroll_atual
+        
         meu_processador.desenhar_aba_ia(
-            tela, estado.OFFSET_X, estado.Y_CAIXA+50, btn_gravar_ia, 
+            tela, estado.OFFSET_X, y_base_ia, btn_gravar_ia, 
             meu_gravador, fontes['ui'], fontes['titulo'], notas_abertas_atual, estado 
         )
-    # ==========================================
-    # --- NOVO: Sub-Aba 1 (Treino de Ritmo) ---
-    # ==========================================
-    if estado.aba_atual == 2 and estado.memoria_sub_abas[2] == 1:
-        meu_processador.desenhar_aba_treino_ritmo(tela, estado.OFFSET_X, estado.Y_CAIXA, fontes['ui'], fontes['titulo'])
         
+    if estado.aba_atual == 2 and estado.memoria_sub_abas[2] == 1:
+        y_base_ritmo = estado.Y_CAIXA - scroll_atual
+        meu_processador.desenhar_aba_treino_ritmo(tela, estado.OFFSET_X, y_base_ritmo, fontes['ui'], fontes['titulo'])
+
+    # --- ABA 3: CONFIGURAÇÕES E METRÔNOMO ---
+    if estado.aba_atual == 3 and estado.memoria_sub_abas[3] == 0: 
+        # Passando o scroll como argumento novo
+        configs.desenhar(tela, fontes['titulo'], fontes['ui'], scroll_atual)
+        
+    if estado.aba_atual == 3 and estado.memoria_sub_abas[3] == 3: 
+        # Passando o scroll como argumento novo
+        meu_metronomo.desenhar_config(tela, fontes['ui'], scroll_atual)
+
+    # ========================================================
+    # 2. DESLIGAR A MÁSCARA
+    # ========================================================
+    tela.set_clip(None)
+
+    # ========================================================
+    # 3. DESENHAR A BARRA DE ROLAGEM DINÂMICA
+    # ========================================================
+    if estado.max_scroll[estado.aba_atual] > 0:
+        x_scroll = estado.OFFSET_X + estado.LARGURA_BRACO - 15
+        tamanho_alca = max(30, altura_corte * (altura_corte / (altura_corte + estado.max_scroll[estado.aba_atual])))
+        
+        progresso = scroll_atual / estado.max_scroll[estado.aba_atual]
+        y_alca = y_corte + (progresso * (altura_corte - tamanho_alca))
+        
+        pygame.draw.rect(tela, (60, 60, 60), (x_scroll, y_corte, 10, altura_corte), border_radius=5)
+        pygame.draw.rect(tela, (150, 150, 150), (x_scroll, y_alca, 10, tamanho_alca), border_radius=5)
+   
+    
+    
     meu_metronomo.desenhar_mini_metronomo(tela, tela.get_width(), tela.get_height(), fontes['ui'])

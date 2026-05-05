@@ -60,33 +60,52 @@ class DesenhoEscala:
         self.estado = 'painel'
 
     def tratar_clique(self, pos_mouse, rect_braco_colisao):
+        # 1. Pega o valor do scroll (se não existir, é 0)
+        scroll = getattr(self, 'scroll_offset', 0)
+
         if self.estado == 'painel':
-            if self.rect_painel.collidepoint(pos_mouse):
+            # Faz uma cópia da caixa original e subtrai o scroll para checar o clique no lugar certo!
+            rect_clique_rolado = self.rect_painel.copy()
+            rect_clique_rolado.y -= scroll
+
+            if rect_clique_rolado.collidepoint(pos_mouse):
                 self.estado = 'mouse'
                 return True
+                
         elif self.estado == 'braco':
             if self.rect_braco.collidepoint(pos_mouse):
                 self.estado = 'painel'
                 return True
+                
         elif self.estado == 'mouse':
             if rect_braco_colisao.collidepoint(pos_mouse):
                 self.estado = 'braco'
             else:
                 self.estado = 'painel'
             return True
+            
         return False
     
     # ATENÇÃO: Adicionamos fonte_pequena como parâmetro aqui para não depender do main.py!
     def atualizar_e_desenhar(self, tela, pos_mouse, rect_braco_colisao, fonte_pequena, nivel_alpha=255):
         self.imagem_painel.set_alpha(nivel_alpha)
         self.imagem_braco.set_alpha(nivel_alpha)
+
+        # 2. Pega o valor do scroll na hora de desenhar
+        scroll = getattr(self, 'scroll_offset', 0)
+        
         if self.estado == 'painel':
-            tela.blit(self.imagem_painel, self.rect_painel.topleft)
+            # Subtrai o scroll da posição Y original
+            y_desenho_rolado = self.rect_painel.y - scroll
+            
+            # Desenha a imagem usando o X original, mas o Y roladinho
+            tela.blit(self.imagem_painel, (self.rect_painel.x, y_desenho_rolado))
             
             if self.nome != "":
-                texto_nome = fonte_pequena.render(self.nome, True, BRANCO)
+                # IMPORTANTE: Confirme se BRANCO está importado neste arquivo! (255, 255, 255)
+                texto_nome = fonte_pequena.render(self.nome, True, (255, 255, 255))
                 txt_x = self.rect_painel.centerx - (texto_nome.get_width() / 2)
-                txt_y = self.rect_painel.top - 25 
+                txt_y = y_desenho_rolado - 25  # O título também sobe e desce junto!
                 tela.blit(texto_nome, (txt_x, txt_y))
             
         elif self.estado == 'mouse' or self.estado == 'braco':

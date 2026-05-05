@@ -9,13 +9,43 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
     for evento in eventos:
         if evento.type == pygame.QUIT: 
             estado.solicitou_saida = True
+
+        # ROLAGEM DO MOUSE (SCROLL)
+        if evento.type == pygame.MOUSEWHEEL:
+            aba = estado.aba_atual
+            velocidade_scroll = 40
             
+            # Só rola se aquela aba tiver um limite máximo definido
+            if estado.max_scroll[aba] > 0:
+                estado.scroll_y[aba] -= evento.y * velocidade_scroll
+                # Trava para não subir pro infinito nem passar do limite
+                estado.scroll_y[aba] = max(0, min(estado.scroll_y[aba], estado.max_scroll[aba]))
+
         if evento.type == pygame.KEYDOWN:
             meu_metronomo.tratar_teclado(evento)
             if evento.key == pygame.K_ESCAPE: 
                 estado.solicitou_saida = True
                 
-        if evento.type == pygame.MOUSEBUTTONDOWN:
+        if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+            pos_mouse = pygame.mouse.get_pos()
+            
+            # --- CLIQUES DO CAMPO HARMÔNICO ---
+            # Setas da Tônica (Muda a nota raiz: C, C#, D...)
+            if estado.rect_tonica_esq.collidepoint(pos_mouse):
+                idx = estado.notas_base.index(estado.tonica_campo)
+                estado.tonica_campo = estado.notas_base[(idx - 1) % 12]
+                
+            elif estado.rect_tonica_dir.collidepoint(pos_mouse):
+                idx = estado.notas_base.index(estado.tonica_campo)
+                estado.tonica_campo = estado.notas_base[(idx + 1) % 12]
+                
+            # Setas do Tipo de Escala (Muda de Maior para Menor, Dórico, etc)
+            elif estado.rect_escala_esq.collidepoint(pos_mouse):
+                estado.indice_escala_campo = (estado.indice_escala_campo - 1) % len(estado.escalas_campo)
+                
+            elif estado.rect_escala_dir.collidepoint(pos_mouse):
+                estado.indice_escala_campo = (estado.indice_escala_campo + 1) % len(estado.escalas_campo)
+
             # --- LÓGICA DO CLIQUE DOS INSTRUMENTOS (Guitarra / Baixo) ---
             if hasattr(estado, 'btn_guit') and estado.btn_guit.collidepoint(evento.pos):
                 estado.instrumento = 'guitarra'
@@ -68,7 +98,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                 continue
 
             # --- ESCALAS E ARRASTAR BLOCOS ---
-            if gerenciador_interface.tratar_cliques_escalas(evento.pos, estado.aba_atual, estado.memoria_sub_abas[estado.aba_atual], dicionario_escalas, estado.rect_braco_colisao):
+            if gerenciador_interface.tratar_cliques_escalas(evento.pos, estado.aba_atual, estado.memoria_sub_abas[estado.aba_atual], dicionario_escalas, estado.rect_braco_colisao, estado.scroll_y[estado.aba_atual]):
                 continue
             
             # --- MENU LATERAL (TOM, CORES, AFINAÇÃO) ---

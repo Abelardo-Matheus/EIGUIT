@@ -15,7 +15,7 @@ def gerar_modulos(estado, configs):
     }
     
     offset_x_atual = estado.OFFSET_X + 20     
-    y_painel = estado.Y_CAIXA + 150 
+    y_painel = estado.Y_CAIXA + 100 
     espaco = 30 
     
     nomes_shapes = ["Shape 1", "Shape 2", "Shape 3", "Shape 4", "Shape 5", "Completo"]

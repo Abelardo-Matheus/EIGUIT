@@ -216,26 +216,37 @@ class Metronomo:
                     else:
                         self.som_tick.play()
 
-    def desenhar_config(self, tela, fonte_ui):
+    # Altere a assinatura para receber scroll_y
+    def desenhar_config(self, tela, fonte_ui, scroll_y=0):
         """Desenha APENAS configurações estáticas na aba"""
-        # Checkbox
+        
+        # 1. Aplica o scroll no Y base
+        y_rolado = self.y - scroll_y
+        
+        # Checkbox (Atualizando a posição do Rect com o novo Y)
+        self.rect_checkbox.y = y_rolado
         pygame.draw.rect(tela, self.CINZA, self.rect_checkbox, 2)
         if self.ativado:
-            cor_ativa = self.paleta_cores[1] # Verde da paleta
-            pygame.draw.line(tela, cor_ativa, (self.x+5, self.y+12), (self.x+10, self.y+20), 3)
-            pygame.draw.line(tela, cor_ativa, (self.x+10, self.y+20), (self.x+20, self.y+5), 3)
-        tela.blit(fonte_ui.render("Ativar Metrônomo", True, self.BRANCO), (self.x + 35, self.y))
+            cor_ativa = self.paleta_cores[1] 
+            pygame.draw.line(tela, cor_ativa, (self.x+5, y_rolado+12), (self.x+10, y_rolado+20), 3)
+            pygame.draw.line(tela, cor_ativa, (self.x+10, y_rolado+20), (self.x+20, y_rolado+5), 3)
+        tela.blit(fonte_ui.render("Ativar Metrônomo", True, self.BRANCO), (self.x + 35, y_rolado))
 
         # Compasso
-        y_compasso = self.y + 45
+        y_compasso = y_rolado + 45
         tela.blit(fonte_ui.render(f"Batidas: {self.compasso}", True, self.BRANCO), (self.x, y_compasso))
+        
+        # Atualiza o Y dos botões
+        self.btn_mais_batida.y = y_rolado + 40
+        self.btn_menos_batida.y = y_rolado + 40
+        
         pygame.draw.rect(tela, (50, 50, 50), self.btn_mais_batida)
         pygame.draw.rect(tela, (50, 50, 50), self.btn_menos_batida)
         tela.blit(fonte_ui.render("+", True, self.BRANCO), (self.btn_mais_batida.x+8, self.btn_mais_batida.y+2))
         tela.blit(fonte_ui.render("-", True, self.BRANCO), (self.btn_menos_batida.x+10, self.btn_menos_batida.y+2))
 
         # Seleção de Cores das Bolinhas
-        y_cores = self.y + 100
+        y_cores = y_rolado + 100
         tela.blit(fonte_ui.render("Cores (Clique para mudar):", True, self.BRANCO), (self.x, y_cores))
         
         self.rects_cores_config.clear()
@@ -247,7 +258,7 @@ class Metronomo:
             pygame.draw.circle(tela, cor_atual, (cx, cy), 12)
             pygame.draw.circle(tela, self.BRANCO, (cx, cy), 12, 2)
             
-            # Salva o rect para a colisão no tratar_clique
+            # Salva o rect para a colisão no tratar_clique (Já com o Y rolado!)
             self.rects_cores_config.append(pygame.Rect(cx-12, cy-12, 24, 24))
 
     def desenhar_mini_metronomo(self, tela, largura_tela, altura_tela, fonte_ui):

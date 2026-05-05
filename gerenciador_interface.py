@@ -23,30 +23,28 @@ def obter_lista_ativa(aba_atual, sub_aba_atual, dicionario_escalas):
     return []
 
 
-def desenhar_escalas_ativas(tela, pos_mouse, aba_atual, sub_aba_atual, dicionario_escalas, rect_braco, alpha, fonte):
+def desenhar_escalas_ativas(tela, pos_mouse, aba_atual, sub_aba_atual, dicionario_escalas, rect_braco, alpha, fonte, scroll_y=0):
     for chave, lista_modulos in dicionario_escalas.items():
         for modulo in lista_modulos:
-            
-            # Se a escala está grudada no braço ou sendo arrastada, desenha em qualquer aba!
             if modulo.estado in ['braco', 'mouse']:  
+                modulo.scroll_offset = 0 # Sem scroll no braço
                 modulo.atualizar_e_desenhar(tela, pos_mouse, rect_braco, fonte, alpha)
                 
-            # Se ela está quietinha no menu, só mostra se estivermos na aba e sub-aba certas
             elif modulo.estado == 'painel' and aba_atual == modulo.aba and sub_aba_atual == modulo.sub_aba:
+                # Apenas avisa a escala do valor do scroll. A própria escala vai lidar com a matemática!
+                modulo.scroll_offset = scroll_y 
                 modulo.atualizar_e_desenhar(tela, pos_mouse, rect_braco, fonte, alpha)
 
-def tratar_cliques_escalas(pos_mouse, aba_atual, sub_aba_atual, dicionario_escalas, rect_braco):
+def tratar_cliques_escalas(pos_mouse, aba_atual, sub_aba_atual, dicionario_escalas, rect_braco, scroll_y=0):
     for chave, lista_modulos in dicionario_escalas.items():
         for modulo in lista_modulos:
-            
-            # Permite clicar para remover a escala do braço mesmo se você estiver na aba de IA
             if modulo.estado in ['braco', 'mouse']:
+                modulo.scroll_offset = 0
                 if modulo.tratar_clique(pos_mouse, rect_braco):
                     return True
                     
-            # Permite pegar novas escalas do menu apenas se a aba bater
             elif modulo.estado == 'painel' and aba_atual == modulo.aba and sub_aba_atual == modulo.sub_aba:
+                modulo.scroll_offset = scroll_y
                 if modulo.tratar_clique(pos_mouse, rect_braco):
                     return True
-                    
     return False
