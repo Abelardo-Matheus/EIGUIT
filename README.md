@@ -1,7 +1,9 @@
+
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/0157dc15-1ee5-430a-b45d-5a7b8e30e995" width="250" style="border-radius: 50%; opacity: 0.3;" alt="Guitar Studio IA Logo">
+  <img src="https://github.com/user-attachments/assets/a8fadb13-ea2e-44e0-aead-4abb4989a3c6" width="250" style="border-radius: 50%; opacity: 0.3;" alt="Guitar Studio IA Logo">
   
-  <h1>🎸 Guitar Studio IA</h1>
+  <h1>🎸 EIGUIT </h1>
+  <p><i>Braço de guitarra virtual, motor de campo harmônico e processamento de áudio</i></p>
   <p><i>Virtual Fretboard, Harmonic Field Engine & Audio Processing</i></p>
   
   <img src="https://github.com/user-attachments/assets/b2bbfc5d-4f0e-469d-8c6d-feff0a189fe9" width="800" alt="Guitar Studio IA Main Interface">
