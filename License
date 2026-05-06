@@ -1,37 +1,20 @@
-TERMOS DE USO E LICENÇA - GUITAR STUDIO IA
-Copyright (c) 2026 [SEU NOME COMPLETO]
 
-Todos os direitos reservados.
+---
 
-Pelo presente documento, fica estabelecido que:
+## ⚖️ Termos de Uso e Licença Comercial / Terms of Use & Commercial License
 
-1. PROPRIEDADE INTELECTUAL: Todo o código-fonte, lógica de interface, algoritmos de campo harmônico e recursos visuais contidos neste repositório são de propriedade exclusiva do autor acima mencionado.
+**© 2026 Guitar Studio IA - [SEU NOME COMPLETO AQUI]. Todos os Direitos Reservados / All Rights Reserved.**
 
-2. USO PERMITIDO: É concedida permissão para baixar, executar e estudar o código para fins estritamente educacionais, de aprendizado pessoal e hobby.
+Este documento estabelece as regras estritas de utilização para o código-fonte, algoritmos de renderização, matemática de interface e ativos visuais presentes neste repositório.
 
-3. RESTRIÇÕES DE USO (NÃO COMERCIAL): 
-   - É expressamente PROIBIDA a venda, aluguel ou qualquer forma de exploração comercial deste software ou de partes do seu código-fonte.
-   - É expressamente PROIBIDA a redistribuição deste código em outras plataformas sem a manutenção dos créditos originais e o link para este repositório.
-   - É expressamente PROIBIDA a criação de produtos derivados (aplicativos baseados neste código) para fins lucrativos.
+1. **PROPRIEDADE INTELECTUAL:** Todo o código-fonte e algoritmos contidos neste repositório são de propriedade intelectual exclusiva do autor.
+2. **USO PERMITIDO (CÓDIGO ABERTO):** É concedida permissão para clonar, baixar, compilar e executar este software **exclusivamente para fins educacionais, acadêmicos, estudo de código e uso recreativo/pessoal.** Contribuições via *Pull Requests* para melhoria do repositório original são bem-vindas e incentivadas.
+3. **RESTRIÇÕES DE USO (NÃO COMERCIAL E SEM DERIVADOS):**
+   * É expressamente **PROIBIDA** a venda, comercialização, aluguel, assinatura ou monetização direta/indireta deste software, bem como a integração do seu código em softwares pagos ou de terceiros.
+   * É expressamente **PROIBIDA** a criação e distribuição pública de produtos derivados (*forks* que alterem a marca para se passarem por outro produto) com intenções de lucro ou sem a devida atribuição.
+   * A cópia e redistribuição em massa deste software em plataformas externas sem os créditos originais, links para este repositório do GitHub e a manutenção desta licença anexada resultará em violação de direitos autorais.
+4. **GARANTIA LIMITADA:** O software é fornecido "no estado em que se encontra" (*as is*), sem garantias de comercialização, funcionalidade livre de falhas ou adequação a propósitos específicos. O autor não se responsabiliza por danos lógicos ou problemas de processamento de áudio derivados do uso deste código.
 
-4. GARANTIA: O software é fornecido "no estado em que se encontra", sem garantias de qualquer tipo, expressas ou implícitas, incluindo, mas não se limitando a, garantias de comercialização ou adequação a um propósito específico.
-
----------------------------------------------------------------------------
-
-TERMS OF USE AND LICENSE - GUITAR STUDIO IA
-Copyright (c) 2026 [YOUR FULL NAME]
-
-All rights reserved.
-
-This document establishes that:
-
-1. INTELLECTUAL PROPERTY: All source code, interface logic, harmonic field algorithms, and visual assets contained in this repository are the exclusive property of the aforementioned author.
-
-2. PERMITTED USE: Permission is granted to download, run, and study the code for strictly educational, personal learning, and hobby purposes.
-
-3. USE RESTRICTIONS (NON-COMMERCIAL):
-   - Commercial sale, rental, or any form of commercial exploitation of this software or parts of its source code is expressly PROHIBITED.
-   - Redistribution of this code on other platforms without maintaining original credits and the link to this repository is expressly PROHIBITED.
-   - Creation of derivative products (apps based on this code) for profit is expressly PROHIBITED.
-
-4. WARRANTY: The software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability or fitness for a particular purpose.
+---
+*Desenvolvido com dedicação, lógica e muito ☕ para músicos que buscam a verdadeira evolução. / Engineered with logic, dedication, and ☕ for musicians pursuing true evolution.*
+```
