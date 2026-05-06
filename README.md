@@ -1,7 +1,8 @@
 # 🎸 Guitar Studio IA - Virtual Fretboard & Harmonic Field
 
 <div align="center">
-  <img src="[screenshots/main_view.png](https://github.com/user-attachments/assets/b2bbfc5d-4f0e-469d-8c6d-feff0a189fe9)" width="800" alt="Guitar Studio IA Main Interface">
+  <img src="https://github.com/user-attachments/assets/b2bbfc5d-4f0e-469d-8c6d-feff0a189fe9" width="800" alt="Guitar Studio IA Main Interface">
+  
  
 
 </div>
