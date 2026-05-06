@@ -1,5 +1,5 @@
 # # =============================================================================
-# GUITAR STUDIO IA - Copyright (c) 2026 [SEU NOME]
+# GUITAR STUDIO IA - Copyright (c) 2026 MATHEUS ABELARDO TREVENZOLI ARAUJO
 # Todos os direitos reservados. Uso comercial proibido.
 # All rights reserved. Commercial use prohibited.
 # =============================================================================
