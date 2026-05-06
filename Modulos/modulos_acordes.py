@@ -1,3 +1,9 @@
+;# =============================================================================
+# GUITAR STUDIO IA - Copyright (c) 2026 [SEU NOME]
+# Todos os direitos reservados. Uso comercial proibido.
+# All rights reserved. Commercial use prohibited.
+# =============================================================================
+
 # --- TRÍADES MAIORES (CAGED) ---
 # Ordem das listas: [7ª, 6ª, 5ª, 4ª, 3ª, 2ª, 1ª]
 

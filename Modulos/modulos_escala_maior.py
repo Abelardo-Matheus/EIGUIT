@@ -1,3 +1,9 @@
+# =============================================================================
+# GUITAR STUDIO IA - Copyright (c) 2026 [SEU NOME]
+# Todos os direitos reservados. Uso comercial proibido.
+# All rights reserved. Commercial use prohibited.
+# =============================================================================
+
 # modulos_escala_maior.py
 
 # --- AS MATRIZES DOS 5 SHAPES DA ESCALA MAIOR ---

@@ -1,3 +1,9 @@
+;# =============================================================================
+# GUITAR STUDIO IA - Copyright (c) 2026 [SEU NOME]
+# Todos os direitos reservados. Uso comercial proibido.
+# All rights reserved. Commercial use prohibited.
+# =============================================================================
+
 # gerenciador_interface.py
 
 def obter_lista_ativa(aba_atual, sub_aba_atual, dicionario_escalas):

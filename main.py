@@ -1,3 +1,8 @@
+# =============================================================================
+# GUITAR STUDIO IA - Copyright (c) 2026 [SEU NOME]
+# Todos os direitos reservados. Uso comercial proibido.
+# All rights reserved. Commercial use prohibited.
+# =============================================================================
 import pygame
 import sys
 import config 

@@ -1,3 +1,9 @@
+# =============================================================================
+# GUITAR STUDIO IA - Copyright (c) 2026 [SEU NOME]
+# Todos os direitos reservados. Uso comercial proibido.
+# All rights reserved. Commercial use prohibited.
+# =============================================================================
+
 import pygame
 import fabrica_escalas as fabrica_escalas
 import gerenciador_interface as gerenciador_interface
