@@ -1,3 +1,8 @@
+# =============================================================================
+# GUITAR STUDIO IA - Copyright (c) 2026 [SEU NOME]
+# Todos os direitos reservados. Uso comercial proibido.
+# All rights reserved. Commercial use prohibited.
+# =============================================================================
 import Modulos.modulos_penta as modulos_penta
 import Modulos.modulos_escala_maior as modulos_escala_maior
 import Modulos.modulos_escala_menor as modulos_escala_menor
