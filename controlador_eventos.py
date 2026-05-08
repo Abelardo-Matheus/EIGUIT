@@ -1,61 +1,131 @@
+# =============================================================================
+# GUITAR STUDIO IA - Copyright (c) 2026 MATHEUS ABELARDO TREVENZOLI ARAUJO
+# Todos os direitos reservados. Uso comercial proibido.
+# All rights reserved. Commercial use prohibited.
+# =============================================================================
+
 import pygame
 import fabrica_escalas as fabrica_escalas
 import gerenciador_interface as gerenciador_interface
 from constantes_ui import *
 
-def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_processador, meu_gravador):
+def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico):
     pos_mouse = pygame.mouse.get_pos()
     
     for evento in eventos:
         if evento.type == pygame.QUIT: 
             estado.solicitou_saida = True
+
+        # =========================================================
+        # --- LÓGICA DO ALFINETE (LIGAR/DESLIGAR MODO ARRASTAR) ---
+        # =========================================================
+        if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+            if hasattr(estado, 'rect_btn_pin') and estado.rect_btn_pin.collidepoint(evento.pos):
+                estado.drag_ativado = not estado.drag_ativado
+                
+                # Se desligou o drag, limpa o estado de "segurando" de todos os draggers
+                if not estado.drag_ativado:
+                    draggers = ['dragger_guitarra', 'dragger_acordes', 'dragger_controles_topo', 
+                                'dragger_painel_inferior', 'dragger_metronomo']
+                    for d in draggers:
+                        if hasattr(estado, d): getattr(estado, d).arrastando = False
+                continue 
+
+        # =========================================================
+        # --- DRAG & DROP: DETECÇÃO DE MOVIMENTO ---
+        # =========================================================
+        clicou_em_dragger = False
+
+        if estado.drag_ativado:
+            # Ordem de prioridade de clique (do menor/mais específico para o maior)
+            if hasattr(estado, 'dragger_controles_topo') and estado.dragger_controles_topo.processar_eventos_mouse(evento, margem_clique=5): 
+                clicou_em_dragger = True
             
+            # --- ADICIONADO: Arraste do Metrônomo ---
+            if not clicou_em_dragger and hasattr(estado, 'dragger_metronomo'):
+                if estado.dragger_metronomo.processar_eventos_mouse(evento, margem_clique=5):
+                    clicou_em_dragger = True
+
+            if not clicou_em_dragger and hasattr(estado, 'dragger_guitarra'):
+                if estado.dragger_guitarra.processar_eventos_mouse(evento, margem_clique=20):
+                    clicou_em_dragger = True
+
+            if not clicou_em_dragger and hasattr(estado, 'dragger_acordes'):
+                if estado.dragger_acordes.processar_eventos_mouse(evento, margem_clique=10):
+                    clicou_em_dragger = True
+
+            if not clicou_em_dragger and hasattr(estado, 'dragger_painel_inferior'):
+                if estado.dragger_painel_inferior.processar_eventos_mouse(evento, margem_clique=5):
+                    clicou_em_dragger = True
+
+        # Quando solta o mouse no modo drag, regenera os módulos para fixar as novas posições
+        if evento.type == pygame.MOUSEBUTTONUP and evento.button == 1 and estado.drag_ativado:
+            dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
+
+        # =========================================================
+        # --- ROLAGEM E ATALHOS ---
+        # =========================================================
+        if evento.type == pygame.MOUSEWHEEL:
+            velocidade_scroll = 40
+            for i, secao in enumerate(estado.secoes_inferiores):
+                if secao["expandido"] and estado.max_scroll.get(i, 0) > 0:
+                    estado.scroll_y[i] -= evento.y * velocidade_scroll
+                    estado.scroll_y[i] = max(0, min(estado.scroll_y[i], estado.max_scroll[i]))
+
         if evento.type == pygame.KEYDOWN:
             meu_metronomo.tratar_teclado(evento)
-            if evento.key == pygame.K_ESCAPE: 
-                estado.solicitou_saida = True
+            if evento.key == pygame.K_ESCAPE: estado.solicitou_saida = True
                 
-        if evento.type == pygame.MOUSEBUTTONDOWN:
-            # --- LÓGICA DO CLIQUE DOS INSTRUMENTOS (Guitarra / Baixo) ---
-            if hasattr(estado, 'btn_guit') and estado.btn_guit.collidepoint(evento.pos):
+        if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+            pos_mouse = pygame.mouse.get_pos()
+            
+            # --- CLIQUES NA INTERFACE DE ABAS (EXPANDIR/RECOLHER) ---
+            if not clicou_em_dragger:
+                clicou_interface = False
+                for i, secao in enumerate(estado.secoes_inferiores):
+                    if secao.get("rect_cabecalho") and secao["rect_cabecalho"].collidepoint(pos_mouse):
+                        estado_anterior = secao["expandido"]
+                        for s in estado.secoes_inferiores: s["expandido"] = False
+                        secao["expandido"] = not estado_anterior
+                        clicou_interface = True
+                        break
+                    
+                    if secao["expandido"]:
+                        for j in range(len(secao["sub_abas"])):
+                            chave_rect = f"rect_sub_{j}"
+                            if secao.get(chave_rect) and secao[chave_rect].collidepoint(pos_mouse):
+                                secao["memoria_sub_aba"] = j
+                                clicou_interface = True
+                                break
+                                
+                if clicou_interface: continue 
+            
+            # --- CLIQUES NO CAMPO HARMÔNICO ---
+            if hasattr(estado, 'dragger_acordes'):
+                if meu_campo_harmonico.tratar_clique(evento.pos): pass 
+
+            # --- CLIQUES NO MINI-METRÔNOMO (BOTOES E SLIDER) ---
+            # O metrônomo trata seus próprios botões internos
+            if meu_metronomo.tratar_clique(evento.pos, estado): # Adicionado 'estado'
+                continue
+
+            # --- CLIQUES NOS CONTROLES DO TOPO (CASAS / INSTRUMENTO) ---
+            dx_topo = estado.dragger_controles_topo.x if hasattr(estado, 'dragger_controles_topo') else 100
+            dy_topo = estado.dragger_controles_topo.y if hasattr(estado, 'dragger_controles_topo') else 30
+
+            btn_guit_mock = pygame.Rect(dx_topo + 250, dy_topo, 110, 35)
+            btn_baixo_mock = pygame.Rect(dx_topo + 370, dy_topo, 110, 35)
+
+            if btn_guit_mock.collidepoint(evento.pos):
                 estado.instrumento = 'guitarra'
                 continue
-                
-            elif hasattr(estado, 'btn_baixo') and estado.btn_baixo.collidepoint(evento.pos):
+            elif btn_baixo_mock.collidepoint(evento.pos):
                 estado.instrumento = 'baixo'
                 continue
 
-            # --- IA: SUB-ABA 0 (AFINADOR) ---
-            if estado.aba_atual == 2 and estado.memoria_sub_abas[2] == 0:
-                btn_gravar_ia = pygame.Rect(estado.OFFSET_X + 20, estado.Y_CAIXA + 100, 150, 40)
-                if meu_processador.tratar_clique(evento.pos, btn_gravar_ia, meu_gravador): 
-                    continue
-                
-                if meu_processador.tratar_clique_calibracao(evento.pos, estado, estado.OFFSET_X, estado.Y_CAIXA):
-                    continue
-
-            # --- IA: SUB-ABA 1 (TREINO DE RITMO) ---
-            # Aqui é onde a mágica acontece: liga o MIC e inicia a contagem
-            if estado.aba_atual == 2 and estado.memoria_sub_abas[2] == 1:
-                tempo_atual = pygame.time.get_ticks()
-                if meu_processador.tratar_cliques_treino_ritmo(evento.pos, tempo_atual, meu_gravador, meu_metronomo):
-                    continue
+            btn_menos_casa = pygame.Rect(dx_topo, dy_topo, 40, 35)
+            btn_mais_casa = pygame.Rect(dx_topo + 160, dy_topo, 40, 35)
             
-            # --- CONFIGURAÇÕES E METRÔNOMO ---
-            esta_na_config_cores = (estado.aba_atual == 3 and estado.memoria_sub_abas[3] == 0)
-            cor_antiga = configs.indice_modo
-            if configs.tratar_clique(evento.pos, esta_na_config_cores):
-                if configs.indice_modo != cor_antiga:
-                    dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
-                continue 
-
-            esta_no_metronomo = (estado.aba_atual == 3 and estado.memoria_sub_abas[3] == 3)
-            if meu_metronomo.tratar_clique(evento.pos, aba_config_aberta=esta_no_metronomo): 
-                continue
-
-            # --- BOTÕES DE QUANTIDADE DE CASAS ---
-            btn_menos_casa = pygame.Rect(estado.OFFSET_X, 30, 40, 35)
-            btn_mais_casa = pygame.Rect(estado.OFFSET_X + 160, 30, 40, 35)
             if btn_menos_casa.collidepoint(evento.pos) and estado.NUM_CASAS > 12:
                 estado.NUM_CASAS -= 1
                 estado.atualizar_medidas()
@@ -67,54 +137,32 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                 dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
                 continue
 
-            # --- ESCALAS E ARRASTAR BLOCOS ---
-            if gerenciador_interface.tratar_cliques_escalas(evento.pos, estado.aba_atual, estado.memoria_sub_abas[estado.aba_atual], dicionario_escalas, estado.rect_braco_colisao):
-                continue
-            
-            # --- MENU LATERAL (TOM, CORES, AFINAÇÃO) ---
-            clicou_lateral = False
-            if estado.dropdown_tom_aberto:
-                for item in estado.rects_notas_dropdown:
-                    if item['rect'].collidepoint(evento.pos):
-                        estado.tom_atual = item['nota']
-                        estado.dropdown_tom_aberto = False
-                        clicou_lateral = True
-                        break
+            # --- CLIQUES NO CONTEÚDO DAS ÁREAS EXPANDIDAS ---
+            for i, secao in enumerate(estado.secoes_inferiores):
+                if secao["expandido"]:
+                    dx_inf = estado.dragger_painel_inferior.x if hasattr(estado, 'dragger_painel_inferior') else 100
+                    scroll_atual = estado.scroll_y.get(i, 0)
+                    
+                    if secao["conteudo"] in ["escalas", "acordes"]:
+                        rect_mock = pygame.Rect(dx_inf, estado.Y_AREA_DESENHO, estado.LARGURA_BRACO, 350)
+                        if gerenciador_interface.tratar_cliques_escalas(pos_mouse, i, secao["memoria_sub_aba"], dicionario_escalas, rect_mock, scroll_atual):
+                            continue
+                            
+                    elif secao["conteudo"] == "analise_ia":
+                        btn_gravar_ia = pygame.Rect(dx_inf + 20, estado.Y_AREA_DESENHO + 50 - scroll_atual, 150, 40)
+                        if meu_processador.tratar_clique(evento.pos, btn_gravar_ia, meu_gravador): continue
+                        if meu_processador.tratar_clique_calibracao(evento.pos, estado, dx_inf, estado.Y_AREA_DESENHO - scroll_atual): continue
 
-            if not clicou_lateral and estado.rect_btn_tom.collidepoint(evento.pos):
-                estado.dropdown_tom_aberto = not estado.dropdown_tom_aberto
-                clicou_lateral = True
-
-            # Cores das notas
-            for cat in [estado.rects_cores_tonica, estado.rects_cores_terca, estado.rects_cores_quinta]:
-                for item in cat:
-                    if item['rect'].collidepoint(evento.pos):
-                        if cat == estado.rects_cores_tonica: estado.indice_cor_tonica = item['indice']
-                        if cat == estado.rects_cores_terca: estado.indice_cor_terca = item['indice']
-                        if cat == estado.rects_cores_quinta: estado.indice_cor_quinta = item['indice']
-                        clicou_lateral = True
-
-            # Setas de Afinação
-            if estado.btn_up.collidepoint(evento.pos):
-                estado.indice_afinacao = (estado.indice_afinacao - 1) % len(lista_afinacoes)
-                dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
-                clicou_lateral = True
-            if estado.btn_down.collidepoint(evento.pos):
-                estado.indice_afinacao = (estado.indice_afinacao + 1) % len(lista_afinacoes)
-                dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
-                clicou_lateral = True
-
-            # --- NAVEGAÇÃO DE ABAS (INFERIOR) ---
-            larg_aba = estado.LARGURA_BRACO / len(nomes_abas)
-            for i in range(len(nomes_abas)):
-                rect_aba = pygame.Rect(estado.OFFSET_X + (i*larg_aba), estado.Y_CAIXA - 40, larg_aba, 40)
-                if rect_aba.collidepoint(evento.pos):
-                    estado.aba_atual = i
-                    continue
-            
-            largura_sub = (estado.LARGURA_BRACO - 40) / 5
-            for j in range(len(nomes_sub_abas[estado.aba_atual])):
-                x_sub = estado.OFFSET_X + 20 + (j * largura_sub)
-                rect_sub = pygame.Rect(x_sub + 5, estado.Y_CAIXA + 15, largura_sub - 10, 35)
-                if rect_sub.collidepoint(evento.pos):
-                    estado.memoria_sub_abas[estado.aba_atual] = j
+                    elif secao["conteudo"] == "configuracao":
+                        configs.y = estado.Y_AREA_DESENHO + 20
+                        meu_metronomo.y_config = estado.Y_AREA_DESENHO + 20
+                        esta_na_config_cores = (secao["memoria_sub_aba"] == 0) 
+                        cor_antiga = configs.indice_modo
+                        
+                        if configs.tratar_clique(evento.pos, esta_na_config_cores):
+                            if configs.indice_modo != cor_antiga:
+                                dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
+                            continue
+                        
+                        if meu_metronomo.tratar_clique(evento.pos, estado, aba_config_aberta=True): 
+                            continue

@@ -1,6 +1,10 @@
 # Created by https://www.toptal.com/developers/gitignore/api/archlinuxpackages,python
 # Edit at https://www.toptal.com/developers/gitignore?templates=archlinuxpackages,python
-
+# =============================================================================
+# GUITAR STUDIO IA - Copyright (c) 2026 MATHEUS ABELARDO TREVENZOLI ARAUJO
+# Todos os direitos reservados. Uso comercial proibido.
+# All rights reserved. Commercial use prohibited.
+# =============================================================================
 ### ArchLinuxPackages ###
 *.tar
 *.tar.*

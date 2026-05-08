@@ -1,3 +1,9 @@
+# =============================================================================
+# GUITAR STUDIO IA - Copyright (c) 2026 MATHEUS ABELARDO TREVENZOLI ARAUJO
+# Todos os direitos reservados. Uso comercial proibido.
+# All rights reserved. Commercial use prohibited.
+# =============================================================================
+
 # modulos_escala_menor.py
 
 # --- AS MATRIZES DOS 5 SHAPES DA ESCALA MENOR NATURAL (EÓLIA) ---

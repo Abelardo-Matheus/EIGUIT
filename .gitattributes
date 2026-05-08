@@ -1,3 +1,8 @@
+# =============================================================================
+# GUITAR STUDIO IA - Copyright (c) 2026 MATHEUS ABELARDO TREVENZOLI ARAUJO
+# Todos os direitos reservados. Uso comercial proibido.
+# All rights reserved. Commercial use prohibited.
+# =============================================================================
 # Auto detect text files and perform LF normalization
 * text=auto
 GuitarStudioIA.exe filter=lfs diff=lfs merge=lfs -text

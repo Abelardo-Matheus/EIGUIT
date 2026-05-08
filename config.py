@@ -1,3 +1,9 @@
+# =============================================================================
+# GUITAR STUDIO IA - Copyright (c) 2026 MATHEUS ABELARDO TREVENZOLI ARAUJO
+# Todos os direitos reservados. Uso comercial proibido.
+# All rights reserved. Commercial use prohibited.
+# =============================================================================
+
 import pygame
 
 class Configuracoes:
@@ -137,9 +143,11 @@ class Configuracoes:
                 self.transparencia = int((rel_x / self.largura_slider) * 100)
 
     # --- DESENHO COM LÓGICA DE FLEXBOX ---
-    def desenhar(self, tela, fonte_titulo, fonte_ui):
+    # --- DESENHO COM LÓGICA DE FLEXBOX ---
+    def desenhar(self, tela, fonte_titulo, fonte_ui, scroll_y=0):
         x_atual = self.x
-        y_atual = self.y
+        # 1. A MÁGICA DO SCROLL: O Y base agora subtrai a rolagem da tela!
+        y_atual = self.y - scroll_y 
         altura_linha = 100 # Espaço que cada linha ocupa para baixo
         espacamento_x = 40  # Espaço entre um bloco e outro na mesma linha
 
@@ -180,9 +188,9 @@ class Configuracoes:
         pygame.draw.rect(tela, self.BRANCO, self.rect_btn_cor_notas, 2, border_radius=5)
         x_atual += largura_b3 + espacamento_x
         
-# BLOCO 4: Estilo do Texto (Largura aprox: 200px)
+        # BLOCO 4: Estilo do Texto (Largura aprox: 200px)
         largura_b4 = 200
-        quebrar_linha_se_precisar(largura_b4) # 1. CORREÇÃO: Mude de b3 para b4 aqui!
+        quebrar_linha_se_precisar(largura_b4) 
         tela.blit(fonte_ui.render("Texto nas Notas:", True, self.BRANCO), (x_atual, y_atual))
         self.rects_modos.clear()
         for i, nome in enumerate(self.nomes_modos):
@@ -192,7 +200,8 @@ class Configuracoes:
             pygame.draw.rect(tela, cor_fundo, rect_botao, border_radius=5)
             tela.blit(fonte_ui.render(nome, True, self.BRANCO), (rect_botao.x + 10, rect_botao.y + 3))
             
-        x_atual += largura_b4 + espacamento_x # 2. CORREÇÃO: Adicione esta linha no final do bloco!
+        x_atual += largura_b4 + espacamento_x 
+
         # BLOCO 5: Escolha da Fonte (Largura aprox: 200px)
         largura_b5 = 200
         quebrar_linha_se_precisar(largura_b5)
@@ -212,8 +221,13 @@ class Configuracoes:
         x_atual += largura_b5 + espacamento_x
 
         # --- DESENHO DO POP-UP DO SELETOR DE CORES ---
-        # Fica no final para ser desenhado por cima de tudo
         if self.picker_aberto:
+            # Garante que o pop-up acompanhe o botão mesmo se rolarmos a tela com ele aberto
+            if self.alvo_picker == 'braco':
+                self.rect_picker.topleft = (self.rect_btn_cor_braco.right + 10, self.rect_btn_cor_braco.y)
+            elif self.alvo_picker == 'notas':
+                self.rect_picker.topleft = (self.rect_btn_cor_notas.right + 10, self.rect_btn_cor_notas.y)
+
             # Fundo preto para destacar o seletor
             fundo_picker = pygame.Rect(self.rect_picker.x - 5, self.rect_picker.y - 5, self.rect_picker.width + 10, self.rect_picker.height + 10)
             pygame.draw.rect(tela, self.PRETO, fundo_picker, border_radius=5)
