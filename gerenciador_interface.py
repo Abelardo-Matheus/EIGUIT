@@ -23,7 +23,6 @@ def obter_lista_ativa(aba_atual, sub_aba_atual, dicionario_escalas):
     elif aba_atual == 1: 
         if sub_aba_atual == 0: return dicionario_escalas.get('triades_maior', [])
         if sub_aba_atual == 1: return dicionario_escalas.get('triades_menor', [])
-        # Você pode mapear as próximas sub-abas aqui futuramente (Tétrades, etc)
 
     # Se estiver na aba de IA (2) ou Configurações (3), retorna vazio para esconder os blocos
     return []
@@ -37,7 +36,6 @@ def desenhar_escalas_ativas(tela, pos_mouse, aba_atual, sub_aba_atual, dicionari
                 modulo.atualizar_e_desenhar(tela, pos_mouse, rect_braco, fonte, alpha)
                 
             elif modulo.estado == 'painel' and aba_atual == modulo.aba and sub_aba_atual == modulo.sub_aba:
-                # Apenas avisa a escala do valor do scroll. A própria escala vai lidar com a matemática!
                 modulo.scroll_offset = scroll_y 
                 modulo.atualizar_e_desenhar(tela, pos_mouse, rect_braco, fonte, alpha)
 

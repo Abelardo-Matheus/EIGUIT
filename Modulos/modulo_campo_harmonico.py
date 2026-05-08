@@ -1,4 +1,4 @@
-# # =============================================================================
+# =============================================================================
 # GUITAR STUDIO IA - Copyright (c) 2026 MATHEUS ABELARDO TREVENZOLI ARAUJO
 # Todos os direitos reservados. Uso comercial proibido.
 # All rights reserved. Commercial use prohibited.
@@ -16,7 +16,6 @@ class CampoHarmonico:
         self.indice_acorde_selecionado = -1 
         self.notas_acorde_selecionado = [] 
 
-        # O "DNA" de todas as escalas possíveis (Modos Gregos)
         self.escalas_campo = [
             {"nome": "Maior (Jônio)", "int": [0, 2, 4, 5, 7, 9, 11], "romanos": ["I", "ii", "iii", "IV", "V", "vi", "vii°"], "qualidades": ["", "m", "m", "", "", "m", "dim"]},
             {"nome": "Menor (Eólio)", "int": [0, 2, 3, 5, 7, 8, 10], "romanos": ["i", "ii°", "III", "iv", "v", "VI", "VII"], "qualidades": ["m", "dim", "", "m", "m", "", ""]},
@@ -55,8 +54,9 @@ class CampoHarmonico:
             self.notas_base[idx_quinta]
         ]
 
-    def desenhar(self, tela, y_base, fonte_titulo, fonte_ui, fonte_pequena):
-        x_centro = tela.get_width() // 2
+    # --- AGORA A FUNÇÃO RECEBE X_BASE E LARGURA_DRAGGER ---
+    def desenhar(self, tela, x_base, y_base, largura_dragger, fonte_titulo, fonte_ui, fonte_pequena):
+        x_centro = x_base + (largura_dragger // 2)
         
         COR_FUNDO = (40, 40, 40)
         COR_BORDA = (100, 100, 100)
@@ -121,7 +121,6 @@ class CampoHarmonico:
         tela.blit(txt_escala, (x_centro + 140 - (txt_escala.get_width()//2), y_controles + 5))
 
     def tratar_clique(self, pos_mouse):
-        # 1. Cliques nos blocos dos acordes
         for i, rect in enumerate(self.rects_acordes_campo):
             if rect.collidepoint(pos_mouse):
                 if self.indice_acorde_selecionado == i:
@@ -132,7 +131,6 @@ class CampoHarmonico:
                     self.calcular_notas_acorde_selecionado()
                 return True
 
-        # 2. Cliques nas setas (Ao mudar o campo, desmarca o acorde)
         if self.rect_tonica_esq.collidepoint(pos_mouse):
             idx = self.notas_base.index(self.tonica_campo)
             self.tonica_campo = self.notas_base[(idx - 1) % 12]
