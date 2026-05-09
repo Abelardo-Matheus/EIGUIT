@@ -4,6 +4,7 @@ import sys
 import random
 import math
 import time
+import array # Necessário para a síntese matemática
 
 class AcerteANota:
     def __init__(self):
@@ -15,6 +16,16 @@ class AcerteANota:
         self.AZUL_INTERFACE = (0, 120, 215)
         self.ROXO = (150, 50, 200)
 
+        # --- TABELA DE FREQUÊNCIAS (Síntese Matemática) ---
+        self.frequencias = {
+            "C": 261.63, "C#": 277.18, "Db": 277.18,
+            "D": 293.66, "D#": 311.13, "Eb": 311.13,
+            "E": 329.63, "F": 349.23, "F#": 369.99,
+            "Gb": 369.99, "G": 392.00, "G#": 415.30,
+            "Ab": 415.30, "A": 440.00, "A#": 466.16, "Bb": 466.16,
+            "B": 493.88
+        }
+
         # --- NOTAS MUSICAIS ---
         self.notas_naturais = ["C", "D", "E", "F", "G", "A", "B"]
         self.notas_sustenidos = ["C#", "D#", "F#", "G#", "A#"]
@@ -25,7 +36,7 @@ class AcerteANota:
         self.indice_atual = 0
         self.status_notas[0] = 1 
         
-        self.calibrado = False
+        self.calibrado = True
         self.em_calibracao = False
         self.jogo_iniciado = False 
         
@@ -89,21 +100,44 @@ class AcerteANota:
         self.fundo_render = None
 
         # --- SISTEMA DE SOM ---
-        self.sons_notas = {}
         if not pygame.mixer.get_init():
-            pygame.mixer.init()
+            pygame.mixer.init(frequency=44100, size=-16, channels=1)
         
         self.canal_voz = pygame.mixer.Channel(0)
         pygame.mixer.set_num_channels(64) 
-            
-        todas_as_notas = self.notas_naturais + self.notas_sustenidos + self.notas_bemois
-        for n in todas_as_notas:
+
+        # Dicionários para armazenar os sons
+        self.sons_vozes = {}
+        self.sons_sintetizados = {}
+
+        # Carregar arquivos de voz e gerar sons matemáticos
+        todas_as_notas_nomes = self.notas_naturais + self.notas_sustenidos + self.notas_bemois
+        for n in todas_as_notas_nomes:
+            # 1. Tenta carregar a Voz (.wav)
             caminho_wav = os.path.join(self.pasta_audios, f"{n}.wav")
             if os.path.exists(caminho_wav):
                 try:
-                    self.sons_notas[n] = pygame.mixer.Sound(caminho_wav)
-                    self.sons_notas[n].set_volume(0.8) 
+                    self.sons_vozes[n] = pygame.mixer.Sound(caminho_wav)
                 except: pass
+            
+            # 2. Gera o Som Matemático (Sintetizado)
+            if n in self.frequencias:
+                self.sons_sintetizados[n] = self._gerar_amostra_nota(self.frequencias[n])
+
+    def _gerar_amostra_nota(self, freq, duracao=0.5):
+        """Gera um Sound do Pygame usando síntese matemática (onda senoidal)"""
+        sample_rate = 44100
+        n_samples = int(sample_rate * duracao)
+        # Cria um buffer de áudio de 16 bits
+        buf = array.array('h', [0] * n_samples)
+        for i in range(n_samples):
+            t = float(i) / sample_rate
+            # Aplica um pequeno fade-out para evitar cliques no final do áudio
+            envelope = min(1.0, (n_samples - i) / (sample_rate * 0.1))
+            # Gera a onda senoidal (volume em 16384 para evitar distorção)
+            v = int(envelope * 16384 * math.sin(2.0 * math.pi * freq * t))
+            buf[i] = v
+        return pygame.mixer.Sound(buf)
 
     def equivalencia_notas(self, nota1, nota2):
         if nota1 == nota2: return True
@@ -136,7 +170,7 @@ class AcerteANota:
             nota_encontrada = notas_str[int(indice_nota)]
             self.nota_atual_mic = nota_encontrada
             self.nivel_volume = min(1.0, 0.7 + random.uniform(0.0, 0.3))
-            if abs(self.desvio_afinacao) <= 0.15: self.nota_perfeita_mic = nota_encontrada
+            if abs(self.desvio_afinacao) <= 0.15: self.nota_perfeita_mic = self.nota_atual_mic
             else: self.nota_perfeita_mic = ""
         except:
             self.nota_atual_mic = ""; self.nota_perfeita_mic = ""
@@ -154,13 +188,21 @@ class AcerteANota:
             return
 
         tempo_atual = time.time()
+        # Aceleração conforme pedido: dificuldade e velocidade encurtam o tempo de áudio
         fator_aceleracao = 1.0 - (self.idx_dificuldade * 0.12) - (self.velocidade / 400.0)
         fator_aceleracao = max(0.35, fator_aceleracao)
 
         if not self.canal_voz.get_busy():
             proxima_nota = self.fila_audio.pop(0)
-            if proxima_nota in self.sons_notas:
-                som = self.sons_notas[proxima_nota]
+            
+            # ESCOLHA DA FONTE DE ÁUDIO
+            if self.modos_audio[self.idx_audio] == "VOZ (NOME)":
+                biblioteca = self.sons_vozes
+            else:
+                biblioteca = self.sons_sintetizados
+                
+            if proxima_nota in biblioteca:
+                som = biblioteca[proxima_nota]
                 self.duracao_permitida = som.get_length() * fator_aceleracao
                 self.tempo_inicio_fala = tempo_atual
                 self.canal_voz.play(som)
@@ -212,7 +254,6 @@ class AcerteANota:
         self.y_indicador_anim += (alvo_y - self.y_indicador_anim) * 0.08
 
         if self.jogo_iniciado:
-            # --- RÉGUA E PONTOS ---
             txt_pontos = fonte_tit.render(f"PONTOS: {self.pontuacao}", True, self.AMARELO)
             tela.blit(txt_pontos, (largura - txt_pontos.get_width() - 30, 40))
             pygame.draw.line(tela, self.VERMELHO, (0, linha_vermelha_y), (largura - 100, linha_vermelha_y), 3)
@@ -222,7 +263,6 @@ class AcerteANota:
             tela.blit(fonte_peq.render("10", True, self.VERDE), (x_regua + 15, 100))
             tela.blit(fonte_peq.render("1", True, self.VERMELHO), (x_regua + 15, linha_vermelha_y - 20))
 
-            # --- LÓGICA DAS NOTAS ---
             self.gerar_notas_jogo(largura)
             for p in self.particulas[:]:
                 p['x'] += p['vx']; p['y'] += p['vy']; p['vy'] += 0.2; p['vida'] -= 0.03
@@ -250,18 +290,15 @@ class AcerteANota:
                     self.pontuacao -= 5
                     self.notas_na_tela.remove(n)
 
-        # --- INTERFACE INICIAL ---
         if not self.jogo_iniciado:
             if not self.em_calibracao:
                 txt_tit = fonte_tit.render("ACERTE A NOTA", True, self.BRANCO)
                 tela.blit(txt_tit, (largura//2 - txt_tit.get_width()//2, 50))
-                
-                x_sel = largura // 2 - 270
-                y_sel = y_centro + 50
+                x_sel = largura // 2 - 270; y_sel = y_centro + 50
                 self._desenhar_botao_seletor(tela, x_sel, y_sel, f"{self.dificuldades[self.idx_dificuldade]}", self.btn_dif_esq, self.btn_dif_dir)
                 self._desenhar_botao_seletor(tela, x_sel + 185, y_sel, f"{self.modos_audio[self.idx_audio]}", self.btn_aud_esq, self.btn_aud_dir)
                 self._desenhar_botao_seletor(tela, x_sel + 370, y_sel, f"Vel: {self.velocidade}", self.btn_vel_esq, self.btn_vel_dir)
-
+                
                 self.btn_calibrar.center = (largura // 2, y_centro - 20)
                 pygame.draw.rect(tela, self.AZUL_INTERFACE, self.btn_calibrar, border_radius=10)
                 txt_c = fonte_ui.render("INICIAR CALIBRAÇÃO", True, self.BRANCO)
@@ -272,7 +309,6 @@ class AcerteANota:
                 txt_p = fonte_ui.render("COMEÇAR JOGO", True, self.BRANCO)
                 tela.blit(txt_p, (self.btn_play.centerx - txt_p.get_width()//2, self.btn_play.centery - txt_p.get_height()//2))
             else:
-                # TELA DE CALIBRAÇÃO
                 msg = "Toque a nota amarela" if not self.calibrado else "Calibração Concluída!"
                 txt_m = fonte_ui.render(msg, True, self.AMARELO if not self.calibrado else self.VERDE)
                 tela.blit(txt_m, (largura//2 - txt_m.get_width()//2, y_centro - 100))
@@ -283,23 +319,18 @@ class AcerteANota:
                     pygame.draw.circle(tela, self.BRANCO, (x_i + i*esp, y_centro), 35, 2)
                     txt_n = fonte_peq.render(n, True, self.BRANCO)
                     tela.blit(txt_n, (x_i + i*esp - txt_n.get_width()//2, y_centro - txt_n.get_height()//2))
-                
                 self.btn_play.center = (largura // 2, altura - 80)
                 pygame.draw.rect(tela, self.VERDE, self.btn_play, border_radius=10)
                 txt_v = fonte_ui.render("VOLTAR" if self.calibrado else "CANCELAR", True, self.BRANCO)
                 tela.blit(txt_v, (self.btn_play.centerx - txt_v.get_width()//2, self.btn_play.centery - txt_v.get_height()//2))
 
-        # --- INDICADOR MIC E BARRA DE VOLUME (RECUPERADA) ---
         cor_b = self.VERDE if self.nota_perfeita_mic else (self.AMARELO if self.nota_atual_mic else self.BRANCO)
-        x_mic = largura // 2
-        y_mic = int(self.y_indicador_anim)
+        x_mic = largura // 2; y_mic = int(self.y_indicador_anim)
         pygame.draw.circle(tela, (60, 60, 60), (x_mic, y_mic), 28)
         pygame.draw.circle(tela, cor_b, (x_mic, y_mic), 28, 3)
         if self.nota_atual_mic:
             txt_m = fonte_ui.render(self.nota_atual_mic, True, self.BRANCO)
             tela.blit(txt_m, (x_mic - txt_m.get_width()//2, y_mic - txt_m.get_height()//2))
-            
-        # RETÂNGULO DO VOLUME
         w_vol = 15; h_vol = 50; x_vol = x_mic + 40; y_vol = y_mic - (h_vol // 2) 
         pygame.draw.rect(tela, (40, 40, 40), (x_vol, y_vol, w_vol, h_vol), border_radius=3)
         alt_p = int(h_vol * self.nivel_volume)
