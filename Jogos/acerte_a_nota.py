@@ -124,7 +124,7 @@ class AcerteANota:
             if n in self.frequencias:
                 self.sons_sintetizados[n] = self._gerar_amostra_nota(self.frequencias[n])
 
-    def _gerar_amostra_nota(self, freq, duracao=0.5):
+    def _gerar_amostra_nota(self, freq, duracao=1):
         """Gera um Sound do Pygame usando síntese matemática (onda senoidal)"""
         sample_rate = 44100
         n_samples = int(sample_rate * duracao)
