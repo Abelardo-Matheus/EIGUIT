@@ -84,15 +84,27 @@ class AcerteANota:
         # --- ASSETS ---
         try:
             if getattr(sys, 'frozen', False):
-                pasta_jogos = os.path.dirname(sys.executable)
-                pasta_raiz = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+                # Se for o executável, pega a pasta onde o .exe está localizado
+                pasta_raiz = os.path.dirname(sys.executable)
             else:
-                pasta_jogos = os.path.dirname(os.path.abspath(__file__))
-                pasta_raiz = os.path.dirname(pasta_jogos)
+                # Se for o script .py, pega a pasta raiz do projeto
+                # (ajuste a quantidade de os.path.dirname dependendo de onde o script está)
+                pasta_raiz = os.path.dirname(os.path.abspath(__file__))
+                # Se este script estiver dentro de /Jogos, suba um nível:
+                pasta_raiz = os.path.dirname(pasta_raiz) 
 
-            self.fundo = pygame.image.load(os.path.join(pasta_raiz, "fundo_jogo.png")).convert_alpha()
-            self.pasta_audios = os.path.join(pasta_jogos, "Audios")
-        except:
+            # Busca a pasta Audios diretamente na mesma pasta do .exe
+            self.pasta_audios = os.path.join(pasta_raiz, "Audios")
+            
+            # Exemplo de carregamento do fundo (se ele também estiver fora do .exe)
+            caminho_fundo = os.path.join(pasta_raiz, "fundo_jogo.png")
+            if os.path.exists(caminho_fundo):
+                self.fundo = pygame.image.load(caminho_fundo).convert_alpha()
+            else:
+                self.fundo = None
+                
+        except Exception as e:
+            print(f"Erro ao localizar arquivos externos em {pasta_raiz}: {e}")
             self.fundo = None
             self.pasta_audios = ""
             

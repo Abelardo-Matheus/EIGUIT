@@ -12,7 +12,8 @@ class Metronomo:
     def __init__(self, x_painel, y_painel):
         self.x = x_painel
         self.y = y_painel
-        
+        self.som_tick = None
+        self.som_acento = None
         # Estados Principais
         self.bpm = 100
         self.ativado = True  
@@ -53,23 +54,40 @@ class Metronomo:
         self.btn_menos_batida = pygame.Rect(self.x + 140, self.y + 40, 30, 30)
         self.rects_cores_config = []
 
-        # --- ÁUDIO ---
+        # Inicializa como None para evitar erros de atributo se o carregamento falhar
+        self.som_tick = None
+        self.som_acento = None
+
         try:
             if getattr(sys, 'frozen', False):
-                pasta_raiz = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+                # --- EXECUTÁVEL (.exe) ---
+                # Pega a pasta onde o .exe está fisicamente (dentro da /dist)
+                pasta_raiz = os.path.dirname(sys.executable)
             else:
+                # --- SCRIPT (.py) ---
+                # Pega a pasta do arquivo atual e sobe para a raiz do projeto
                 pasta_modulos = os.path.dirname(os.path.abspath(__file__))
                 pasta_raiz = os.path.dirname(pasta_modulos)
 
-            caminho_tick = os.path.join(pasta_raiz, "tick.wav")
-            caminho_tick_high = os.path.join(pasta_raiz, "tick_high.wav")
+            # Define o caminho para a pasta Audios externa
+            pasta_audios = os.path.join(pasta_raiz, "Audios")
+
+            caminho_tick = os.path.join(pasta_audios, "tick.wav")
+            caminho_tick_high = os.path.join(pasta_audios, "tick_high.wav")
             
-            self.som_acento = pygame.mixer.Sound(caminho_tick_high) 
-            self.som_tick = pygame.mixer.Sound(caminho_tick)
+            # Carregamento seguro verificando se os arquivos existem na pasta externa
+            if os.path.exists(caminho_tick):
+                self.som_tick = pygame.mixer.Sound(caminho_tick)
+            else:
+                print(f"Aviso: Som do metrônomo não encontrado em: {caminho_tick}")
+
+            if os.path.exists(caminho_tick_high):
+                self.som_acento = pygame.mixer.Sound(caminho_tick_high)
+            else:
+                print(f"Aviso: Som de acento não encontrado em: {caminho_tick_high}")
             
         except Exception as e:
-            print(f"❌ ERRO ÁUDIO: {e}")
-            self.som_tick = self.som_acento = None
+            print(f"Aviso: Erro ao carregar sons externos do metrônomo: {e}")
 
     def tratar_clique(self, pos_mouse, estado, aba_config_aberta=False):
         if aba_config_aberta:

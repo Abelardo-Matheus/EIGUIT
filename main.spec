@@ -1,8 +1,3 @@
-# =============================================================================
-# GUITAR STUDIO IA - Copyright (c) 2026 MATHEUS ABELARDO TREVENZOLI ARAUJO
-# Todos os direitos reservados. Uso comercial proibido.
-# All rights reserved. Commercial use prohibited.
-# =============================================================================
 # -*- mode: python ; coding: utf-8 -*-
 
 
@@ -10,7 +5,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('fundo_jogo.png', '.'), ('Jogos', 'Jogos')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
