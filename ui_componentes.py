@@ -15,7 +15,8 @@ class DesenhoEscala:
         self.x_original = x_painel
         self.y_original = y_painel
         self.espaco_casas = espaco_casas
-        self.offset_x = offset_x
+        # REMOVEMOS: O offset fixo não será mais a âncora principal. Usaremos a posição real em tempo de desenho.
+        # self.offset_x = offset_x 
         self.num_casas_total = num_casas_total
         self.num_casas_desenho = len(padrao[0]) 
         
@@ -64,12 +65,14 @@ class DesenhoEscala:
         self.rect_braco = self.imagem_braco.get_rect()
         self.estado = 'painel'
 
+        # Variáveis novas para armazenar as coordenadas de rastreamento do arrasto
+        self.casa_atual = 0
+
     def tratar_clique(self, pos_mouse, rect_braco_colisao):
         # 1. Pega o valor do scroll (se não existir, é 0)
         scroll = getattr(self, 'scroll_offset', 0)
 
         if self.estado == 'painel':
-            # Faz uma cópia da caixa original e subtrai o scroll para checar o clique no lugar certo!
             rect_clique_rolado = self.rect_painel.copy()
             rect_clique_rolado.y -= scroll
 
@@ -91,7 +94,6 @@ class DesenhoEscala:
             
         return False
     
-    # ATENÇÃO: Adicionamos fonte_pequena como parâmetro aqui para não depender do main.py!
     def atualizar_e_desenhar(self, tela, pos_mouse, rect_braco_colisao, fonte_pequena, nivel_alpha=255):
         self.imagem_painel.set_alpha(nivel_alpha)
         self.imagem_braco.set_alpha(nivel_alpha)
@@ -100,32 +102,40 @@ class DesenhoEscala:
         scroll = getattr(self, 'scroll_offset', 0)
         
         if self.estado == 'painel':
-            # Subtrai o scroll da posição Y original
             y_desenho_rolado = self.rect_painel.y - scroll
-            
-            # Desenha a imagem usando o X original, mas o Y roladinho
             tela.blit(self.imagem_painel, (self.rect_painel.x, y_desenho_rolado))
             
             if self.nome != "":
-                # IMPORTANTE: Confirme se BRANCO está importado neste arquivo! (255, 255, 255)
-                texto_nome = fonte_pequena.render(self.nome, True, (255, 255, 255))
+                texto_nome = fonte_pequena.render(self.nome, True, BRANCO)
                 txt_x = self.rect_painel.centerx - (texto_nome.get_width() / 2)
-                txt_y = y_desenho_rolado - 25  # O título também sobe e desce junto!
+                txt_y = y_desenho_rolado - 25 
                 tela.blit(texto_nome, (txt_x, txt_y))
             
         elif self.estado == 'mouse' or self.estado == 'braco':
+            
+            # --- ATUALIZAÇÃO DINÂMICA DO BRAÇO ---
+            # Agora a escala sempre sabe onde o braço de fato está!
+            x_guit_real = rect_braco_colisao.x
+            y_guit_real = rect_braco_colisao.y
+
             if self.estado == 'mouse':
                 if rect_braco_colisao.collidepoint(pos_mouse):
-                    x_relativo = pos_mouse[0] - self.offset_x
-                    casa_atual = int(x_relativo // self.espaco_casas)
-                    casa_atual = max(0, min(casa_atual, self.num_casas_total - self.num_casas_desenho))
+                    # Calcula qual casa o mouse está apontando usando o 'x' real do braço arrastável
+                    x_relativo = pos_mouse[0] - x_guit_real
+                    self.casa_atual = int(x_relativo // self.espaco_casas)
+                    self.casa_atual = max(0, min(self.casa_atual, self.num_casas_total - self.num_casas_desenho))
                     
-                    self.rect_braco.x = self.offset_x + (casa_atual * self.espaco_casas) - self.padding_x
-                    self.rect_braco.y = rect_braco_colisao.y - self.padding_y
+                    self.rect_braco.x = x_guit_real + (self.casa_atual * self.espaco_casas) - self.padding_x
+                    self.rect_braco.y = y_guit_real - self.padding_y
                     
                     pygame.draw.rect(tela, (0, 255, 0), self.rect_braco, 4)
                 else:
                     self.rect_braco.center = pos_mouse
                     pygame.draw.rect(tela, (255, 0, 0), self.rect_braco, 4)
+
+            elif self.estado == 'braco':
+                # No estado braço, ele APENAS se reposiciona para seguir a guitarra
+                self.rect_braco.x = x_guit_real + (self.casa_atual * self.espaco_casas) - self.padding_x
+                self.rect_braco.y = y_guit_real - self.padding_y
 
             tela.blit(self.imagem_braco, self.rect_braco.topleft)

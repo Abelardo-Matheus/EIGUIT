@@ -14,6 +14,7 @@ import estado_app
 import fabrica_escalas
 import renderizador_ui
 import controlador_eventos
+from Jogos.Jogos_interativos import GerenciadorJogos
 
 def main():
     pygame.mixer.pre_init(44100, -16, 2, 512)
@@ -22,10 +23,10 @@ def main():
     except: pass
     tela = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
     pygame.display.set_caption("Guitar Studio IA")
-
+    meu_gerenciador_jogos = GerenciadorJogos()
+    
     estado = estado_app.EstadoGlobal(tela.get_width(), tela.get_height())
     
-    # Criamos uma coordenada virtual baseada no dragger_guitarra para substituir as variáveis deletadas
     x_base = estado.dragger_guitarra.x
     y_virtual_caixa = estado.dragger_guitarra.y + estado.ALTURA_BRACO + 250
     
@@ -35,7 +36,7 @@ def main():
     meu_campo_harmonico = CampoHarmonico()
     meu_gravador = modulo_gravador.GravadorAudio(device_id=3)
     meu_processador = modulo_processamento.ProcessadorAudio()
-
+    
     dicionario_escalas = fabrica_escalas.gerar_modulos(estado, minhas_configs)
     
     nome_fonte = minhas_configs.get_fonte()
@@ -46,12 +47,56 @@ def main():
         'notas': pygame.font.SysFont(nome_fonte, 20, bold=True)
     }
 
+    # ========================================================
+    # VARIÁVEIS DE CONTROLE DE TRANSIÇÃO DO JOGO
+    # ========================================================
+    jogo_aberto_anteriormente = False
+    memoria_botao_ia = False
+
     while not estado.solicitou_saida:
         pos_mouse = pygame.mouse.get_pos()
         
         meu_metronomo.processar_logica(pygame.mouse.get_pos(), estado)
-        meu_processador.processar_logica_continua(meu_gravador, estado)
         minhas_configs.processar_logica(pos_mouse)
+
+        # ========================================================
+        # GESTÃO INTELIGENTE DO MICROFONE (BYPASS SEPARADO)
+        # ========================================================
+        if estado.tela_jogo_ativa and not jogo_aberto_anteriormente:
+            memoria_botao_ia = getattr(estado, 'analise_ativa', getattr(estado, 'ia_ligada', False))
+            estado.analise_ativa = True
+            estado.ia_ligada = True
+            
+            # ---> O SEGREDO: FORÇA O MOTOR FÍSICO A ABRIR O FLUXO DE ÁUDIO
+            for func_name in ['iniciar_gravacao', 'start', 'iniciar', 'iniciar_stream']:
+                if hasattr(meu_gravador, func_name):
+                    try: getattr(meu_gravador, func_name)()
+                    except: pass
+            
+            jogo_aberto_anteriormente = True
+
+        elif not estado.tela_jogo_ativa and jogo_aberto_anteriormente:
+            estado.analise_ativa = memoria_botao_ia
+            estado.ia_ligada = memoria_botao_ia
+            
+            # ---> O SEGREDO: SE A IA TAVA DESLIGADA ANTES, FORÇA O MOTOR A PARAR
+            if not memoria_botao_ia:
+                for func_name in ['parar_gravacao', 'stop', 'parar', 'parar_stream']:
+                    if hasattr(meu_gravador, func_name):
+                        try: getattr(meu_gravador, func_name)()
+                        except: pass
+            
+            meu_processador.processar_logica_continua(meu_gravador, estado)
+            jogo_aberto_anteriormente = False
+
+        # Processador atualiza continuamente baseado no estado atual
+        meu_processador.processar_logica_continua(meu_gravador, estado)
+
+        # === CONEXÃO COM O JOGO ACERTE A NOTA ===
+        if estado.tela_jogo_ativa and meu_gerenciador_jogos.jogo_id_ativo == "acerte_a_nota":
+            nota_para_envio = getattr(estado, 'freq_detectada', "") 
+            if meu_gerenciador_jogos.jogo_instancia:
+                meu_gerenciador_jogos.jogo_instancia.atualizar_audio(nota_para_envio)
         
         if nome_fonte != minhas_configs.get_fonte():
             nome_fonte = minhas_configs.get_fonte()
@@ -60,13 +105,13 @@ def main():
         controlador_eventos.processar(
             pygame.event.get(), estado, minhas_configs,
             dicionario_escalas, meu_metronomo, meu_processador, meu_gravador,
-            meu_campo_harmonico 
+            meu_campo_harmonico, meu_gerenciador_jogos
         )
 
         renderizador_ui.desenhar_tudo(
             tela, estado, minhas_configs, dicionario_escalas, 
             fontes, meu_metronomo, meu_processador, meu_gravador,
-            meu_campo_harmonico 
+            meu_campo_harmonico, meu_gerenciador_jogos
         )
         
         pygame.display.flip()

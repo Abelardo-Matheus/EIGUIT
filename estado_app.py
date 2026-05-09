@@ -16,7 +16,10 @@ class EstadoGlobal:
         # ==========================================
         self.drag_ativado = False 
         self.rect_btn_pin = pygame.Rect(0, 0, 40, 40) 
-        
+
+        # Controle de tela cheia para jogos
+        self.tela_jogo_ativa = False
+
         # ==========================================
         # DADOS MUSICAIS E IA
         # ==========================================
@@ -25,7 +28,7 @@ class EstadoGlobal:
         self.indice_escala_campo = 0
         self.indice_afinacao = 0
         self.tom_atual = 'C'
-        self.freq_detectada = 0.0 
+        self.freq_detectada = ""
         self.afinador_suavizacao = 5 
         self.afinador_sensibilidade = 0.5 
         self.historico_freqs = [] 
@@ -92,7 +95,7 @@ class EstadoGlobal:
             },
             {
                 "titulo": "ANÁLISE DE IA", "expandido": False, "conteudo": "analise_ia", "memoria_sub_aba": 0,
-                "sub_abas": ["Afinador / IA", "Treino de Ritmo"]
+                "sub_abas": ["Afinador / IA", "Treino de Ritmo", "JOGOS"] # <--- Adicionado JOGOS
             },
             {
                 "titulo": "CONFIGURAÇÃO", "expandido": False, "conteudo": "configuracao", "memoria_sub_aba": 0,
