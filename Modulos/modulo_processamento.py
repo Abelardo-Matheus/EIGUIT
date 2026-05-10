@@ -39,6 +39,14 @@ class ProcessadorAudio:
         self.rect_seta_dir = pygame.Rect(0, 0, 30, 30)
         self.rects_cordas = []
         
+        # Variáveis para armazenar os botões do ritmo e permitir o clique
+        self.btn_menos_bpm = pygame.Rect(0,0,0,0)
+        self.btn_mais_bpm = pygame.Rect(0,0,0,0)
+        self.btn_menos_ritmo = pygame.Rect(0,0,0,0)
+        self.btn_mais_ritmo = pygame.Rect(0,0,0,0)
+        self.btn_play_ritmo = pygame.Rect(0,0,0,0)
+        self.btn_stop_ritmo = pygame.Rect(0,0,0,0)
+        
         self.AZUL_BOTAO = (0, 120, 215)
         self.VERDE = (0, 255, 100)
         self.VERMELHO = (255, 50, 50)
@@ -46,34 +54,39 @@ class ProcessadorAudio:
         self.CINZA = (150, 150, 150)
         self.FUNDO_ESCURO = (40, 40, 40)
 
-    def tratar_cliques_treino_ritmo(self, pos_mouse, tempo_atual, gravador, meu_metronomo):
+    # --- NOME CORRIGIDO AQUI PARA BATER COM O CONTROLADOR ---
+    def tratar_clique_ritmo(self, pos_mouse, tempo_atual, meu_metronomo, estado):
+        # O Gravador a gente não recebe mais por parâmetro direto, mas sabemos o estado da IA
+        
         # Se NÃO estiver treinando (Tela de Lobby)
         if not self.maestro.ativo:
-            if hasattr(self, 'btn_menos_bpm') and self.btn_menos_bpm.collidepoint(pos_mouse):
+            if self.btn_menos_bpm.collidepoint(pos_mouse):
                 self.ritmo_bpm = max(40, self.ritmo_bpm - 5)
                 return True
-            if hasattr(self, 'btn_mais_bpm') and self.btn_mais_bpm.collidepoint(pos_mouse):
+            if self.btn_mais_bpm.collidepoint(pos_mouse):
                 self.ritmo_bpm = min(240, self.ritmo_bpm + 5)
                 return True
-            if hasattr(self, 'btn_menos_ritmo') and self.btn_menos_ritmo.collidepoint(pos_mouse):
+            if self.btn_menos_ritmo.collidepoint(pos_mouse):
                 self.ritmo_subdivisao = max(1, self.ritmo_subdivisao - 1)
                 return True
-            if hasattr(self, 'btn_mais_ritmo') and self.btn_mais_ritmo.collidepoint(pos_mouse):
+            if self.btn_mais_ritmo.collidepoint(pos_mouse):
                 self.ritmo_subdivisao = min(4, self.ritmo_subdivisao + 1)
                 return True
-            if hasattr(self, 'btn_play_ritmo') and self.btn_play_ritmo.collidepoint(pos_mouse):
-                # 1. LIGA O MICROFONE AUTOMATICAMENTE
-                if not gravador.gravando:
-                    gravador.alternar_microfone()
+            if self.btn_play_ritmo.collidepoint(pos_mouse):
+                # Como não temos acesso direto ao gravador aqui, vamos forçar o estado da IA a ligar o mic lá no main.py
+                estado.analise_ativa = True
+                estado.ia_ligada = True
                 
-                # 2. INICIA O MAESTRO PASSANDO O METRÔNOMO <-- A CORREÇÃO ESTÁ AQUI
+                # INICIA O MAESTRO PASSANDO O METRÔNOMO
                 self.maestro.iniciar_treino(self.ritmo_bpm, self.ritmo_subdivisao, tempo_atual, meu_metronomo)
                 return True
                 
         # Se JÁ ESTIVER treinando (Tela de Ação)
         else:
-            if hasattr(self, 'btn_stop_ritmo') and self.btn_stop_ritmo.collidepoint(pos_mouse):
+            if self.btn_stop_ritmo.collidepoint(pos_mouse):
                 self.maestro.parar_treino()
+                # Opcional: Desligar a IA quando para o treino
+                # estado.analise_ativa = False 
                 return True
                 
         return False
@@ -134,8 +147,8 @@ class ProcessadorAudio:
             tempo_atual = pygame.time.get_ticks()
 
             # --- FÍSICA DA ESTEIRA ---
-            y_spawn = y_base + 30    
-            y_alvo = y_base + 230    
+            y_spawn = y_base + 30   
+            y_alvo = y_base + 230   
             distancia_queda = y_alvo - y_spawn
             
             # Aqui fazemos a nota demorar exatamente 4 batidas pra cair, não importa o BPM!

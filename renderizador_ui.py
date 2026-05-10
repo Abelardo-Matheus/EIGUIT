@@ -4,6 +4,7 @@
 # All rights reserved. Commercial use prohibited.
 # =============================================================================
 import pygame
+import math 
 import Modulos.escalas as escalas
 import gerenciador_interface
 from constantes_ui import *
@@ -16,11 +17,15 @@ def obter_grau(tonica, nota):
         return graus[(todas_notas.index(nota) - todas_notas.index(tonica)) % 12]
     except ValueError: return ""
 
+def equivalencia_notas(nota1, nota2):
+    if nota1 == nota2: return True
+    enarmonicas = {"C#": "Db", "Db": "C#", "D#": "Eb", "Eb": "D#", "F#": "Gb", "Gb": "F#", "G#": "Ab", "Ab": "G#", "A#": "Bb", "Bb": "A#"}
+    return enarmonicas.get(nota1) == nota2 or enarmonicas.get(nota2) == nota1
+
 def desenhar_painel_superior(tela, estado, fontes):
     dx = estado.dragger_controles_topo.x if hasattr(estado, 'dragger_controles_topo') else 100
     dy = estado.dragger_controles_topo.y if hasattr(estado, 'dragger_controles_topo') else 30
     
-    # BOTÃO ALFINETE (Lado Superior Direito)
     estado.rect_btn_pin = pygame.Rect(tela.get_width() - 60, 20, 40, 40)
     cor_pin_bg = (0, 160, 255) if estado.drag_ativado else (80, 80, 80)
     pygame.draw.rect(tela, cor_pin_bg, estado.rect_btn_pin, border_radius=8)
@@ -36,7 +41,6 @@ def desenhar_painel_superior(tela, estado, fontes):
         pygame.draw.line(tela, BRANCO, (cx - 6, cy + 2), (cx + 6, cy + 2), 2) 
         pygame.draw.line(tela, BRANCO, (cx, cy + 2), (cx, cy + 12), 2) 
 
-    # BOTÕES TOP
     btn_menos_casa = pygame.Rect(dx, dy, 40, 35)
     btn_mais_casa = pygame.Rect(dx + 160, dy, 40, 35)
     
@@ -80,10 +84,30 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_
     for casa in range(estado.NUM_CASAS + 1):
         x = pos_x_base + (casa * estado.ESPACO_CASAS)
         pygame.draw.line(tela, (150, 150, 150), (x, offset_y_atual), (x, offset_y_atual + altura_braco_atual), 2)
-    
+        
+        # --- DESENHA OS NÚMEROS DAS CASAS AQUI ---
+        if casa > 0:
+            x_centro_casa = x - (estado.ESPACO_CASAS / 2) 
+            txt_casa = fontes['pequena'].render(str(casa), True, (200, 200, 200)) # Número em cinza claro
+            tela.blit(txt_casa, (x_centro_casa - txt_casa.get_width()//2, offset_y_atual + altura_braco_atual + 20))
+            
     modo_texto = configs.get_modo_texto() if configs else 'letras'
     cor_base_escala = configs.get_cor_notas() if configs else (255, 255, 255)
     
+    freq_mic = getattr(estado, 'freq_detectada', 0.0)
+    nota_microfone = ""
+    try:
+        f = float(freq_mic)
+        if f >= 20.0:
+            valor_exato = 12 * math.log2(f / 440.0)
+            semitons = round(valor_exato)
+            desvio = valor_exato - semitons
+            if abs(desvio) <= 0.30: 
+                indice_nota = (semitons + 9) % 12
+                notas_str = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+                nota_microfone = notas_str[int(indice_nota)]
+    except: pass
+        
     for i in range(num_cordas_desenho):
         y = (offset_y_atual + altura_braco_atual - (i * estado.ESPACO_CORDAS)) if instrumento != 'baixo' else (offset_y_atual + altura_braco_atual - 15 - (i * estado.ESPACO_CORDAS))
         pygame.draw.line(tela, (200, 200, 200), (pos_x_base, y), (pos_x_base + estado.LARGURA_BRACO, y), 1)
@@ -112,9 +136,21 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_
                 elif nota_calculada == escalas.obter_terca(estado.tom_atual): cor_fundo = CORES_TONICA[estado.indice_cor_terca]
                 elif nota_calculada == escalas.obter_quinta(estado.tom_atual): cor_fundo = CORES_TONICA[estado.indice_cor_quinta]
 
+            tocando_agora = False
+            if nota_microfone and equivalencia_notas(nota_microfone, nota_calculada):
+                cor_fundo = (255, 255, 0) 
+                raio_atual = 22
+                alpha_nota = 255
+                tocando_agora = True
+
             s = pygame.Surface((raio_atual*2, raio_atual*2), pygame.SRCALPHA)
             pygame.draw.circle(s, (*cor_fundo, alpha_nota), (raio_atual, raio_atual), raio_atual)
-            pygame.draw.circle(s, (0, 0, 0, alpha_nota), (raio_atual, raio_atual), raio_atual, 2) 
+            
+            if tocando_agora:
+                pygame.draw.circle(s, (255, 100, 0), (raio_atual, raio_atual), raio_atual, 3) 
+            else:
+                pygame.draw.circle(s, (0, 0, 0, alpha_nota), (raio_atual, raio_atual), raio_atual, 2) 
+            
             tela.blit(s, (int(x_nota - raio_atual), int(y - raio_atual)))
 
             if modo_texto != 'vazio':
@@ -127,6 +163,56 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_
     if estado.drag_ativado and hasattr(estado, 'dragger_guitarra'):
         estado.dragger_guitarra.desenhar_caixa_selecao(tela, margem=20)
 
+# =============================================================================
+# NOVO: PAINEL DE CORES DRAG & DROP
+# =============================================================================
+def desenhar_painel_cores(tela, estado, fontes):
+    if not hasattr(estado, 'dragger_cores'):
+        if hasattr(estado, 'dragger_acordes'):
+            DraggerClass = type(estado.dragger_acordes)
+            
+            altura_painel = 150
+            margem_fundo = 20
+            y_inicial = tela.get_height() - altura_painel - margem_fundo - 100
+            
+            estado.dragger_cores = DraggerClass(20, y_inicial, 160, altura_painel)
+        else:
+            return
+
+    x_base = estado.dragger_cores.x
+    y_base = estado.dragger_cores.y
+    largura = estado.dragger_cores.largura
+    altura = estado.dragger_cores.altura
+
+    pygame.draw.rect(tela, (40, 40, 40), (x_base, y_base, largura, altura), border_radius=8)
+    pygame.draw.rect(tela, (150, 150, 150), (x_base, y_base, largura, altura), width=2, border_radius=8)
+
+    txt_tit = fontes['ui'].render("Cores (Graus)", True, BRANCO)
+    tela.blit(txt_tit, (x_base + largura//2 - txt_tit.get_width()//2, y_base + 10))
+
+    itens = [
+        ("Tônica (1)", estado.indice_cor_tonica, 'rect_cor_tonica'),
+        ("Terça (3)", estado.indice_cor_terca, 'rect_cor_terca'),
+        ("Quinta (5)", estado.indice_cor_quinta, 'rect_cor_quinta')
+    ]
+
+    y_item = y_base + 45
+    for texto, indice_cor, nome_rect in itens:
+        txt = fontes['pequena'].render(texto, True, BRANCO)
+        tela.blit(txt, (x_base + 10, y_item + 5))
+        
+        rect_cor = pygame.Rect(x_base + largura - 40, y_item, 25, 25)
+        cor_atual = CORES_TONICA[indice_cor % len(CORES_TONICA)]
+        
+        pygame.draw.rect(tela, cor_atual, rect_cor, border_radius=5)
+        pygame.draw.rect(tela, BRANCO, rect_cor, width=2, border_radius=5)
+        
+        setattr(estado, nome_rect, rect_cor)
+        y_item += 35
+
+    if estado.drag_ativado:
+        estado.dragger_cores.desenhar_caixa_selecao(tela, margem=5)
+
 def desenhar_acordes_arrastaveis(tela, estado, meu_campo_harmonico, fontes):
     if not hasattr(estado, 'dragger_acordes'): return
 
@@ -134,10 +220,8 @@ def desenhar_acordes_arrastaveis(tela, estado, meu_campo_harmonico, fontes):
     y_base = estado.dragger_acordes.y
     largura = estado.dragger_acordes.largura
 
-    # Renderiza apenas os acordes sem fundo amarelo
     meu_campo_harmonico.desenhar(tela, x_base, y_base + 10, largura, fontes['titulo'], fontes['ui'], fontes['pequena'])
 
-    # SÓ DESENHA A BORDA SE O MODO DRAG ESTIVER ATIVADO
     if estado.drag_ativado:
         estado.dragger_acordes.desenhar_caixa_selecao(tela, margem=5)
 
@@ -149,7 +233,6 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
     dx = estado.dragger_painel_inferior.x if hasattr(estado, 'dragger_painel_inferior') else 100
     dy = estado.dragger_painel_inferior.y if hasattr(estado, 'dragger_painel_inferior') else estado.ALTURA_TELA - 50
     
-    # Padronizamos a área de desenho para todos
     altura_caixa_total = 350
     largura_conteudo = estado.LARGURA_BRACO
     largura_botao = (largura_conteudo - 30) / 4 
@@ -167,14 +250,11 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
         tela.blit(txt, (rect_cabecalho.centerx - txt.get_width()//2, rect_cabecalho.centery - txt.get_height()//2))
 
         if secao["expandido"]:
-            # A caixa abre para CIMA do botão
             y_conteudo = dy - altura_caixa_total - 10 
-            
             rect_fundo_conteudo = pygame.Rect(dx, y_conteudo, largura_conteudo, altura_caixa_total)
             pygame.draw.rect(tela, COR_PAINEL, rect_fundo_conteudo, border_radius=8)
             pygame.draw.rect(tela, (100, 100, 100), rect_fundo_conteudo, width=2, border_radius=8)
 
-            # --- SUB-ABAS (ALTURA FIXA: 30px + 10px margem = 40px) ---
             y_sub_abas = y_conteudo + 10
             altura_sub = 30
             if secao["sub_abas"]:
@@ -187,20 +267,14 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
                     txt_sub = fontes['pequena'].render(nome_sub, True, BRANCO)
                     tela.blit(txt_sub, (rect_sub.centerx - txt_sub.get_width()//2, rect_sub.centery - txt_sub.get_height()//2))
 
-            # --- ÁREA ÚTIL DE CONTEÚDO (Onde o desenho começa de fato) ---
             y_area_desenho = y_conteudo + 50
             altura_util = altura_caixa_total - 60 
             
             rect_clipping = pygame.Rect(dx, y_area_desenho, largura_conteudo, altura_util)
             tela.set_clip(rect_clipping)
             scroll_atual = estado.scroll_y.get(i, 0)
-            
-            # Ponto de referência Y para todos os desenhos
             y_start = y_area_desenho - scroll_atual
 
-            # ========================================================
-            # BLOCO DE ESCALAS COM DRAG & DROP TOTALMENTE CORRIGIDO
-            # ========================================================
             if secao["conteudo"] in ["escalas", "acordes"]:
                 chaves = []
                 if secao["conteudo"] == "escalas":
@@ -212,44 +286,34 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
                     chave_atual = chaves[secao["memoria_sub_aba"]]
                     lista_ativa = dicionario_escalas.get(chave_atual, [])
                     
-                    # Pega a posição e dimensões reais da guitarra para a escala grudar certinho
                     pos_x_guit = estado.dragger_guitarra.x if hasattr(estado, 'dragger_guitarra') else 100
                     pos_y_guit = estado.dragger_guitarra.y if hasattr(estado, 'dragger_guitarra') else 90
                     instrumento = getattr(estado, 'instrumento', 'guitarra')
                     offset_y_guit = pos_y_guit + estado.ESPACO_CORDAS if instrumento == 'baixo' else pos_y_guit
                     altura_guit_atual = estado.ALTURA_BRACO - (2 * estado.ESPACO_CORDAS) if instrumento == 'baixo' else estado.ALTURA_BRACO
                     
-                    # ESTE É O RETÂNGULO VERDADEIRO DA GUITARRA!
                     rect_braco_real = pygame.Rect(pos_x_guit, offset_y_guit, estado.LARGURA_BRACO, altura_guit_atual)
                     
                     for modulo in lista_ativa:
                         modulo.x_braco = pos_x_guit
                         modulo.y_braco = offset_y_guit
                         
-                        # Verifica em que estado a escala está
                         if modulo.estado == 'painel':
-                            # Se está guardada: Liga o limite da caixa e aplica rolagem
                             tela.set_clip(rect_clipping) 
                             modulo.y_painel = y_start + 20 
                             modulo.scroll_offset = 0 
                         else:
-                            # Se está sendo arrastada ou grudada: DESLIGA o limite de corte
                             tela.set_clip(None)
                         
-                        # Desenha a escala PASSANDO O RETÂNGULO DA GUITARRA!
                         modulo.atualizar_e_desenhar(tela, pygame.mouse.get_pos(), rect_braco_real, fontes['pequena'], alpha_atual)
                     
-                    # Ao final do loop de escalas, religa a tesoura para o resto não bugar
                     tela.set_clip(rect_clipping)
 
-            # ========================================================
             elif secao["conteudo"] == "analise_ia":
                 if secao["memoria_sub_aba"] == 0:
                     btn_gravar_ia = pygame.Rect(dx + 20, y_start + 40, 150, 40)
-                    try:
-                        notas_abertas = lista_afinacoes[estado.indice_afinacao]["notas"]
-                    except:
-                        notas_abertas = ['E', 'A', 'D', 'G', 'B', 'E', 'B']
+                    try: notas_abertas = lista_afinacoes[estado.indice_afinacao]["notas"]
+                    except: notas_abertas = ['E', 'A', 'D', 'G', 'B', 'E', 'B']
                     meu_processador.desenhar_aba_ia(tela, dx, y_start, btn_gravar_ia, meu_gravador, fontes['ui'], fontes['titulo'], notas_abertas, estado)
                 elif secao["memoria_sub_aba"] == 1:
                      meu_processador.desenhar_aba_treino_ritmo(tela, dx, y_start, fontes['ui'], fontes['titulo'])
@@ -266,7 +330,6 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
 
             tela.set_clip(None)
 
-            # Scrollbar
             if estado.max_scroll.get(i, 0) > 0:
                 x_scroll = dx + largura_conteudo - 15
                 tamanho_alca = max(30, altura_util * (altura_util / (altura_util + estado.max_scroll[i])))
@@ -283,8 +346,10 @@ def desenhar_tudo(tela, estado, configs, dicionario_escalas, fontes, meu_metrono
     desenhar_painel_superior(tela, estado, fontes)
     desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_harmonico)
     desenhar_acordes_arrastaveis(tela, estado, meu_campo_harmonico, fontes)
+    
+    desenhar_painel_cores(tela, estado, fontes)
+    
     meu_metronomo.desenhar_mini_metronomo(tela, estado, fontes['ui'])
     desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador,meu_gerenciador_jogos)
     if estado.tela_jogo_ativa:
-        # Adicionamos o 'meu_gravador' aqui no final!
         meu_gerenciador_jogos.desenhar_tela_jogo(tela, tela.get_width(), tela.get_height(), meu_gravador)

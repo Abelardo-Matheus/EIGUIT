@@ -9,9 +9,6 @@ import fabrica_escalas as fabrica_escalas
 import gerenciador_interface as gerenciador_interface
 from constantes_ui import *
 
-# Removi o import do GerenciadorJogos daqui porque ele já virá instanciado do main.py via parâmetro.
-
-# 1. CORREÇÃO: Adicionado 'meu_gerenciador_jogos' nos argumentos da função
 def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos):
     
     # =========================================================
@@ -48,7 +45,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                 # Se desligou o drag, limpa o estado de "segurando" de todos os draggers
                 if not estado.drag_ativado:
                     draggers = ['dragger_guitarra', 'dragger_acordes', 'dragger_controles_topo', 
-                                'dragger_painel_inferior', 'dragger_metronomo']
+                                'dragger_painel_inferior', 'dragger_metronomo', 'dragger_cores'] # dragger_cores adicionado aqui!
                     for d in draggers:
                         if hasattr(estado, d): getattr(estado, d).arrastando = False
                 continue 
@@ -62,8 +59,12 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             # Ordem de prioridade de clique (do menor/mais específico para o maior)
             if hasattr(estado, 'dragger_controles_topo') and estado.dragger_controles_topo.processar_eventos_mouse(evento, margem_clique=5): 
                 clicou_em_dragger = True
-            
-            # --- ADICIONADO: Arraste do Metrônomo ---
+
+            # Arraste do Painel de Cores
+            if not clicou_em_dragger and hasattr(estado, 'dragger_cores'):
+                if estado.dragger_cores.processar_eventos_mouse(evento, margem_clique=5):
+                    clicou_em_dragger = True
+                
             if not clicou_em_dragger and hasattr(estado, 'dragger_metronomo'):
                 if estado.dragger_metronomo.processar_eventos_mouse(evento, margem_clique=5):
                     clicou_em_dragger = True
@@ -101,6 +102,18 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
         if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
             pos_mouse = pygame.mouse.get_pos()
             
+            # --- CLIQUES NO PAINEL DE CORES (GRAUS) ---
+            from constantes_ui import CORES_TONICA
+            if hasattr(estado, 'rect_cor_tonica') and estado.rect_cor_tonica.collidepoint(evento.pos):
+                estado.indice_cor_tonica = (estado.indice_cor_tonica + 1) % len(CORES_TONICA)
+                continue
+            elif hasattr(estado, 'rect_cor_terca') and estado.rect_cor_terca.collidepoint(evento.pos):
+                estado.indice_cor_terca = (estado.indice_cor_terca + 1) % len(CORES_TONICA)
+                continue
+            elif hasattr(estado, 'rect_cor_quinta') and estado.rect_cor_quinta.collidepoint(evento.pos):
+                estado.indice_cor_quinta = (estado.indice_cor_quinta + 1) % len(CORES_TONICA)
+                continue
+
             # --- CLIQUES NA INTERFACE DE ABAS (EXPANDIR/RECOLHER) ---
             if not clicou_em_dragger:
                 clicou_interface = False
@@ -165,30 +178,29 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                     scroll_atual = estado.scroll_y.get(i, 0)
                     
                     if secao["conteudo"] in ["escalas", "acordes"]:
-                        # 1. Pega a posição verdadeira do braço da guitarra!
                         pos_x_guit = estado.dragger_guitarra.x if hasattr(estado, 'dragger_guitarra') else 100
                         pos_y_guit = estado.dragger_guitarra.y if hasattr(estado, 'dragger_guitarra') else 90
                         altura_guit = estado.ALTURA_BRACO
                         
                         rect_braco_real = pygame.Rect(pos_x_guit, pos_y_guit, estado.LARGURA_BRACO, altura_guit)
                         
-                        # 2. Manda o retângulo certo para a escala saber onde grudar
                         if gerenciador_interface.tratar_cliques_escalas(pos_mouse, i, secao["memoria_sub_aba"], dicionario_escalas, rect_braco_real, scroll_atual):
                             continue
                             
                     elif secao["conteudo"] == "analise_ia":
-                        # 3. CORREÇÃO: Descobrir qual aba está aberta antes de checar os cliques
                         sub_aba_ia = secao["memoria_sub_aba"]
                         
                         if sub_aba_ia == 0:
                             btn_gravar_ia = pygame.Rect(dx_inf + 20, estado.Y_AREA_DESENHO + 50 - scroll_atual, 150, 40)
                             if meu_processador.tratar_clique(evento.pos, btn_gravar_ia, meu_gravador): continue
                             if meu_processador.tratar_clique_calibracao(evento.pos, estado, dx_inf, estado.Y_AREA_DESENHO - scroll_atual): continue
-                        
-                        # O ritmo (sub_aba_ia == 1) ainda não tem cliques
-                        
+                        elif sub_aba_ia == 1:
+                            # Agora o Python sabe que precisa enviar o clique para o Treino de Ritmo!
+                            tempo_atual = pygame.time.get_ticks()
+                            if hasattr(meu_processador, 'tratar_clique_ritmo'):
+                                if meu_processador.tratar_clique_ritmo(evento.pos, tempo_atual, meu_metronomo, estado): 
+                                    continue
                         elif sub_aba_ia == 2:
-                            # 2. CORREÇÃO: Usando a instância e passando os argumentos certos
                             if meu_gerenciador_jogos.tratar_clique_aba(evento.pos, estado): continue
 
                     elif secao["conteudo"] == "configuracao":

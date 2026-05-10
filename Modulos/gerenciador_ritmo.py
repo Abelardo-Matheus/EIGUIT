@@ -37,7 +37,12 @@ class MaestroRitmo:
         self.metronomo.tocando = True 
         self.metronomo.ultimo_tick = tempo_atual
         self.metronomo.tempo_atual = 0
-        self.metronomo.tocar_som()
+        
+        # CORREÇÃO: Acessa o som do metrônomo diretamente sem usar tocar_som()
+        if hasattr(self.metronomo, 'som_acento') and self.metronomo.som_acento:
+            self.metronomo.som_acento.play()
+        elif hasattr(self.metronomo, 'som_tick') and self.metronomo.som_tick:
+            self.metronomo.som_tick.play()
         
         self.estado = "ATIVO"
         self.ativo = True
