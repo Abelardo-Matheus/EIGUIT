@@ -1,6 +1,6 @@
 # =============================================================================
 # GUITAR STUDIO IA - Copyright (c) 2026 MATHEUS ABELARDO TREVENZOLI ARAUJO
-# Todos os direitos reservados. Uso comercial proibido.
+# Todos os direitos reservados. Uso commercial proibido.
 # All rights reserved. Commercial use prohibited.
 # =============================================================================
 
@@ -11,6 +11,10 @@ class CampoHarmonico:
         self.notas_base = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
         self.tonica_campo = 'C'  # Tônica padrão
         self.indice_escala_campo = 0
+        
+        # --- ATRIBUTOS DE SINCRONIZAÇÃO GLOBAL ---
+        self.tonica = 'C'
+        self.tipo_escala = "Maior (Jônio)"
         
         self.rects_acordes_campo = [] 
         self.indice_acorde_selecionado = -1 
@@ -54,7 +58,6 @@ class CampoHarmonico:
             self.notas_base[idx_quinta]
         ]
 
-    # --- AGORA A FUNÇÃO RECEBE X_BASE E LARGURA_DRAGGER ---
     def desenhar(self, tela, x_base, y_base, largura_dragger, fonte_titulo, fonte_ui, fonte_pequena):
         x_centro = x_base + (largura_dragger // 2)
         
@@ -131,25 +134,31 @@ class CampoHarmonico:
                     self.calcular_notas_acorde_selecionado()
                 return True
 
+        # --- CLIQUES DO SELETOR DE TOM ---
         if self.rect_tonica_esq.collidepoint(pos_mouse):
             idx = self.notas_base.index(self.tonica_campo)
             self.tonica_campo = self.notas_base[(idx - 1) % 12]
+            self.tonica = self.tonica_campo  # Sincroniza com o braço da guitarra
             self.indice_acorde_selecionado = -1
             return True
             
         elif self.rect_tonica_dir.collidepoint(pos_mouse):
             idx = self.notas_base.index(self.tonica_campo)
             self.tonica_campo = self.notas_base[(idx + 1) % 12]
+            self.tonica = self.tonica_campo  # Sincroniza com o braço da guitarra
             self.indice_acorde_selecionado = -1
             return True
             
+        # --- CLIQUES DO SELETOR DE MODO ---
         elif self.rect_escala_esq.collidepoint(pos_mouse):
             self.indice_escala_campo = (self.indice_escala_campo - 1) % len(self.escalas_campo)
+            self.tipo_escala = self.escalas_campo[self.indice_escala_campo]["nome"]  # Sincroniza com o braço
             self.indice_acorde_selecionado = -1
             return True
             
         elif self.rect_escala_dir.collidepoint(pos_mouse):
             self.indice_escala_campo = (self.indice_escala_campo + 1) % len(self.escalas_campo)
+            self.tipo_escala = self.escalas_campo[self.indice_escala_campo]["nome"]  # Sincroniza com o braço
             self.indice_acorde_selecionado = -1
             return True
 

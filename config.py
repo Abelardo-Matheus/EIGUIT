@@ -143,7 +143,6 @@ class Configuracoes:
                 self.transparencia = int((rel_x / self.largura_slider) * 100)
 
     # --- DESENHO COM LÓGICA DE FLEXBOX ---
-    # --- DESENHO COM LÓGICA DE FLEXBOX ---
     def desenhar(self, tela, fonte_titulo, fonte_ui, scroll_y=0):
         x_atual = self.x
         # 1. A MÁGICA DO SCROLL: O Y base agora subtrai a rolagem da tela!

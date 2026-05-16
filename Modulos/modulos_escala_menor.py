@@ -75,5 +75,4 @@ SHAPE_COMPLETO = [
     [1, 1, 0, 1, 0, 2, 0, 1, 1, 0, 1, 0], # 2ª Corda
     [2, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0]  # 1ª Corda
 ]
-
 TODOS_OS_SHAPES = [SHAPE_1, SHAPE_2, SHAPE_3, SHAPE_4, SHAPE_5, SHAPE_COMPLETO]

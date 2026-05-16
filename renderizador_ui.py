@@ -62,6 +62,22 @@ def desenhar_painel_superior(tela, estado, fontes):
     txt_b = fontes['ui'].render("Baixo", True, BRANCO)
     tela.blit(txt_b, (estado.btn_baixo.centerx - txt_b.get_width()//2, estado.btn_baixo.centery - txt_b.get_height()//2))
 
+    try: nome_afinacao = lista_afinacoes[estado.indice_afinacao]["nome"]
+    except: nome_afinacao = "Standard"
+
+    x_af = dx + 500 
+    estado.btn_menos_afinacao = pygame.Rect(x_af, dy, 35, 35)
+    estado.btn_mais_afinacao = pygame.Rect(x_af + 150, dy, 35, 35)
+
+    pygame.draw.rect(tela, (0, 120, 215), estado.btn_menos_afinacao, border_radius=5)
+    tela.blit(fontes['titulo'].render("<", True, BRANCO), (estado.btn_menos_afinacao.centerx - 7, estado.btn_menos_afinacao.centery - 15))
+
+    pygame.draw.rect(tela, (0, 120, 215), estado.btn_mais_afinacao, border_radius=5)
+    tela.blit(fontes['titulo'].render(">", True, BRANCO), (estado.btn_mais_afinacao.centerx - 7, estado.btn_mais_afinacao.centery - 15))
+
+    txt_af = fontes['ui'].render(nome_afinacao, True, BRANCO)
+    tela.blit(txt_af, (x_af + 35 + (115/2) - txt_af.get_width()//2, dy + 8))
+
     if estado.drag_ativado and hasattr(estado, 'dragger_controles_topo'):
         estado.dragger_controles_topo.desenhar_caixa_selecao(tela, margem=5)
 
@@ -85,15 +101,20 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_
         x = pos_x_base + (casa * estado.ESPACO_CASAS)
         pygame.draw.line(tela, (150, 150, 150), (x, offset_y_atual), (x, offset_y_atual + altura_braco_atual), 2)
         
-        # --- DESENHA OS NÚMEROS DAS CASAS AQUI ---
         if casa > 0:
             x_centro_casa = x - (estado.ESPACO_CASAS / 2) 
-            txt_casa = fontes['pequena'].render(str(casa), True, (200, 200, 200)) # Número em cinza claro
+            txt_casa = fontes['pequena'].render(str(casa), True, (200, 200, 200)) 
             tela.blit(txt_casa, (x_centro_casa - txt_casa.get_width()//2, offset_y_atual + altura_braco_atual + 20))
             
     modo_texto = configs.get_modo_texto() if configs else 'letras'
     cor_base_escala = configs.get_cor_notas() if configs else (255, 255, 255)
     
+    tom_global = getattr(meu_campo_harmonico, 'tom', getattr(meu_campo_harmonico, 'tonica', estado.tom_atual))
+    estado.tom_atual = tom_global 
+    
+    nome_escala = getattr(meu_campo_harmonico, 'tipo_escala', getattr(meu_campo_harmonico, 'tipo', '')).lower()
+    escala_menor = any(x in nome_escala for x in ['menor', 'eólia', 'dórico', 'frígio', 'lócrio'])
+
     freq_mic = getattr(estado, 'freq_detectada', 0.0)
     nota_microfone = ""
     try:
@@ -127,14 +148,27 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_
             x_nota = pos_x_base - 40 if casa == 0 else pos_x_base + (casa * estado.ESPACO_CASAS) - (estado.ESPACO_CASAS / 2)
             cor_fundo = cor_base_escala 
 
-            if meu_campo_harmonico.indice_acorde_selecionado != -1 and esta_no_acorde:
-                if nota_calculada == meu_campo_harmonico.notas_acorde_selecionado[0]: cor_fundo = CORES_TONICA[estado.indice_cor_tonica]
-                elif nota_calculada == meu_campo_harmonico.notas_acorde_selecionado[1]: cor_fundo = CORES_TONICA[estado.indice_cor_terca]
-                elif nota_calculada == meu_campo_harmonico.notas_acorde_selecionado[2]: cor_fundo = CORES_TONICA[estado.indice_cor_quinta]
+            # =========================================================================
+            # LÓGICA DE CORES DINÂMICA: FOCA NO ACORDE (SE EXISTIR) OU NO TOM GLOBAL
+            # =========================================================================
+            if meu_campo_harmonico.indice_acorde_selecionado != -1:
+                # SE UM ACORDE ESPECÍFICO ESTIVER CLICADO: Pinta a Tônica, Terça e Quinta dele
+                if esta_no_acorde:
+                    if nota_calculada == meu_campo_harmonico.notas_acorde_selecionado[0]: 
+                        cor_fundo = CORES_TONICA[estado.indice_cor_tonica]
+                    elif len(meu_campo_harmonico.notas_acorde_selecionado) > 1 and nota_calculada == meu_campo_harmonico.notas_acorde_selecionado[1]: 
+                        cor_fundo = CORES_TONICA[estado.indice_cor_terca]
+                    elif len(meu_campo_harmonico.notas_acorde_selecionado) > 2 and nota_calculada == meu_campo_harmonico.notas_acorde_selecionado[2]: 
+                        cor_fundo = CORES_TONICA[estado.indice_cor_quinta]
             else:
-                if nota_calculada == estado.tom_atual: cor_fundo = CORES_TONICA[estado.indice_cor_tonica]
-                elif nota_calculada == escalas.obter_terca(estado.tom_atual): cor_fundo = CORES_TONICA[estado.indice_cor_terca]
-                elif nota_calculada == escalas.obter_quinta(estado.tom_atual): cor_fundo = CORES_TONICA[estado.indice_cor_quinta]
+                # SE NENHUM ACORDE ESTIVER CLICADO: Pinta a escala do Tom Global
+                if nota_calculada == tom_global: 
+                    cor_fundo = CORES_TONICA[estado.indice_cor_tonica]
+                elif nota_calculada == escalas.obter_terca(tom_global, menor=escala_menor): 
+                    cor_fundo = CORES_TONICA[estado.indice_cor_terca]
+                elif nota_calculada == escalas.obter_quinta(tom_global): 
+                    cor_fundo = CORES_TONICA[estado.indice_cor_quinta]
+            # =========================================================================
 
             tocando_agora = False
             if nota_microfone and equivalencia_notas(nota_microfone, nota_calculada):
@@ -154,7 +188,8 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_
             tela.blit(s, (int(x_nota - raio_atual), int(y - raio_atual)))
 
             if modo_texto != 'vazio':
-                tom_ref = meu_campo_harmonico.notas_acorde_selecionado[0] if meu_campo_harmonico.indice_acorde_selecionado != -1 else estado.tom_atual
+                # O número do grau (1, 3, 5) agora também acompanha o Acorde se ele estiver clicado!
+                tom_ref = meu_campo_harmonico.notas_acorde_selecionado[0] if meu_campo_harmonico.indice_acorde_selecionado != -1 else tom_global
                 texto_str = nota_calculada if modo_texto == 'letras' else obter_grau(tom_ref, nota_calculada)
                 txt_surf = fontes['notas'].render(texto_str, True, (0, 0, 0))
                 txt_surf.set_alpha(alpha_nota) 
@@ -163,9 +198,6 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_
     if estado.drag_ativado and hasattr(estado, 'dragger_guitarra'):
         estado.dragger_guitarra.desenhar_caixa_selecao(tela, margem=20)
 
-# =============================================================================
-# NOVO: PAINEL DE CORES DRAG & DROP
-# =============================================================================
 def desenhar_painel_cores(tela, estado, fontes):
     if not hasattr(estado, 'dragger_cores'):
         if hasattr(estado, 'dragger_acordes'):
@@ -238,6 +270,21 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
     largura_botao = (largura_conteudo - 30) / 4 
     espacamento = 10
     
+    pos_x_guit = estado.dragger_guitarra.x if hasattr(estado, 'dragger_guitarra') else 100
+    pos_y_guit = estado.dragger_guitarra.y if hasattr(estado, 'dragger_guitarra') else 90
+    instrumento = getattr(estado, 'instrumento', 'guitarra')
+    offset_y_guit = pos_y_guit + estado.ESPACO_CORDAS if instrumento == 'baixo' else pos_y_guit
+    altura_guit_atual = estado.ALTURA_BRACO - (2 * estado.ESPACO_CORDAS) if instrumento == 'baixo' else estado.ALTURA_BRACO
+    rect_braco_real = pygame.Rect(pos_x_guit, offset_y_guit, estado.LARGURA_BRACO, altura_guit_atual)
+    
+    tela.set_clip(None) 
+    for chave_escala, lista_modulos_gerais in dicionario_escalas.items():
+        for modulo in lista_modulos_gerais:
+            if modulo.estado != 'painel': 
+                modulo.x_braco = pos_x_guit
+                modulo.y_braco = offset_y_guit
+                modulo.atualizar_e_desenhar(tela, pygame.mouse.get_pos(), rect_braco_real, fontes['pequena'], alpha_atual)
+    
     for i, secao in enumerate(estado.secoes_inferiores):
         x_botao = dx + (i * (largura_botao + espacamento))
         rect_cabecalho = pygame.Rect(x_botao, dy, largura_botao, 40)
@@ -286,26 +333,13 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
                     chave_atual = chaves[secao["memoria_sub_aba"]]
                     lista_ativa = dicionario_escalas.get(chave_atual, [])
                     
-                    pos_x_guit = estado.dragger_guitarra.x if hasattr(estado, 'dragger_guitarra') else 100
-                    pos_y_guit = estado.dragger_guitarra.y if hasattr(estado, 'dragger_guitarra') else 90
-                    instrumento = getattr(estado, 'instrumento', 'guitarra')
-                    offset_y_guit = pos_y_guit + estado.ESPACO_CORDAS if instrumento == 'baixo' else pos_y_guit
-                    altura_guit_atual = estado.ALTURA_BRACO - (2 * estado.ESPACO_CORDAS) if instrumento == 'baixo' else estado.ALTURA_BRACO
-                    
-                    rect_braco_real = pygame.Rect(pos_x_guit, offset_y_guit, estado.LARGURA_BRACO, altura_guit_atual)
-                    
                     for modulo in lista_ativa:
-                        modulo.x_braco = pos_x_guit
-                        modulo.y_braco = offset_y_guit
-                        
                         if modulo.estado == 'painel':
-                            tela.set_clip(rect_clipping) 
+                            modulo.x_braco = pos_x_guit
+                            modulo.y_braco = offset_y_guit
                             modulo.y_painel = y_start + 20 
                             modulo.scroll_offset = 0 
-                        else:
-                            tela.set_clip(None)
-                        
-                        modulo.atualizar_e_desenhar(tela, pygame.mouse.get_pos(), rect_braco_real, fontes['pequena'], alpha_atual)
+                            modulo.atualizar_e_desenhar(tela, pygame.mouse.get_pos(), rect_braco_real, fontes['pequena'], alpha_atual)
                     
                     tela.set_clip(rect_clipping)
 
@@ -351,5 +385,20 @@ def desenhar_tudo(tela, estado, configs, dicionario_escalas, fontes, meu_metrono
     
     meu_metronomo.desenhar_mini_metronomo(tela, estado, fontes['ui'])
     desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador,meu_gerenciador_jogos)
+    
     if estado.tela_jogo_ativa:
         meu_gerenciador_jogos.desenhar_tela_jogo(tela, tela.get_width(), tela.get_height(), meu_gravador)
+
+    # =========================================================
+    # DESENHA O MENU SUPERIOR SEMPRE POR ÚLTIMO (PRA FICAR POR CIMA)
+    # =========================================================
+    if hasattr(estado, 'menu_superior'):
+        estado.menu_superior.desenhar(tela, fontes['ui'])
+    # =========================================================
+    # DESENHA O MENU E O MODAL SEMPRE POR ÚLTIMO (PRA FICAR POR CIMA)
+    # =========================================================
+    if hasattr(estado, 'menu_superior'):
+        estado.menu_superior.desenhar(tela, fontes['ui'])
+
+    if hasattr(estado, 'gerenciador_perfil'):
+        estado.gerenciador_perfil.desenhar(tela, fontes['titulo'], fontes['ui'])

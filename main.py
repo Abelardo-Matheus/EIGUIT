@@ -15,6 +15,8 @@ import fabrica_escalas
 import renderizador_ui
 import controlador_eventos
 from Jogos.Jogos_interativos import GerenciadorJogos
+from Modulos.modulo_perfil import GerenciadorPerfil
+
 
 def main():
     pygame.mixer.pre_init(44100, -16, 2, 512)
@@ -25,18 +27,22 @@ def main():
     pygame.display.set_caption("Guitar Studio IA")
     meu_gerenciador_jogos = GerenciadorJogos()
     
+    # 1. CRIAMOS TODOS OS COMPONENTES ZERADOS
     estado = estado_app.EstadoGlobal(tela.get_width(), tela.get_height())
-    
     x_base = estado.dragger_guitarra.x
     y_virtual_caixa = estado.dragger_guitarra.y + estado.ALTURA_BRACO + 250
     
     minhas_configs = config.Configuracoes(x_base + 20, y_virtual_caixa + 60)
     meu_metronomo = modulo_metronomo.Metronomo(x_base + 50, y_virtual_caixa + 80)
-    
     meu_campo_harmonico = CampoHarmonico()
     meu_gravador = modulo_gravador.GravadorAudio(device_id=3)
     meu_processador = modulo_processamento.ProcessadorAudio()
     
+    # 2. AUTOLOAD DO PERFIL (Injeta as configs do JSON nos objetos recém-criados)
+    estado.gerenciador_perfil = GerenciadorPerfil()
+    estado.gerenciador_perfil.carregar_ultimo_perfil(estado, minhas_configs, meu_campo_harmonico, meu_gravador)
+    
+    # 3. GERA OS MÓDULOS (Agora com a num_casas e afinações corretas do Perfil)
     dicionario_escalas = fabrica_escalas.gerar_modulos(estado, minhas_configs)
     
     nome_fonte = minhas_configs.get_fonte()
@@ -47,9 +53,6 @@ def main():
         'notas': pygame.font.SysFont(nome_fonte, 20, bold=True)
     }
 
-    # ========================================================
-    # VARIÁVEIS DE CONTROLE DE TRANSIÇÃO DO JOGO
-    # ========================================================
     jogo_aberto_anteriormente = False
     memoria_botao_ia = False
 
@@ -59,45 +62,35 @@ def main():
         meu_metronomo.processar_logica(pygame.mouse.get_pos(), estado)
         minhas_configs.processar_logica(pos_mouse)
 
-        # ========================================================
-        # GESTÃO INTELIGENTE DO MICROFONE (BYPASS SEPARADO)
-        # ========================================================
         if estado.tela_jogo_ativa and not jogo_aberto_anteriormente:
             memoria_botao_ia = getattr(estado, 'analise_ativa', getattr(estado, 'ia_ligada', False))
             estado.analise_ativa = True
             estado.ia_ligada = True
-            
-            # ---> O SEGREDO: FORÇA O MOTOR FÍSICO A ABRIR O FLUXO DE ÁUDIO
             for func_name in ['iniciar_gravacao', 'start', 'iniciar', 'iniciar_stream']:
                 if hasattr(meu_gravador, func_name):
                     try: getattr(meu_gravador, func_name)()
                     except: pass
-            
             jogo_aberto_anteriormente = True
 
         elif not estado.tela_jogo_ativa and jogo_aberto_anteriormente:
             estado.analise_ativa = memoria_botao_ia
             estado.ia_ligada = memoria_botao_ia
-            
-            # ---> O SEGREDO: SE A IA TAVA DESLIGADA ANTES, FORÇA O MOTOR A PARAR
             if not memoria_botao_ia:
                 for func_name in ['parar_gravacao', 'stop', 'parar', 'parar_stream']:
                     if hasattr(meu_gravador, func_name):
                         try: getattr(meu_gravador, func_name)()
                         except: pass
-            
             meu_processador.processar_logica_continua(meu_gravador, estado)
             jogo_aberto_anteriormente = False
 
-        # Processador atualiza continuamente baseado no estado atual
         meu_processador.processar_logica_continua(meu_gravador, estado)
 
-        # === CONEXÃO COM O JOGO ACERTE A NOTA ===
         if estado.tela_jogo_ativa and meu_gerenciador_jogos.jogo_id_ativo == "acerte_a_nota":
             nota_para_envio = getattr(estado, 'freq_detectada', "") 
             if meu_gerenciador_jogos.jogo_instancia:
                 meu_gerenciador_jogos.jogo_instancia.atualizar_audio(nota_para_envio)
         
+        # O FONT CHANGER QUE ATUALIZA AUTOMÁTICO SE O JSON MUDAR A FONTE!
         if nome_fonte != minhas_configs.get_fonte():
             nome_fonte = minhas_configs.get_fonte()
             fontes = {k: pygame.font.SysFont(nome_fonte, v, bold=True) for k, v in zip(fontes.keys(), [18, 15, 22, 20])}
