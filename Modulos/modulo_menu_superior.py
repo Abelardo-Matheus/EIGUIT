@@ -120,12 +120,133 @@ class MenuSuperior:
 
         return consumiu_clique
 
+    # =============================================================================
+# GUITAR STUDIO IA - Copyright (c) 2026 MATHEUS ABELARDO TREVENZOLI ARAUJO
+# Todos os direitos reservados. Uso comercial proibido.
+# =============================================================================
+
+import pygame
+import webbrowser
+import Modulos.modulo_suporte as modulo_suporte # NOVO: Importando o Suporte
+
+class MenuSuperior:
+    def __init__(self):
+        self.altura_barra = 25
+        self.cor_barra = (35, 35, 35)        
+        self.cor_texto = (230, 230, 230)     
+        self.cor_hover = (0, 120, 215)       
+        self.cor_dropdown = (45, 45, 45)     
+        self.cor_borda = (80, 80, 80)        
+
+        self.menu_aberto = None
+        self.item_hover = None
+        self.sub_item_hover = None
+        
+        # Modais
+        self.modal_ideias_aberto = False
+        self.modal_patrocine_aberto = False
+        self.modal_motivacao_aberto = False
+        
+        # NOVO: Inicia o Gerenciador de Suporte
+        self.gerenciador_suporte = modulo_suporte.TutorialSuporte()
+
+        self.estrutura = {
+            "Perfil": ["Criar Novo Perfil", "Carregar Perfil", "Deletar Perfil Atual", "Voltar para o Padrão", "Imprimir", "Sair"],
+            "Configurações": ["Áudio", "Tamanho da Tela", "Tela Cheia / Janela"],
+            "Ajuda": ["Suporte", "Nos Patrocine", "Motivação", "Nos Envie Ideias"]
+        }
+
+        self.rects_principais = {}
+        self.rects_dropdown = []
+        
+        self.largura_item = 130 
+        self.largura_dropdown = 220
+
+        x_atual = 0
+        for menu in self.estrutura.keys():
+            self.rects_principais[menu] = pygame.Rect(x_atual, 0, self.largura_item, self.altura_barra)
+            x_atual += self.largura_item
+            
+        self.largura_total_menu = x_atual
+
+    def tratar_eventos(self, evento, pos_mouse, estado, configs=None, campo=None, gravador=None):
+        # =====================================================================
+        # NOVO: TRAVA DE EVENTOS DO SUPORTE (BLOQUEIA O RESTO)
+        # =====================================================================
+        if self.gerenciador_suporte.aberto:
+            if self.gerenciador_suporte.tratar_eventos([evento], pos_mouse):
+                return True
+
+        if self.modal_ideias_aberto:
+            if evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
+                self.modal_ideias_aberto = False
+                return True
+            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+                if hasattr(self, 'rect_link_email') and self.rect_link_email.collidepoint(pos_mouse):
+                    webbrowser.open('mailto:matheusabelardo12@gmail.com')
+                elif hasattr(self, 'rect_link_github') and self.rect_link_github.collidepoint(pos_mouse):
+                    webbrowser.open('https://github.com/Abelardo-Matheus/EIGUIT')
+                elif hasattr(self, 'rect_fechar_ideias') and self.rect_fechar_ideias.collidepoint(pos_mouse):
+                    self.modal_ideias_aberto = False
+            return True
+
+        if self.modal_patrocine_aberto:
+            if evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
+                self.modal_patrocine_aberto = False
+                return True
+            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+                if hasattr(self, 'rect_fechar_patrocine') and self.rect_fechar_patrocine.collidepoint(pos_mouse):
+                    self.modal_patrocine_aberto = False
+            return True
+
+        if self.modal_motivacao_aberto:
+            if evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
+                self.modal_motivacao_aberto = False
+                return True
+            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+                if hasattr(self, 'rect_fechar_motivacao') and self.rect_fechar_motivacao.collidepoint(pos_mouse):
+                    self.modal_motivacao_aberto = False
+            return True
+
+        consumiu_clique = False
+        if evento.type == pygame.MOUSEMOTION:
+            self.item_hover = None
+            self.sub_item_hover = None
+            for menu, rect in self.rects_principais.items():
+                if rect.collidepoint(pos_mouse): self.item_hover = menu
+            if self.menu_aberto:
+                for i, (texto, rect) in enumerate(self.rects_dropdown):
+                    if rect.collidepoint(pos_mouse): self.sub_item_hover = i
+
+        if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+            clicou_no_menu = False
+            for menu, rect in self.rects_principais.items():
+                if rect.collidepoint(pos_mouse):
+                    if self.menu_aberto == menu: self.menu_aberto = None
+                    else: self.menu_aberto = menu
+                    clicou_no_menu = True
+                    break
+
+            if self.menu_aberto and not clicou_no_menu:
+                for i, (texto, rect) in enumerate(self.rects_dropdown):
+                    if rect.collidepoint(pos_mouse):
+                        self.executar_acao(texto, estado, configs, campo, gravador)
+                        self.menu_aberto = None
+                        clicou_no_menu = True
+                        break
+
+            if self.menu_aberto and not clicou_no_menu:
+                self.menu_aberto = None
+                consumiu_clique = True
+
+            if clicou_no_menu: consumiu_clique = True
+
+        return consumiu_clique
+
     def executar_acao(self, acao, estado, configs, campo, gravador):
         print(f"[MENU SUPERIOR] Ação Acionada: {acao}")
         
-        if acao == "Sair": 
-            estado.solicitou_saida = True
-            
+        if acao == "Sair": estado.solicitou_saida = True
         elif acao == "Tela Cheia / Janela": 
             if not hasattr(estado, 'em_tela_cheia'): estado.em_tela_cheia = True 
             estado.em_tela_cheia = not estado.em_tela_cheia
@@ -137,30 +258,24 @@ class MenuSuperior:
             
         elif acao == "Criar Novo Perfil":
             if hasattr(estado, 'gerenciador_perfil'): estado.gerenciador_perfil.abrir_modal_novo()
-                
         elif acao == "Carregar Perfil":
             if hasattr(estado, 'gerenciador_perfil'): estado.gerenciador_perfil.abrir_modal_carregar()
-                
         elif acao == "Deletar Perfil Atual":
             if hasattr(estado, 'gerenciador_perfil'): estado.gerenciador_perfil.deletar_perfil_atual()
-                
         elif acao == "Voltar para o Padrão":
             if hasattr(estado, 'gerenciador_perfil'): estado.gerenciador_perfil.restaurar_padrao(estado, configs, campo)
-
         elif acao == "Imprimir":
             estado.solicitou_impressao = True
             
-        elif acao == "Nos Envie Ideias":
-            self.modal_ideias_aberto = True
+        elif acao == "Nos Envie Ideias": self.modal_ideias_aberto = True
+        elif acao == "Nos Patrocine": self.modal_patrocine_aberto = True
+        elif acao == "Motivação": self.modal_motivacao_aberto = True
             
-        elif acao == "Nos Patrocine":
-            self.modal_patrocine_aberto = True
-            
-        elif acao == "Motivação":
-            self.modal_motivacao_aberto = True
-
+        # NOVO: Aciona o Suporte
+        elif acao == "Suporte":
+            self.gerenciador_suporte.aberto = True
     # =========================================================================
-    # MODAL 1: NOS ENVIE IDEIAS (TEXTO HUMANIZADO E CENTRALIZADO)
+    # MODAL 1: NOS ENVIE IDEIAS 
     # =========================================================================
     def desenhar_modal_ideias(self, tela, fonte_ui):
         overlay = pygame.Surface((tela.get_width(), tela.get_height()), pygame.SRCALPHA)
@@ -214,7 +329,7 @@ class MenuSuperior:
         tela.blit(txt_fechar, (self.rect_fechar_ideias.centerx - txt_fechar.get_width()//2, self.rect_fechar_ideias.centery - txt_fechar.get_height()//2))
 
     # =========================================================================
-    # MODAL 2: NOS PATROCINE (TEXTO HUMANIZADO E CENTRALIZADO)
+    # MODAL 2: NOS PATROCINE 
     # =========================================================================
     def desenhar_modal_patrocine(self, tela, fonte_ui):
         overlay = pygame.Surface((tela.get_width(), tela.get_height()), pygame.SRCALPHA)
@@ -264,7 +379,7 @@ class MenuSuperior:
         tela.blit(txt_fechar, (self.rect_fechar_patrocine.centerx - txt_fechar.get_width()//2, self.rect_fechar_patrocine.centery - txt_fechar.get_height()//2))
 
     # =========================================================================
-    # MODAL 3: MOTIVAÇÃO (NARRATIVA REBUSCADA E 100% AUTÊNTICA/HUMANA)
+    # MODAL 3: MOTIVAÇÃO 
     # =========================================================================
     def desenhar_modal_motivacao(self, tela, fonte_ui):
         overlay = pygame.Surface((tela.get_width(), tela.get_height()), pygame.SRCALPHA)
@@ -311,7 +426,7 @@ class MenuSuperior:
         tela.blit(txt_fechar, (self.rect_fechar_motivacao.centerx - txt_fechar.get_width()//2, self.rect_fechar_motivacao.centery - txt_fechar.get_height()//2))
 
     def desenhar(self, tela, fonte_ui):
-        self.BRANCO = (255, 255, 255) # Preserva o escopo para os modais subordinados
+        self.BRANCO = (255, 255, 255) 
         
         # Desenhando Barra Base
         pygame.draw.rect(tela, self.cor_barra, (0, 0, self.largura_total_menu, self.altura_barra))
@@ -356,3 +471,11 @@ class MenuSuperior:
             
         if self.modal_motivacao_aberto:
             self.desenhar_modal_motivacao(tela, fonte_ui)
+        
+        # (Resto da função desenhar continua igual, coloque isto no finalzinho)
+        if self.modal_motivacao_aberto:
+            self.desenhar_modal_motivacao(tela, fonte_ui)
+
+        # NOVO: Desenha a tela de Suporte
+        if self.gerenciador_suporte.aberto:
+            self.gerenciador_suporte.desenhar(tela, fonte_ui, pygame.font.SysFont(None, 24, bold=True))

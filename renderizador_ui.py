@@ -23,10 +23,19 @@ def equivalencia_notas(nota1, nota2):
     return enarmonicas.get(nota1) == nota2 or enarmonicas.get(nota2) == nota1
 
 def desenhar_painel_superior(tela, estado, fontes):
-    dx = estado.dragger_controles_topo.x if hasattr(estado, 'dragger_controles_topo') else 100
+    # =========================================================================
+    # ALINHAMENTO CENTRALIZADO: Ignora o 'dragger' e usa o centro real da tela
+    # =========================================================================
+    largura_tela = tela.get_width()
+    centro_x = largura_tela // 2
+    
+    # O painel todo tem mais ou menos 640 pixels de largura (dos botões de casas até as setas de afinação)
+    largura_bloco_controles = 640
+    dx = centro_x - (largura_bloco_controles // 2)
     dy = estado.dragger_controles_topo.y if hasattr(estado, 'dragger_controles_topo') else 30
     
-    estado.rect_btn_pin = pygame.Rect(tela.get_width() - 60, 20, 40, 40)
+    # Botão de Pin (Modo de Edição) continua encostado na direita
+    estado.rect_btn_pin = pygame.Rect(largura_tela - 60, 20, 40, 40)
     cor_pin_bg = (0, 160, 255) if estado.drag_ativado else (80, 80, 80)
     pygame.draw.rect(tela, cor_pin_bg, estado.rect_btn_pin, border_radius=8)
     pygame.draw.rect(tela, BRANCO, estado.rect_btn_pin, width=2, border_radius=8)
@@ -41,6 +50,7 @@ def desenhar_painel_superior(tela, estado, fontes):
         pygame.draw.line(tela, BRANCO, (cx - 6, cy + 2), (cx + 6, cy + 2), 2) 
         pygame.draw.line(tela, BRANCO, (cx, cy + 2), (cx, cy + 12), 2) 
 
+    # --- BLOCO 1: Casas ---
     btn_menos_casa = pygame.Rect(dx, dy, 40, 35)
     btn_mais_casa = pygame.Rect(dx + 160, dy, 40, 35)
     
@@ -50,9 +60,10 @@ def desenhar_painel_superior(tela, estado, fontes):
     pygame.draw.rect(tela, (0, 120, 215), btn_mais_casa, border_radius=5)
     tela.blit(fontes['titulo'].render("+", True, BRANCO), (btn_mais_casa.centerx - 7, btn_mais_casa.centery - 15))
 
+    # --- BLOCO 2: Instrumento ---
     instrumento = getattr(estado, 'instrumento', 'guitarra')
-    estado.btn_guit = pygame.Rect(dx + 250, dy, 110, 35)
-    estado.btn_baixo = pygame.Rect(dx + 370, dy, 110, 35)
+    estado.btn_guit = pygame.Rect(dx + 220, dy, 100, 35)
+    estado.btn_baixo = pygame.Rect(dx + 330, dy, 100, 35)
 
     pygame.draw.rect(tela, (0, 120, 215) if instrumento == 'guitarra' else (70, 70, 70), estado.btn_guit, border_radius=5)
     txt_g = fontes['ui'].render("Guitarra", True, BRANCO)
@@ -62,10 +73,11 @@ def desenhar_painel_superior(tela, estado, fontes):
     txt_b = fontes['ui'].render("Baixo", True, BRANCO)
     tela.blit(txt_b, (estado.btn_baixo.centerx - txt_b.get_width()//2, estado.btn_baixo.centery - txt_b.get_height()//2))
 
+    # --- BLOCO 3: Afinação ---
     try: nome_afinacao = lista_afinacoes[estado.indice_afinacao]["nome"]
     except: nome_afinacao = "Standard"
 
-    x_af = dx + 500 
+    x_af = dx + 450 
     estado.btn_menos_afinacao = pygame.Rect(x_af, dy, 35, 35)
     estado.btn_mais_afinacao = pygame.Rect(x_af + 150, dy, 35, 35)
 
@@ -76,9 +88,15 @@ def desenhar_painel_superior(tela, estado, fontes):
     tela.blit(fontes['titulo'].render(">", True, BRANCO), (estado.btn_mais_afinacao.centerx - 7, estado.btn_mais_afinacao.centery - 15))
 
     txt_af = fontes['ui'].render(nome_afinacao, True, BRANCO)
-    tela.blit(txt_af, (x_af + 35 + (115/2) - txt_af.get_width()//2, dy + 8))
+    # Centraliza o nome da afinação entre as duas setas
+    meio_setas = x_af + 35 + ((150 - 35) // 2)
+    tela.blit(txt_af, (meio_setas - (txt_af.get_width() // 2), dy + 8))
 
+    # Desenha a caixa de seleção do arrastador do topo (se aplicável)
     if estado.drag_ativado and hasattr(estado, 'dragger_controles_topo'):
+        # Atualiza as posições do dragger para acompanharem o visual forçado
+        estado.dragger_controles_topo.x = dx
+        estado.dragger_controles_topo.largura = largura_bloco_controles + 40
         estado.dragger_controles_topo.desenhar_caixa_selecao(tela, margem=5)
 
 def desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_harmonico):
