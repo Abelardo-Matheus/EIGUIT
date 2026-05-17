@@ -70,7 +70,7 @@ class EstadoGlobal:
         self.dragger_metronomo = ElementoArrastavel(x_inicial=centro_x_metronomo, y_inicial=y_inicial_metronomo, largura=self.LARGURA_METRONOMO, altura=self.ALTURA_METRONOMO)
 
         # Controles Topo
-        largura_topo = 480
+        largura_topo = 780
         centro_x_topo = (largura_tela - largura_topo) // 2
         self.dragger_controles_topo = ElementoArrastavel(x_inicial=centro_x_topo, y_inicial=30, largura=largura_topo, altura=40)
         

@@ -274,18 +274,41 @@ class MenuSuperior:
         # NOVO: Aciona o Suporte
         elif acao == "Suporte":
             self.gerenciador_suporte.aberto = True
+
+    def calcular_centro_camera(self, estado, tela, largura_obj, altura_obj):
+        import pygame
+        # Pega o tamanho real da janela do seu monitor à força, ignorando a "mesa gigante"
+        tela_real = pygame.display.get_surface()
+        w_real = tela_real.get_width() if tela_real else 1280
+        h_real = tela_real.get_height() if tela_real else 720
+
+        if estado and hasattr(estado, 'camera'):
+            zoom = estado.camera.zoom
+            
+            # Acha o pixel exato do chão da mesa para onde o centro do seu monitor está apontando
+            meio_x_virtual = estado.camera.offset_x + (w_real / 2) / zoom
+            meio_y_virtual = estado.camera.offset_y + (h_real / 2) / zoom
+            
+            # Posiciona a caixa bem no meio
+            cx = meio_x_virtual - (largura_obj / 2)
+            cy = meio_y_virtual - (altura_obj / 2)
+            return int(cx), int(cy)
+            
+        return (w_real // 2) - (largura_obj // 2), (h_real // 2) - (altura_obj // 2)
+    
     # =========================================================================
     # MODAL 1: NOS ENVIE IDEIAS 
     # =========================================================================
-    def desenhar_modal_ideias(self, tela, fonte_ui):
+    def desenhar_modal_ideias(self, tela, fonte_ui, estado):
         overlay = pygame.Surface((tela.get_width(), tela.get_height()), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
         tela.blit(overlay, (0, 0))
 
         largura_modal = 680
         altura_modal = 360
-        cx = tela.get_width() // 2 - largura_modal // 2
-        cy = tela.get_height() // 2 - altura_modal // 2
+        # === AQUI ACONTECE A MÁGICA: ===
+        cx, cy = self.calcular_centro_camera(estado, tela, largura_modal, altura_modal)
+        
         rect_modal = pygame.Rect(cx, cy, largura_modal, altura_modal)
         centro_x_modal = cx + (largura_modal // 2)
 
@@ -331,15 +354,15 @@ class MenuSuperior:
     # =========================================================================
     # MODAL 2: NOS PATROCINE 
     # =========================================================================
-    def desenhar_modal_patrocine(self, tela, fonte_ui):
+    def desenhar_modal_patrocine(self, tela, fonte_ui, estado=None):
         overlay = pygame.Surface((tela.get_width(), tela.get_height()), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
         tela.blit(overlay, (0, 0))
 
         largura_modal = 800
         altura_modal = 360
-        cx = tela.get_width() // 2 - largura_modal // 2
-        cy = tela.get_height() // 2 - altura_modal // 2
+        # APLICANDO A MÁGICA DA CÂMERA AQUI:
+        cx, cy = self.calcular_centro_camera(estado, tela, largura_modal, altura_modal)
         rect_modal = pygame.Rect(cx, cy, largura_modal, altura_modal)
         centro_x_modal = cx + (largura_modal // 2)
 
@@ -381,7 +404,7 @@ class MenuSuperior:
     # =========================================================================
     # MODAL 3: MOTIVAÇÃO 
     # =========================================================================
-    def desenhar_modal_motivacao(self, tela, fonte_ui):
+    def desenhar_modal_motivacao(self, tela, fonte_ui, estado=None):
         overlay = pygame.Surface((tela.get_width(), tela.get_height()), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
         tela.blit(overlay, (0, 0))
@@ -389,8 +412,8 @@ class MenuSuperior:
         # Caixa ligeiramente maior para acomodar a narrativa sem espremer
         largura_modal = 850
         altura_modal = 400
-        cx = tela.get_width() // 2 - largura_modal // 2
-        cy = tela.get_height() // 2 - altura_modal // 2
+        # APLICANDO A MÁGICA DA CÂMERA AQUI:
+        cx, cy = self.calcular_centro_camera(estado, tela, largura_modal, altura_modal)
         rect_modal = pygame.Rect(cx, cy, largura_modal, altura_modal)
         centro_x_modal = cx + (largura_modal // 2)
 
@@ -425,7 +448,7 @@ class MenuSuperior:
         txt_fechar = fonte_ui.render("Voltar", True, self.BRANCO)
         tela.blit(txt_fechar, (self.rect_fechar_motivacao.centerx - txt_fechar.get_width()//2, self.rect_fechar_motivacao.centery - txt_fechar.get_height()//2))
 
-    def desenhar(self, tela, fonte_ui):
+    def desenhar(self, tela, fonte_ui, estado=None):
         self.BRANCO = (255, 255, 255) 
         
         # Desenhando Barra Base
@@ -464,18 +487,12 @@ class MenuSuperior:
                 
         # Invocação das janelas modais com prioridade de sobreposição
         if self.modal_ideias_aberto:
-            self.desenhar_modal_ideias(tela, fonte_ui)
-            
+            self.desenhar_modal_ideias(tela, fonte_ui, estado)
         if self.modal_patrocine_aberto:
-            self.desenhar_modal_patrocine(tela, fonte_ui)
-            
+            self.desenhar_modal_patrocine(tela, fonte_ui, estado)
         if self.modal_motivacao_aberto:
-            self.desenhar_modal_motivacao(tela, fonte_ui)
-        
-        # (Resto da função desenhar continua igual, coloque isto no finalzinho)
-        if self.modal_motivacao_aberto:
-            self.desenhar_modal_motivacao(tela, fonte_ui)
+            self.desenhar_modal_motivacao(tela, fonte_ui, estado)
 
         # NOVO: Desenha a tela de Suporte
         if self.gerenciador_suporte.aberto:
-            self.gerenciador_suporte.desenhar(tela, fonte_ui, pygame.font.SysFont(None, 24, bold=True))
+            self.gerenciador_suporte.desenhar(tela, fonte_ui, pygame.font.SysFont(None, 24, bold=True), estado)

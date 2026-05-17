@@ -311,7 +311,7 @@ class GerenciadorPerfil:
 
         return True 
 
-    def desenhar(self, tela, fonte_titulo, fonte_ui):
+    def desenhar(self, tela, fonte_titulo, fonte_ui, estado=None):
         if not self.ativo: return
 
         overlay = pygame.Surface((tela.get_width(), tela.get_height()), pygame.SRCALPHA)

@@ -28,15 +28,18 @@ def main():
     meu_gerenciador_jogos = GerenciadorJogos()
     
     # =========================================================================
-    # 1. INICIALIZA A MESA GIGANTE 
+    # 1. INICIALIZA A MESA GIGANTE
     # =========================================================================
-    
+    import Modulos.modulo_camera as modulo_camera
     minha_camera = modulo_camera.CameraWorkspace(tela.get_width(), tela.get_height())
     
     # 2. USA O TAMANHO REAL DA TELA: O layout nasce normal, compacto e centralizado!
     estado = estado_app.EstadoGlobal(tela.get_width(), tela.get_height())
     estado.LARGURA_TELA = tela.get_width()
     estado.ALTURA_TELA = tela.get_height()
+    
+    # 3. SALVA A CÂMERA NO ESTADO (AQUI É O LUGAR CERTO!)
+    estado.camera = minha_camera
 
     x_base = estado.dragger_guitarra.x
     y_virtual_caixa = estado.dragger_guitarra.y + estado.ALTURA_BRACO + 250

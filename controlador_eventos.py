@@ -7,8 +7,7 @@ import pygame
 import fabrica_escalas as fabrica_escalas
 import gerenciador_interface as gerenciador_interface
 from constantes_ui import *
-
-# IMPORTANTE: Carrega o Menu Superior para o cérebro do programa
+import Modulos.modulo_menu_contexto as modulo_menu_contexto
 import Modulos.modulo_menu_superior as modulo_menu_superior 
 
 def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos):
@@ -22,6 +21,10 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             # Força o recálculo das escalas se houver mudança de tom/casas ao carregar perfil
             dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
             return 
+        
+    # Cria o Menu de Contexto globalmente na memória se ele ainda não existir
+    if not hasattr(estado, 'menu_contexto'):
+        estado.menu_contexto = modulo_menu_contexto.MenuContexto()
 
     # 2. Cria o menu globalmente na memória se ele ainda não existir
     if not hasattr(estado, 'menu_superior'):
@@ -30,6 +33,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
     # 3. TRAVA DE TELA CHEIA (JOGOS)
     if getattr(estado, 'tela_jogo_ativa', False):
         for evento in eventos:
+            
             if evento.type == pygame.QUIT: 
                 estado.solicitou_saida = True
                 
@@ -39,6 +43,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                 
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                 meu_gerenciador_jogos.tratar_clique_tela_jogo(evento.pos, estado, meu_gravador)
+            
         return
     
     pos_mouse = pygame.mouse.get_pos()
@@ -73,6 +78,82 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
         if estado.menu_superior.tratar_eventos(evento, pos_mouse, estado, configs, meu_campo_harmonico, meu_gravador):
             dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
             continue 
+
+        # =========================================================
+        # --- AVALIA O MENU DE CONTEXTO (CENTRAL DE AÇÕES) ---
+        # =========================================================
+        # Garante que a lista de guitarras existe na memória
+        if not hasattr(estado, 'lista_guitarras'):
+            estado.lista_guitarras = [estado.dragger_guitarra] if hasattr(estado, 'dragger_guitarra') else []
+
+        acao_contexto = estado.menu_contexto.tratar_eventos(evento, pos_mouse, estado)
+        
+        if acao_contexto == "CONSUMIU_EVENTO" or acao_contexto == "FECHOU_MENU":
+            continue
+            
+        elif isinstance(acao_contexto, tuple):
+            acao, alvo, tipo = acao_contexto
+            print(f"[MENU] Ação: {acao} | Alvo: {tipo}")
+            
+            # --- LÓGICA: BLOCOS DE GUITARRA ---
+            if tipo == "guitarra":
+                if acao == "Apagar":
+                    if alvo in estado.lista_guitarras:
+                        estado.lista_guitarras.remove(alvo)
+                        # Se apagou a guitarra principal, elege a próxima como principal
+                        if estado.dragger_guitarra == alvo:
+                            estado.dragger_guitarra = estado.lista_guitarras[0] if estado.lista_guitarras else None
+
+                elif acao == "Duplicar Bloco (Cópia)":
+                    import copy
+                    novo_dragger = copy.copy(alvo)
+                    novo_dragger.y += 180 # Joga o clone um pouco para baixo para não sobrepor
+                    estado.lista_guitarras.append(novo_dragger)
+                    
+                elif acao == "Nova Seção Vazia":
+                    import copy
+                    novo_dragger = copy.copy(alvo)
+                    novo_dragger.y += 180
+                    # Aqui, futuramente, vamos adicionar as variáveis para a "Seção Vazia" não ter os mesmos acordes pintados.
+                    # Por enquanto, criamos o bloco físico na tela para você arrastar.
+                    estado.lista_guitarras.append(novo_dragger)
+            continue
+
+        # =========================================================
+        # --- DETECÇÃO DO CLIQUE DIREITO (ABRIR O MENU) ---
+        # =========================================================
+        if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 3:
+            abriu_menu = False
+            
+            # 1. Verifica se clicou em ALGUMA das guitarras
+            if hasattr(estado, 'lista_guitarras'):
+                # Usamos reversed() para ele clicar na guitarra que estiver por cima primeiro
+                for guit in reversed(estado.lista_guitarras):
+                    rect_guit = pygame.Rect(guit.x, guit.y, guit.largura, guit.altura)
+                    
+                    if rect_guit.collidepoint(pos_mouse):
+                        if estado.drag_ativado:
+                            # Passa exatamente o clone "guit" que foi clicado pro menu!
+                            estado.menu_contexto.abrir(pos_mouse, "guitarra", guit)
+                            abriu_menu = True
+                        else:
+                            for lista_modulos in dicionario_escalas.values():
+                                for modulo in lista_modulos:
+                                    if modulo.estado != 'painel':
+                                        modulo.estado = 'painel'
+                        break # Se achou a guitarra, ignora as que estão atrás dela
+
+            # 2. Verifica se clicou no Campo Harmônico
+            if not abriu_menu and hasattr(estado, 'dragger_acordes'):
+                rect_acordes = pygame.Rect(estado.dragger_acordes.x, estado.dragger_acordes.y, estado.dragger_acordes.largura, estado.dragger_acordes.altura)
+                if rect_acordes.collidepoint(pos_mouse) and estado.drag_ativado:
+                    estado.menu_contexto.abrir(pos_mouse, "acordes", estado.dragger_acordes)
+                    abriu_menu = True
+                    
+            # 3. Se não clicou em nenhum bloco, abre o menu da Mesa Fundo!
+            if not abriu_menu:
+                estado.menu_contexto.abrir(pos_mouse, "fundo_mesa")
+            continue
 
         # =========================================================
         # --- REMOVER ESCALA COM BOTÃO DIREITO DO MOUSE ---
@@ -134,15 +215,17 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                 if estado.dragger_painel_inferior.processar_eventos_mouse(evento, margem_clique=5):
                     clicou_em_dragger = True
 
-            # =========================================================================
-            # NOVO: SINCRONIZA O TAMANHO DO BRAÇO QUANDO REDIMENSIONADO
-            # =========================================================================
-            if hasattr(estado, 'dragger_guitarra') and estado.dragger_guitarra.redimensionando:
-                # Ao redimensionar a caixa, repassamos a nova largura/altura pro estado e mandamos recalcular
-                estado.LARGURA_BRACO = estado.dragger_guitarra.largura
-                estado.ALTURA_BRACO = estado.dragger_guitarra.altura
-                estado.atualizar_medidas()
-            # =========================================================================
+            # LÓGICA ATUALIZADA: Permite arrastar e redimensionar MÚLTIPLAS guitarras
+            if not clicou_em_dragger and hasattr(estado, 'lista_guitarras'):
+                for guit in reversed(estado.lista_guitarras): # Invertido para priorizar a que está por cima
+                    if guit.processar_eventos_mouse(evento, margem_clique=20):
+                        clicou_em_dragger = True
+                        # Se redimensionou uma, atualiza a medida base
+                        if guit.redimensionando:
+                            estado.LARGURA_BRACO = guit.largura
+                            estado.ALTURA_BRACO = guit.altura
+                            estado.atualizar_medidas()
+                        break
 
         if evento.type == pygame.MOUSEBUTTONUP and evento.button == 1 and estado.drag_ativado:
             dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))

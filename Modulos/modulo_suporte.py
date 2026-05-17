@@ -91,22 +91,30 @@ class TutorialSuporte:
                             break
             return True # Engole o clique para não passar pra guitarra
         return False
+    
+    def calcular_centro_camera(self, estado, tela, largura_obj, altura_obj):
+        if estado and hasattr(estado, 'camera'):
+            w_monitor = getattr(estado, 'LARGURA_TELA', 1280)
+            h_monitor = getattr(estado, 'ALTURA_TELA', 720)
+            zoom = estado.camera.zoom
+            cx = estado.camera.offset_x + (w_monitor / 2) / zoom - (largura_obj / 2)
+            cy = estado.camera.offset_y + (h_monitor / 2) / zoom - (altura_obj / 2)
+            return int(cx), int(cy)
+        return tela.get_width() // 2 - largura_obj // 2, tela.get_height() // 2 - altura_obj // 2
 
-    def desenhar(self, tela, fonte_ui, fonte_titulo):
+    def desenhar(self, tela, fonte_ui, fonte_titulo, estado=None): 
         if not self.aberto: return
 
-        # Fundo Translúcido
         overlay = pygame.Surface((tela.get_width(), tela.get_height()), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
         tela.blit(overlay, (0, 0))
 
-        # Medidas da Caixa Principal
         largura_modal = 850
         altura_modal = 550
-        cx = tela.get_width() // 2 - largura_modal // 2
-        cy = tela.get_height() // 2 - altura_modal // 2
+        # === A NOVA MATEMÁTICA ===
+        cx, cy = self.calcular_centro_camera(estado, tela, largura_modal, altura_modal)
+        
         rect_modal = pygame.Rect(cx, cy, largura_modal, altura_modal)
-
         # Desenha a Janela
         pygame.draw.rect(tela, (30, 30, 30), rect_modal, border_radius=10)
         pygame.draw.rect(tela, (100, 100, 100), rect_modal, width=2, border_radius=10)

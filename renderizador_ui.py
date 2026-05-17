@@ -105,7 +105,8 @@ def desenhar_painel_superior(tela, estado, fontes):
         # Agora ele SÓ desenha a caixa! Não sobrescreve mais a largura!
         estado.dragger_controles_topo.desenhar_caixa_selecao(tela, margem=5)
         
-def desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_harmonico):
+# Adicione o dragger_obj=None no final dos parâmetros!
+def desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_harmonico, dragger_obj=None):
     try: notas_abertas = lista_afinacoes[estado.indice_afinacao]["notas"]
     except: notas_abertas = ['E', 'A', 'D', 'G', 'B', 'E', 'B']
 
@@ -113,13 +114,21 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_
     instrumento = getattr(estado, 'instrumento', 'guitarra')
     num_cordas_desenho = 4 if instrumento == 'baixo' else estado.NUM_CORDAS
     
-    pos_x_base = estado.dragger_guitarra.x if hasattr(estado, 'dragger_guitarra') else 100
-    pos_y_base = estado.dragger_guitarra.y if hasattr(estado, 'dragger_guitarra') else 90
+    # =========================================================================
+    # LÊ A POSIÇÃO DA GUITARRA ESPECÍFICA (O Clone), E NÃO APENAS A GLOBAL!
+    # =========================================================================
+    alvo = dragger_obj if dragger_obj else (estado.dragger_guitarra if hasattr(estado, 'dragger_guitarra') else None)
+    
+    if alvo is None: return # Se não tiver nenhuma guitarra na tela, nem tenta desenhar
+    
+    pos_x_base = alvo.x
+    pos_y_base = alvo.y
+    largura_braco_atual = alvo.largura
+    altura_braco_atual = alvo.altura - (2 * estado.ESPACO_CORDAS) if instrumento == 'baixo' else alvo.altura
 
-    altura_braco_atual = estado.ALTURA_BRACO - (2 * estado.ESPACO_CORDAS) if instrumento == 'baixo' else estado.ALTURA_BRACO
     offset_y_atual = pos_y_base + estado.ESPACO_CORDAS if instrumento == 'baixo' else pos_y_base
 
-    pygame.draw.rect(tela, cor_madeira, (pos_x_base, offset_y_atual, estado.LARGURA_BRACO, altura_braco_atual))
+    pygame.draw.rect(tela, cor_madeira, (pos_x_base, offset_y_atual, largura_braco_atual, altura_braco_atual))
 
     for casa in range(estado.NUM_CASAS + 1):
         x = pos_x_base + (casa * estado.ESPACO_CASAS)
@@ -212,27 +221,33 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_
             tela.blit(s, (int(x_nota - raio_atual), int(y - raio_atual)))
 
             if modo_texto != 'vazio':
-                # O número do grau (1, 3, 5) agora também acompanha o Acorde se ele estiver clicado!
                 tom_ref = meu_campo_harmonico.notas_acorde_selecionado[0] if meu_campo_harmonico.indice_acorde_selecionado != -1 else tom_global
                 texto_str = nota_calculada if modo_texto == 'letras' else obter_grau(tom_ref, nota_calculada)
                 txt_surf = fontes['notas'].render(texto_str, True, (0, 0, 0))
                 txt_surf.set_alpha(alpha_nota) 
                 tela.blit(txt_surf, (x_nota - (txt_surf.get_width()/2), y - (txt_surf.get_height()/2)))
     
-    if estado.drag_ativado and hasattr(estado, 'dragger_guitarra'):
-        estado.dragger_guitarra.desenhar_caixa_selecao(tela, margem=20)
+    # =========================================================================
+    # CORREÇÃO: Desenha os quadradinhos de arrastar no ALVO específico!
+    # =========================================================================
+    if estado.drag_ativado and alvo:
+        alvo.desenhar_caixa_selecao(tela, margem=20)
 
 def desenhar_painel_cores(tela, estado, fontes):
     if not hasattr(estado, 'dragger_cores'):
         if hasattr(estado, 'dragger_acordes'):
             DraggerClass = type(estado.dragger_acordes)
-            
             altura_painel = 150
             margem_fundo = 20
-            y_inicial = tela.get_height() - altura_painel - margem_fundo - 100
+            
+            # =========================================================================
+            # CORREÇÃO: Usa a altura real do monitor, não os 3000 pixels da mesa gigante!
+            # =========================================================================
+            altura_real = getattr(estado, 'ALTURA_TELA', 720)
+            y_inicial = altura_real - altura_painel - margem_fundo - 100
             
             estado.dragger_cores = DraggerClass(20, y_inicial, 160, altura_painel)
-        else:
+        else: 
             return
 
     x_base = estado.dragger_cores.x
@@ -403,7 +418,9 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
 def desenhar_tudo(tela, estado, configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos):
     tela.fill(FUNDO_ESCURO)
     desenhar_painel_superior(tela, estado, fontes)
-    desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_harmonico)
+    if hasattr(estado, 'lista_guitarras'):
+        for guit in estado.lista_guitarras:
+            desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_harmonico, dragger_obj=guit)
     desenhar_acordes_arrastaveis(tela, estado, meu_campo_harmonico, fontes)
     desenhar_painel_cores(tela, estado, fontes)
     meu_metronomo.desenhar_mini_metronomo(tela, estado, fontes['ui'])
@@ -413,10 +430,12 @@ def desenhar_tudo(tela, estado, configs, dicionario_escalas, fontes, meu_metrono
         meu_gerenciador_jogos.desenhar_tela_jogo(tela, tela.get_width(), tela.get_height(), meu_gravador)
 
     if hasattr(estado, 'menu_superior'):
-        estado.menu_superior.desenhar(tela, fontes['ui'])
+        estado.menu_superior.desenhar(tela, fontes['ui'], estado)
     if hasattr(estado, 'gerenciador_perfil'):
-        estado.gerenciador_perfil.desenhar(tela, fontes['titulo'], fontes['ui'])
+        estado.gerenciador_perfil.desenhar(tela, fontes['titulo'], fontes['ui'], estado) 
 
+    if hasattr(estado, 'menu_contexto'):
+        estado.menu_contexto.desenhar(tela, fontes['ui'])
     # =========================================================================
     # LÓGICA DO FOTÓGRAFO: Tira a foto DEPOIS que o menu já sumiu da tela!
     # =========================================================================
