@@ -48,7 +48,11 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
     dx_inf = estado.dragger_painel_inferior.x if hasattr(estado, 'dragger_painel_inferior') else 100
     dy_inf = estado.dragger_painel_inferior.y if hasattr(estado, 'dragger_painel_inferior') else estado.ALTURA_TELA - 50
     altura_caixa_total = 350
-    largura_conteudo = estado.LARGURA_BRACO
+    
+    # =========================================================================
+    # CORREÇÃO DA ZONA DE CLIQUE PARA O NOVO TAMANHO
+    # =========================================================================
+    largura_conteudo = estado.dragger_painel_inferior.largura if hasattr(estado, 'dragger_painel_inferior') else estado.LARGURA_BRACO
 
     for secao in estado.secoes_inferiores:
         if secao["expandido"]:
@@ -104,6 +108,8 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
         # =========================================================
         clicou_em_dragger = False
 
+        # ... código existente (onde ele testa se clicou nos draggers)...
+        
         if estado.drag_ativado:
             if hasattr(estado, 'dragger_controles_topo') and estado.dragger_controles_topo.processar_eventos_mouse(evento, margem_clique=5): 
                 clicou_em_dragger = True
@@ -127,6 +133,16 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             if not clicou_em_dragger and hasattr(estado, 'dragger_painel_inferior'):
                 if estado.dragger_painel_inferior.processar_eventos_mouse(evento, margem_clique=5):
                     clicou_em_dragger = True
+
+            # =========================================================================
+            # NOVO: SINCRONIZA O TAMANHO DO BRAÇO QUANDO REDIMENSIONADO
+            # =========================================================================
+            if hasattr(estado, 'dragger_guitarra') and estado.dragger_guitarra.redimensionando:
+                # Ao redimensionar a caixa, repassamos a nova largura/altura pro estado e mandamos recalcular
+                estado.LARGURA_BRACO = estado.dragger_guitarra.largura
+                estado.ALTURA_BRACO = estado.dragger_guitarra.altura
+                estado.atualizar_medidas()
+            # =========================================================================
 
         if evento.type == pygame.MOUSEBUTTONUP and evento.button == 1 and estado.drag_ativado:
             dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))

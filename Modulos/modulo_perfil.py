@@ -48,6 +48,7 @@ class GerenciadorPerfil:
         import pygame
         import json
         
+        # Volta a centralizar usando a tela real do monitor do usuário
         tela = pygame.display.get_surface()
         if tela:
             largura_tela = tela.get_width()
@@ -55,7 +56,7 @@ class GerenciadorPerfil:
         else:
             largura_tela = getattr(estado, 'LARGURA_BRACO', 1000) + 350
             altura_tela = getattr(estado, 'ALTURA_TELA', 768)
-
+       
         largura_braco = getattr(estado, 'LARGURA_BRACO', largura_tela - 350)
         altura_braco = getattr(estado, 'ALTURA_BRACO', 300)
         largura_acordes = getattr(estado, 'LARGURA_ACORDES', 580)

@@ -16,7 +16,7 @@ import renderizador_ui
 import controlador_eventos
 from Jogos.Jogos_interativos import GerenciadorJogos
 from Modulos.modulo_perfil import GerenciadorPerfil
-
+import Modulos.modulo_camera as modulo_camera
 
 def main():
     pygame.mixer.pre_init(44100, -16, 2, 512)
@@ -27,8 +27,17 @@ def main():
     pygame.display.set_caption("Guitar Studio IA")
     meu_gerenciador_jogos = GerenciadorJogos()
     
-    # 1. CRIAMOS TODOS OS COMPONENTES ZERADOS
+    # =========================================================================
+    # 1. INICIALIZA A MESA GIGANTE 
+    # =========================================================================
+    
+    minha_camera = modulo_camera.CameraWorkspace(tela.get_width(), tela.get_height())
+    
+    # 2. USA O TAMANHO REAL DA TELA: O layout nasce normal, compacto e centralizado!
     estado = estado_app.EstadoGlobal(tela.get_width(), tela.get_height())
+    estado.LARGURA_TELA = tela.get_width()
+    estado.ALTURA_TELA = tela.get_height()
+
     x_base = estado.dragger_guitarra.x
     y_virtual_caixa = estado.dragger_guitarra.y + estado.ALTURA_BRACO + 250
     
@@ -38,11 +47,8 @@ def main():
     meu_gravador = modulo_gravador.GravadorAudio(device_id=3)
     meu_processador = modulo_processamento.ProcessadorAudio()
     
-    # 2. AUTOLOAD DO PERFIL (Injeta as configs do JSON nos objetos recém-criados)
     estado.gerenciador_perfil = GerenciadorPerfil()
     estado.gerenciador_perfil.carregar_ultimo_perfil(estado, minhas_configs, meu_campo_harmonico, meu_gravador)
-    
-    # 3. GERA OS MÓDULOS (Agora com a num_casas e afinações corretas do Perfil)
     dicionario_escalas = fabrica_escalas.gerar_modulos(estado, minhas_configs)
     
     nome_fonte = minhas_configs.get_fonte()
@@ -56,11 +62,38 @@ def main():
     jogo_aberto_anteriormente = False
     memoria_botao_ia = False
 
+    # Salva a função original do mouse antes de fazer a mágica
+    original_get_pos = pygame.mouse.get_pos
+
     while not estado.solicitou_saida:
-        pos_mouse = pygame.mouse.get_pos()
+        # =====================================================================
+        # MÁGICA DA CÂMERA: Captura o mouse real e converte para o virtual
+        # =====================================================================
+        pos_mouse_real = original_get_pos()
+        pos_mouse_virtual = minha_camera.obter_mouse_virtual(pos_mouse_real)
         
-        meu_metronomo.processar_logica(pygame.mouse.get_pos(), estado)
-        minhas_configs.processar_logica(pos_mouse)
+        # Engana o Pygame! Todos os outros arquivos agora usam a coordenada da mesa gigante!
+        pygame.mouse.get_pos = lambda: pos_mouse_virtual
+
+        eventos_traduzidos = []
+        for evento in pygame.event.get():
+            # A Câmera tenta agir primeiro (Para o Zoom e Arrasto)
+            if minha_camera.tratar_eventos_camera(evento, pos_mouse_real):
+                continue # Se for evento da câmera, não passa pras escalas!
+                
+            # Traduz os cliques para o mundo virtual
+            if evento.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
+                evt_dict = evento.dict.copy()
+                evt_dict['pos'] = minha_camera.obter_mouse_virtual(evento.pos)
+                if 'rel' in evt_dict:
+                    evt_dict['rel'] = (evt_dict['rel'][0] / minha_camera.zoom, evt_dict['rel'][1] / minha_camera.zoom)
+                eventos_traduzidos.append(pygame.event.Event(evento.type, evt_dict))
+            else:
+                eventos_traduzidos.append(evento)
+        # =====================================================================
+        
+        meu_metronomo.processar_logica(pos_mouse_virtual, estado)
+        minhas_configs.processar_logica(pos_mouse_virtual)
 
         if estado.tela_jogo_ativa and not jogo_aberto_anteriormente:
             memoria_botao_ia = getattr(estado, 'analise_ativa', getattr(estado, 'ia_ligada', False))
@@ -90,25 +123,34 @@ def main():
             if meu_gerenciador_jogos.jogo_instancia:
                 meu_gerenciador_jogos.jogo_instancia.atualizar_audio(nota_para_envio)
         
-        # O FONT CHANGER QUE ATUALIZA AUTOMÁTICO SE O JSON MUDAR A FONTE!
         if nome_fonte != minhas_configs.get_fonte():
             nome_fonte = minhas_configs.get_fonte()
             fontes = {k: pygame.font.SysFont(nome_fonte, v, bold=True) for k, v in zip(fontes.keys(), [18, 15, 22, 20])}
 
         controlador_eventos.processar(
-            pygame.event.get(), estado, minhas_configs,
+            eventos_traduzidos, estado, minhas_configs,
             dicionario_escalas, meu_metronomo, meu_processador, meu_gravador,
             meu_campo_harmonico, meu_gerenciador_jogos
         )
 
+        # =====================================================================
+        # NOVO RENDERIZADOR: PINTA NA MESA VIRTUAL E COLA NO MONITOR
+        # =====================================================================
+        minha_camera.tela_virtual.fill((20, 20, 20)) # Fundo base da mesa
+        
         renderizador_ui.desenhar_tudo(
-            tela, estado, minhas_configs, dicionario_escalas, 
+            minha_camera.tela_virtual, estado, minhas_configs, dicionario_escalas, 
             fontes, meu_metronomo, meu_processador, meu_gravador,
             meu_campo_harmonico, meu_gerenciador_jogos
         )
         
+        # Agora a câmera processa o que foi pintado e exibe na sua tela
+        tela.fill((0, 0, 0)) # Borda preta caso arraste demais
+        minha_camera.renderizar(tela)
         pygame.display.flip()
 
+    # Devolve a função original para fechar limpo
+    pygame.mouse.get_pos = original_get_pos
     pygame.quit()
     sys.exit()
 
