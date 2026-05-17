@@ -376,29 +376,52 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
 
 def desenhar_tudo(tela, estado, configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos):
     tela.fill(FUNDO_ESCURO)
-    
     desenhar_painel_superior(tela, estado, fontes)
     desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_harmonico)
     desenhar_acordes_arrastaveis(tela, estado, meu_campo_harmonico, fontes)
-    
     desenhar_painel_cores(tela, estado, fontes)
-    
     meu_metronomo.desenhar_mini_metronomo(tela, estado, fontes['ui'])
     desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador,meu_gerenciador_jogos)
     
-    if estado.tela_jogo_ativa:
+    if estado.tela_jogo_ativa: 
         meu_gerenciador_jogos.desenhar_tela_jogo(tela, tela.get_width(), tela.get_height(), meu_gravador)
 
-    # =========================================================
-    # DESENHA O MENU SUPERIOR SEMPRE POR ÚLTIMO (PRA FICAR POR CIMA)
-    # =========================================================
     if hasattr(estado, 'menu_superior'):
         estado.menu_superior.desenhar(tela, fontes['ui'])
-    # =========================================================
-    # DESENHA O MENU E O MODAL SEMPRE POR ÚLTIMO (PRA FICAR POR CIMA)
-    # =========================================================
-    if hasattr(estado, 'menu_superior'):
-        estado.menu_superior.desenhar(tela, fontes['ui'])
-
     if hasattr(estado, 'gerenciador_perfil'):
         estado.gerenciador_perfil.desenhar(tela, fontes['titulo'], fontes['ui'])
+
+    # =========================================================================
+    # LÓGICA DO FOTÓGRAFO: Tira a foto DEPOIS que o menu já sumiu da tela!
+    # =========================================================================
+    if getattr(estado, 'solicitou_impressao', False):
+        import os
+        try:
+            tela_w, tela_h = tela.get_size()
+            
+            x_guit = estado.dragger_guitarra.x if hasattr(estado, 'dragger_guitarra') else 100
+            y_guit = estado.dragger_guitarra.y if hasattr(estado, 'dragger_guitarra') else 100
+            largura = estado.LARGURA_BRACO
+            altura = estado.ALTURA_BRACO
+            
+            x_captura = max(0, x_guit - 80)
+            y_captura = max(0, y_guit - 80)
+            
+            largura_captura = min(tela_w - x_captura, largura + 160)
+            altura_captura = min(tela_h - y_captura, altura + 160)
+            
+            rect_captura = pygame.Rect(x_captura, y_captura, largura_captura, altura_captura)
+            imagem_recortada = tela.subsurface(rect_captura)
+            
+            caminho_imagem = os.path.join(os.getcwd(), "impressao_eiguit.png")
+            pygame.image.save(imagem_recortada, caminho_imagem)
+            
+            if os.name == 'nt':
+                os.startfile(caminho_imagem, "print")
+                print(f"[IMPRESSÃO] Imagem salva e enviada para o Windows: {caminho_imagem}")
+                
+        except Exception as e:
+            print(f"[ERRO IMPRESSÃO] Não foi possível gerar a impressão: {e}")
+            
+        # Reseta o pedido para não ficar tirando print infinito
+        estado.solicitou_impressao = False
