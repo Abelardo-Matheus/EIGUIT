@@ -39,7 +39,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                 meu_gerenciador_jogos.tratar_clique_tela_jogo(evento.pos, estado, meu_gravador)
         return
 
-    # NOVO: Trava Total da Tela de Estudos
+    # Trava Total da Tela de Estudos
     if getattr(estado, 'tela_estudo_ativa', False):
         for evento in eventos:
             if evento.type == pygame.QUIT: 
@@ -84,14 +84,11 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             estado.lista_guitarras = [estado.dragger_guitarra] if hasattr(estado, 'dragger_guitarra') else []
 
         acao_contexto = estado.menu_contexto.tratar_eventos(evento, pos_mouse, estado)
-        
         if acao_contexto == "CONSUMIU_EVENTO" or acao_contexto == "FECHOU_MENU":
             continue
-            
         elif isinstance(acao_contexto, tuple):
             acao, alvo, tipo = acao_contexto
             print(f"[MENU] Ação: {acao} | Alvo: {tipo}")
-            
             if tipo == "guitarra":
                 if acao == "Apagar" and alvo in estado.lista_guitarras:
                     estado.lista_guitarras.remove(alvo)
@@ -106,7 +103,6 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
 
         if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 3:
             abriu_menu = False
-            
             if hasattr(estado, 'lista_guitarras'):
                 for guit in reversed(estado.lista_guitarras):
                     rect_guit = pygame.Rect(guit.x, guit.y, guit.largura, guit.altura)
@@ -143,7 +139,30 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             meu_metronomo.tratar_teclado(evento)
             if evento.key == pygame.K_ESCAPE: estado.solicitou_saida = True
 
-        # --- CLIQUE ESQUERDO DO MOUSE (INTERAÇÕES E DRAGGERS) ---
+        # =====================================================================
+        # AQUI FOI CORRIGIDO: DRAGGERS - MOVIMENTO (MOUSEMOTION) E SOLTAR (MOUSEBUTTONUP)
+        # =====================================================================
+        if estado.drag_ativado and evento.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP):
+            draggers_simples = ['dragger_controles_topo', 'dragger_cores', 'dragger_metronomo', 'dragger_acordes', 'dragger_painel_inferior']
+            for d in draggers_simples:
+                if hasattr(estado, d): 
+                    getattr(estado, d).processar_eventos_mouse(evento)
+            
+            if hasattr(estado, 'lista_guitarras'):
+                for guit in estado.lista_guitarras:
+                    guit.processar_eventos_mouse(evento)
+                    # Se estiver arrastando/redimensionando a guitarra, atualiza as variáveis globais
+                    if evento.type == pygame.MOUSEMOTION and guit.redimensionando:
+                        estado.LARGURA_BRACO = guit.largura
+                        estado.ALTURA_BRACO = guit.altura
+                        estado.atualizar_medidas()
+        
+        # --- SOLTAR O CLIQUE ESQUERDO: Atualizar os dados das escalas de vez ---
+        if evento.type == pygame.MOUSEBUTTONUP and evento.button == 1 and estado.drag_ativado:
+            dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
+
+
+        # --- CLIQUE ESQUERDO DO MOUSE (INTERAÇÕES INICIAIS E DRAGGERS) ---
         if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
             
             # Botão Alfinete
@@ -157,7 +176,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                         for guit in estado.lista_guitarras: guit.arrastando = False
                 continue 
 
-            # Detecção de Draggers
+            # Detecção de Draggers (Saber se ele Clicou em cima de um bloco)
             clicou_em_dragger = False
             if estado.drag_ativado:
                 draggers_simples = ['dragger_controles_topo', 'dragger_cores', 'dragger_metronomo', 'dragger_acordes', 'dragger_painel_inferior']
@@ -174,28 +193,34 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                                 estado.ALTURA_BRACO = guit.altura
                                 estado.atualizar_medidas()
                             break
+            
+            # Se clicou num dragger para arrastar, ignora a UI embaixo
+            if clicou_em_dragger:
+                continue
 
             # Tabs Expansíveis (Cabeçalhos e Sub-abas)
-            if not clicou_em_dragger:
-                clicou_interface = False
-                for i, secao in enumerate(estado.secoes_inferiores):
-                    if secao.get("rect_cabecalho") and secao["rect_cabecalho"].collidepoint(pos_mouse):
-                        estado_anterior = secao["expandido"]
-                        for s in estado.secoes_inferiores: s["expandido"] = False
-                        secao["expandido"] = not estado_anterior
-                        clicou_interface = True
-                        break
-                    
-                    if secao["expandido"]:
-                        for j in range(len(secao["sub_abas"])):
-                            chave_rect = f"rect_sub_{j}"
-                            if secao.get(chave_rect) and secao[chave_rect].collidepoint(pos_mouse):
-                                secao["memoria_sub_aba"] = j
-                                clicou_interface = True
-                                break
-                if clicou_interface: continue 
+            clicou_interface = False
+            for i, secao in enumerate(estado.secoes_inferiores):
+                if secao.get("rect_cabecalho") and secao["rect_cabecalho"].collidepoint(pos_mouse):
+                    estado_anterior = secao["expandido"]
+                    for s in estado.secoes_inferiores: s["expandido"] = False
+                    secao["expandido"] = not estado_anterior
+                    clicou_interface = True
+                    break
+                
+                if secao["expandido"]:
+                    for j in range(len(secao["sub_abas"])):
+                        chave_rect = f"rect_sub_{j}"
+                        if secao.get(chave_rect) and secao[chave_rect].collidepoint(pos_mouse):
+                            secao["memoria_sub_aba"] = j
+                            clicou_interface = True
+                            break
             
-            # Conteúdo das Áreas Expandidas
+            if clicou_interface: 
+                continue 
+            
+            # CONTEÚDO DAS ÁREAS EXPANDIDAS
+            clicou_conteudo = False
             for i, secao in enumerate(estado.secoes_inferiores):
                 if secao["expandido"]:
                     scroll_atual = estado.scroll_y.get(i, 0)
@@ -204,42 +229,59 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                         pos_x_guit = estado.dragger_guitarra.x if hasattr(estado, 'dragger_guitarra') else 100
                         pos_y_guit = estado.dragger_guitarra.y if hasattr(estado, 'dragger_guitarra') else 90
                         rect_braco_real = pygame.Rect(pos_x_guit, pos_y_guit, estado.LARGURA_BRACO, estado.ALTURA_BRACO)
+                        
                         if gerenciador_interface.tratar_cliques_escalas(pos_mouse, i, secao["memoria_sub_aba"], dicionario_escalas, rect_braco_real, scroll_atual):
-                            continue
+                            clicou_conteudo = True
+                            break
                             
                     elif secao["conteudo"] == "analise_ia":
                         sub_aba_ia = secao["memoria_sub_aba"]
                         if sub_aba_ia == 0:
                             btn_gravar_ia = pygame.Rect(dx_inf + 20, estado.Y_AREA_DESENHO + 50 - scroll_atual, 150, 40)
-                            if meu_processador.tratar_clique(evento.pos, btn_gravar_ia, meu_gravador): continue
-                            if meu_processador.tratar_clique_calibracao(evento.pos, estado, dx_inf, estado.Y_AREA_DESENHO - scroll_atual): continue
+                            if meu_processador.tratar_clique(evento.pos, btn_gravar_ia, meu_gravador): 
+                                clicou_conteudo = True; break
+                            if meu_processador.tratar_clique_calibracao(evento.pos, estado, dx_inf, estado.Y_AREA_DESENHO - scroll_atual): 
+                                clicou_conteudo = True; break
                         elif sub_aba_ia == 1:
                             tempo_atual = pygame.time.get_ticks()
                             if hasattr(meu_processador, 'tratar_clique_ritmo') and meu_processador.tratar_clique_ritmo(evento.pos, tempo_atual, meu_metronomo, estado): 
-                                continue
+                                clicou_conteudo = True; break
                         elif sub_aba_ia == 2:
-                            if meu_gerenciador_jogos.tratar_clique_aba(evento.pos, estado): continue
+                            if meu_gerenciador_jogos.tratar_clique_aba(evento.pos, estado): 
+                                clicou_conteudo = True; break
 
                     elif secao["conteudo"] == "configuracao":
                         configs.y = estado.Y_AREA_DESENHO + 20
+                        configs.x = dx_inf + 20 
+                        
                         meu_metronomo.y_config = estado.Y_AREA_DESENHO + 20
+                        meu_metronomo.x = dx_inf + 20 
+                        if hasattr(meu_metronomo, 'x_config'): meu_metronomo.x_config = dx_inf + 20
+                        
                         esta_na_config_cores = (secao["memoria_sub_aba"] == 0) 
                         cor_antiga = configs.indice_modo
+                        
                         if configs.tratar_clique(evento.pos, esta_na_config_cores):
                             if configs.indice_modo != cor_antiga: dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
-                            continue
-                        if meu_metronomo.tratar_clique(evento.pos, estado, aba_config_aberta=True): continue
+                            clicou_conteudo = True; break
+                        if meu_metronomo.tratar_clique(evento.pos, estado, aba_config_aberta=True): 
+                            clicou_conteudo = True; break   
 
-            # LÓGICA DE CLIQUE: Botões da Aba de Estudos
-            if hasattr(estado, 'botoes_estudo'):
-                for nome_estudo, rect_btn in estado.botoes_estudo.items():
-                    if rect_btn.collidepoint(evento.pos):
-                        estado.tela_estudo_ativa = True
-                        estado.estudo_ativo = nome_estudo
-                        break
+                    elif secao["conteudo"] == "estudos":
+                        if hasattr(estado, 'botoes_estudo'):
+                            for nome_estudo, rect_btn in estado.botoes_estudo.items():
+                                if rect_btn.collidepoint(evento.pos):
+                                    estado.tela_estudo_ativa = True
+                                    estado.estudo_ativo = nome_estudo
+                                    clicou_conteudo = True
+                                    break
+                            if clicou_conteudo: break
 
-            # Trava Z-Index
-            if bloqueio_z_index: continue 
+            if clicou_conteudo:
+                continue
+
+            if bloqueio_z_index: 
+                continue 
 
             # Painel de Cores (Graus)
             from constantes_ui import CORES_TONICA
@@ -262,7 +304,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             # Mini-Metrônomo
             if meu_metronomo.tratar_clique(evento.pos, estado): continue
 
-            # Controles do Topo (Leitura Dinâmica)
+            # Controles do Topo
             if hasattr(estado, 'btn_guit') and estado.btn_guit.collidepoint(evento.pos): estado.instrumento = 'guitarra'; continue
             if hasattr(estado, 'btn_baixo') and estado.btn_baixo.collidepoint(evento.pos): estado.instrumento = 'baixo'; continue
 
@@ -274,7 +316,3 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                 estado.indice_afinacao = (estado.indice_afinacao + 1) % len(lista_afinacoes)
                 dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
                 continue
-
-        # --- SOLTAR O CLIQUE (ATUALIZAR ARRASTO) ---
-        if evento.type == pygame.MOUSEBUTTONUP and evento.button == 1 and estado.drag_ativado:
-            dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))

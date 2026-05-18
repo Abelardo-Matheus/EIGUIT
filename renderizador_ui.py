@@ -362,10 +362,14 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
             elif secao["conteudo"] == "configuracao":
                 if secao["memoria_sub_aba"] == 0:
                     configs.y = y_start + 10 
+                    configs.x = dx + 20 
                     configs.desenhar(tela, fontes['titulo'], fontes['ui'], 0) 
                 else:
                     meu_metronomo.y = y_start + 10
-                    meu_metronomo.desenhar_config(tela, fontes['ui'], 0) 
+                    # Tenta amarrar o X no metrônomo (pode ser .x ou .x_config dependendo da sua classe)
+                    meu_metronomo.x = dx + 20 
+                    if hasattr(meu_metronomo, 'x_config'): meu_metronomo.x_config = dx + 20 
+                    meu_metronomo.desenhar_config(tela, fontes['ui'], 0)
 
             elif secao["conteudo"] == "estudos":
                 estado.botoes_estudo.clear()
