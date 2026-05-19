@@ -115,15 +115,26 @@ class ElementoArrastavel:
         return False
 
     def desenhar_caixa_selecao(self, tela, margem=0):
-        # A caixa muda de cor se você estiver arrastando vs redimensionando
+        # Cores Profissionais para Seleção
+        AZUL_SOFT = (0, 163, 255)
+        VERDE_SOFT = (46, 204, 113)
+        BRANCO = (255, 255, 255)
+
         rect_total = pygame.Rect(self.x - margem, self.y - margem, self.largura + margem*2, self.altura + margem*2)
-        cor_caixa = (0, 255, 255) if self.redimensionando else ((0, 255, 0) if self.arrastando else (255, 255, 0))
-        
-        pygame.draw.rect(tela, cor_caixa, rect_total, width=2, border_radius=5)
-        
-        # Desenha os quadradinhos 
+
+        # Cor muda sutilmente se estiver interagindo
+        cor_caixa = AZUL_SOFT if (self.redimensionando or self.arrastando) else (150, 150, 150)
+        largura_linha = 2 if (self.redimensionando or self.arrastando) else 1
+
+        # Desenha borda tracejada ou contínua sutil
+        pygame.draw.rect(tela, cor_caixa, rect_total, width=largura_linha, border_radius=6)
+
+        # Desenha os quadradinhos de redimensionamento (Handles) mais discretos
         cantos = self.obter_cantos(margem)
         for nome, rect_canto in cantos.items():
-            cor_canto = (255, 100, 100) if self.canto_ativo == nome else (255, 255, 255)
-            pygame.draw.rect(tela, cor_canto, rect_canto)
-            pygame.draw.rect(tela, (0, 0, 0), rect_canto, width=1) # Borda do quadradinho
+            # Handle centralizado e arredondado
+            pygame.draw.circle(tela, BRANCO, rect_canto.center, 5)
+            pygame.draw.circle(tela, cor_caixa, rect_canto.center, 5, width=2)
+
+            if self.canto_ativo == nome:
+                pygame.draw.circle(tela, AZUL_SOFT, rect_canto.center, 3)

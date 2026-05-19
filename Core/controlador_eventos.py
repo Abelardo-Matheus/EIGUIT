@@ -67,12 +67,25 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                 bloqueio_z_index = True
             break
     
+    # Lista unificada de draggers para evitar code smells
+    def obter_draggers_ativos(estado):
+        lista = []
+        simples = ['dragger_controles_topo', 'dragger_cores', 'dragger_metronomo', 'dragger_acordes', 'dragger_painel_inferior', 'dragger_nota_atual']
+        for d in simples:
+            if hasattr(estado, d): lista.append(getattr(estado, d))
+        if hasattr(estado, 'lista_guitarras'):
+            lista.extend(reversed(estado.lista_guitarras))
+        return lista
+
     # =========================================================================
     # 4. LOOP PRINCIPAL DE EVENTOS
     # =========================================================================
     for evento in eventos:
         if evento.type == pygame.QUIT: 
             estado.solicitou_saida = True
+
+        # --- MENU SUPERIOR ---
+        # ... (rest of the code below will be updated to use obter_draggers_ativos)
 
         # --- MENU SUPERIOR ---
         if estado.menu_superior.tratar_eventos(evento, pos_mouse, estado, configs, meu_campo_harmonico, meu_gravador):
@@ -140,27 +153,20 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             if evento.key == pygame.K_ESCAPE: estado.solicitou_saida = True
 
         # =====================================================================
-        # AQUI FOI CORRIGIDO: DRAGGERS - MOVIMENTO (MOUSEMOTION) E SOLTAR (MOUSEBUTTONUP)
+        # DRAGGERS - MOVIMENTO (MOUSEMOTION) E SOLTAR (MOUSEBUTTONUP)
         # =====================================================================
         if estado.drag_ativado and evento.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP):
-            draggers_simples = ['dragger_controles_topo', 'dragger_cores', 'dragger_metronomo', 'dragger_acordes', 'dragger_painel_inferior']
-            for d in draggers_simples:
-                if hasattr(estado, d): 
-                    getattr(estado, d).processar_eventos_mouse(evento)
-            
-            if hasattr(estado, 'lista_guitarras'):
-                for guit in estado.lista_guitarras:
-                    guit.processar_eventos_mouse(evento)
-                    # Se estiver arrastando/redimensionando a guitarra, atualiza as variáveis globais
-                    if evento.type == pygame.MOUSEMOTION and guit.redimensionando:
-                        estado.LARGURA_BRACO = guit.largura
-                        estado.ALTURA_BRACO = guit.altura
-                        estado.atualizar_medidas()
+            for dragger in obter_draggers_ativos(estado):
+                dragger.processar_eventos_mouse(evento)
+                # Se for a guitarra redimensionando, sincroniza
+                if hasattr(dragger, 'redimensionando') and evento.type == pygame.MOUSEMOTION and dragger.redimensionando:
+                    estado.LARGURA_BRACO = dragger.largura
+                    estado.ALTURA_BRACO = dragger.altura
+                    estado.atualizar_medidas()
         
         # --- SOLTAR O CLIQUE ESQUERDO: Atualizar os dados das escalas de vez ---
         if evento.type == pygame.MOUSEBUTTONUP and evento.button == 1 and estado.drag_ativado:
             dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
-
 
         # --- CLIQUE ESQUERDO DO MOUSE (INTERAÇÕES INICIAIS E DRAGGERS) ---
         if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
@@ -169,30 +175,22 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             if hasattr(estado, 'rect_btn_pin') and estado.rect_btn_pin.collidepoint(evento.pos):
                 estado.drag_ativado = not estado.drag_ativado
                 if not estado.drag_ativado:
-                    draggers = ['dragger_acordes', 'dragger_controles_topo', 'dragger_painel_inferior', 'dragger_metronomo', 'dragger_cores'] 
-                    for d in draggers:
-                        if hasattr(estado, d): getattr(estado, d).arrastando = False
-                    if hasattr(estado, 'lista_guitarras'):
-                        for guit in estado.lista_guitarras: guit.arrastando = False
+                    for dragger in obter_draggers_ativos(estado): dragger.arrastando = False
                 continue 
 
             # Detecção de Draggers (Saber se ele Clicou em cima de um bloco)
             clicou_em_dragger = False
             if estado.drag_ativado:
-                draggers_simples = ['dragger_controles_topo', 'dragger_cores', 'dragger_metronomo', 'dragger_acordes', 'dragger_painel_inferior']
-                for d in draggers_simples:
-                    if not clicou_em_dragger and hasattr(estado, d):
-                        if getattr(estado, d).processar_eventos_mouse(evento, margem_clique=5): clicou_em_dragger = True
-
-                if not clicou_em_dragger and hasattr(estado, 'lista_guitarras'):
-                    for guit in reversed(estado.lista_guitarras):
-                        if guit.processar_eventos_mouse(evento, margem_clique=20):
-                            clicou_em_dragger = True
-                            if guit.redimensionando:
-                                estado.LARGURA_BRACO = guit.largura
-                                estado.ALTURA_BRACO = guit.altura
-                                estado.atualizar_medidas()
-                            break
+                for dragger in obter_draggers_ativos(estado):
+                    # Guitarras têm margem maior
+                    margem = 20 if hasattr(dragger, 'num_cordas') else 5
+                    if dragger.processar_eventos_mouse(evento, margem_clique=margem):
+                        clicou_em_dragger = True
+                        if hasattr(dragger, 'redimensionando') and dragger.redimensionando:
+                            estado.LARGURA_BRACO = dragger.largura
+                            estado.ALTURA_BRACO = dragger.altura
+                            estado.atualizar_medidas()
+                        break
             
             # Se clicou num dragger para arrastar, ignora a UI embaixo
             if clicou_em_dragger:
@@ -237,10 +235,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                     elif secao["conteudo"] == "analise_ia":
                         sub_aba_ia = secao["memoria_sub_aba"]
                         if sub_aba_ia == 0:
-                            btn_gravar_ia = pygame.Rect(dx_inf + 20, estado.Y_AREA_DESENHO + 50 - scroll_atual, 150, 40)
-                            if meu_processador.tratar_clique(evento.pos, btn_gravar_ia, meu_gravador):
-                                clicou_conteudo = True; break
-                            if meu_processador.tratar_clique_calibracao(evento.pos, estado, dx_inf, estado.Y_AREA_DESENHO - scroll_atual):
+                            if meu_processador.tratar_clique(evento.pos, meu_gravador):
                                 clicou_conteudo = True; break
                         elif sub_aba_ia == 1:
                             if meu_gerenciador_jogos.tratar_clique_aba(evento.pos, estado):
@@ -290,6 +285,26 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                 estado.indice_cor_quinta = (estado.indice_cor_quinta + 1) % len(CORES_TONICA)
                 continue
             
+            # Bloco de Nota Atual e Seleção
+            if hasattr(estado, 'rects_notas_selecao'):
+                for rect_n, nota_n in estado.rects_notas_selecao:
+                    if rect_n.collidepoint(evento.pos):
+                        estado.nota_selecionada_bloco = nota_n
+                        continue
+                
+                # Sliders de Calibração
+                if hasattr(estado, 'rect_barra_persistencia') and estado.rect_barra_persistencia.collidepoint(evento.pos):
+                    barra = estado.rect_barra_persistencia
+                    rel_x = max(0, min(barra.width, evento.pos[0] - barra.x))
+                    estado.afinador_persistencia = int(100 + (rel_x / barra.width) * 2900)
+                    continue
+                
+                if hasattr(estado, 'rect_barra_threshold') and estado.rect_barra_threshold.collidepoint(evento.pos):
+                    barra = estado.rect_barra_threshold
+                    rel_x = max(0, min(barra.width, evento.pos[0] - barra.x))
+                    estado.afinador_threshold = 0.1 + (rel_x / barra.width) * 0.7
+                    continue
+
             # Campo Harmônico
             if hasattr(estado, 'dragger_acordes') and meu_campo_harmonico.tratar_clique(evento.pos): 
                 estado.tom_atual = getattr(meu_campo_harmonico, 'tom', getattr(meu_campo_harmonico, 'tonica', estado.tom_atual))

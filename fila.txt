@@ -1,0 +1,23 @@
+Você é o desenvolvedor principal do Guitar Studio. Sua tarefa é implementar três novas features sequencialmente. 
+ATENÇÃO: Mantenha o código modular e siga a arquitetura atual. 
+
+## TAREFA 1: Novo Bloco de Interface (Monitor de Nota e Dispositivo)
+1. Crie um novo módulo (ex: `modulo_monitor.py`) que desenhe um bloco na tela principal.
+2. A parte superior do bloco deve mostrar em tempo real a nota que está sendo tocada (integrando com o `modulo_processamento.py`).
+3. A parte inferior deve ter um seletor (dropdown ou botões) para escolher o dispositivo de entrada de áudio.
+4. Implemente a lógica de Drag and Drop nesse novo bloco (use a classe base ou a lógica do `dragger_acordes` como referência).
+5. Integre esse novo bloco no `estado_app.py` e no `renderizador_ui.py`.
+
+## TAREFA 2: Refatoração e Preparação para i18n (Tradução)
+1. Revise os arquivos principais (`renderizador_ui.py`, `controlador_eventos.py`, `estado_app.py`).
+2. Procure e corrija "code smells" (código duplicado, funções muito grandes).
+3. Padronize todas as strings de texto visíveis na interface para usar uma função de encapsulamento, por exemplo: `_t("Texto em português")`.
+4. Mantenha todas as strings padrão em Português do Brasil. O objetivo é deixar o terreno pronto para o sistema de tradução automática.
+
+## TAREFA 3: Sistema de Tradução Automática via API
+1. Crie a lógica (pode ser no `config.py` ou em um novo `modulo_i18n.py`) onde o usuário possa escolher o idioma dentro das configurações.
+2. Implemente a função central `_t(texto)` (ou similar) que receberá a string em português.
+3. Se o idioma selecionado for português, ela retorna a própria string.
+4. Se for outro idioma, ela deve usar uma API de tradução (ex: `googletrans` ou requisição web simples) para traduzir a string em tempo real (ou cachear a tradução para não travar o Pygame). Não crie dicionários fixos com frase por frase; a tradução deve ser dinâmica.
+
+Responda me dando os blocos de código exatos e me dizendo em quais arquivos devo substituir ou adicionar.

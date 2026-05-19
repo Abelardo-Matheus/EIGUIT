@@ -46,17 +46,21 @@ class GerenciadorJogos:
             txt = fonte_ui.render(jogo["nome"], True, (255, 255, 255))
             tela.blit(txt, (rect.centerx - txt.get_width()//2, rect.centery - txt.get_height()//2))
 
-    def desenhar_tela_jogo(self, tela, largura_tela, altura_tela, meu_gravador=None, configs=None):
+    def desenhar_tela_jogo(self, tela, largura_tela, altura_tela, estado, meu_gravador=None, configs=None):
         """Gerencia qual tela de jogo desenhar"""
         if self.jogo_instancia:
-            # Repassa o gravador e configurações para o jogo específico
+            # Repassa o estado, gravador e configurações para o jogo específico
             # Checa se o jogo aceita configs (como o Rhythm Hero)
             import inspect
             sig = inspect.signature(self.jogo_instancia.desenhar)
-            if 'configs' in sig.parameters:
-                self.jogo_instancia.desenhar(tela, largura_tela, altura_tela, meu_gravador, configs)
-            else:
-                self.jogo_instancia.desenhar(tela, largura_tela, altura_tela, meu_gravador)
+            params = sig.parameters
+            
+            kwargs = {}
+            if 'meu_gravador' in params: kwargs['meu_gravador'] = meu_gravador
+            if 'configs' in params: kwargs['configs'] = configs
+            
+            # Passamos o estado como primeiro argumento posicional após tela, largura, altura
+            self.jogo_instancia.desenhar(tela, largura_tela, altura_tela, estado, **kwargs)
         
         # Botão Voltar Universal
         pygame.draw.rect(tela, (200, 50, 50), self.btn_voltar, border_radius=5)

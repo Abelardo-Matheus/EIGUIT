@@ -6,26 +6,39 @@
 
 # constantes_ui.py
 
-# --- CORES ---
-FUNDO_ESCURO = (30, 30, 30)
-COR_CORDA = (180, 180, 180)
-COR_TRASTE = (140, 140, 140)
-BRANCO = (255, 255, 255)
+# --- CORES MODERNAS ---
+FUNDO_ESCURO = (18, 18, 18)        # Cinza quase preto profundo
+FUNDO_PAINEL = (28, 28, 28)        # Superfície levemente elevada
+COR_CORDA = (160, 160, 160)
+COR_TRASTE = (120, 120, 120)
+BRANCO = (245, 245, 245)
 PRETO = (0, 0, 0)
-MADEIRA = (80, 40, 15)
-AZUL_BOTAO = (0, 120, 215)
+MADEIRA = (60, 30, 10)             # Madeira mais escura e discreta
+AZUL_PRIMARIO = (0, 163, 255)      # Azul Vibrante Moderno
+AZUL_HOVER = (0, 130, 200)
+VERMELHO_DANGER = (231, 76, 60)    # Coral moderno
+VERDE_SUCCESS = (46, 204, 113)     # Verde esmeralda
 
 CORES_TONICA = [
-    BRANCO, (255, 80, 80), (80, 255, 80), 
-    (255, 200, 50), (50, 200, 255), (200, 100, 255)
+    BRANCO, 
+    (231, 76, 60),  # Vermelho
+    (46, 204, 113), # Verde
+    (241, 196, 15), # Amarelo/Ouro
+    (52, 152, 219), # Azul Claro
+    (155, 89, 182)  # Roxo
 ]
 
-COR_PAINEL = (45, 45, 45)
-COR_ABA_ATIVA = (65, 65, 65)
-COR_ABA_INATIVA = (35, 35, 35)
-COR_SUB_ATIVA = (100, 100, 100)
-COR_SUB_INATIVA = (55, 55, 55)
-COR_TEXTO_INATIVO = (150, 150, 150)
+COR_PAINEL = FUNDO_PAINEL
+COR_ABA_ATIVA = (45, 45, 45)
+COR_ABA_INATIVA = (22, 22, 22)
+COR_SUB_ATIVA = (80, 80, 80)
+COR_SUB_INATIVA = (35, 35, 35)
+COR_TEXTO_INATIVO = (100, 100, 100)
+COR_BORDA = (60, 60, 60)
+
+# --- GEOMETRIA ---
+RADIUS_PADRAO = 8
+PADDING_PADRAO = 10
 
 # --- LISTAS DE DADOS ESTÁTICOS ---
 lista_afinacoes = [

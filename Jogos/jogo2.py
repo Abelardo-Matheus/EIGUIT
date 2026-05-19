@@ -71,7 +71,7 @@ class RhythmHero:
         self.proxima_batida = self.tempo_inicio + tempo_queda + intervalo_notas
         self.notas_caindo.clear()
 
-    def atualizar(self, meu_gravador, configs=None):
+    def atualizar(self, estado, meu_gravador, configs=None):
         if not self.jogo_iniciado: return
         
         agora = time.time()
@@ -94,10 +94,13 @@ class RhythmHero:
             tempo_restante = nota["tempo_alvo"] - agora
             nota["y"] = self.y_linha_hit - (tempo_restante * velocidade)
 
-        # Detectar som
+        # Detectar batida (Usa a nota detectada pelo motor global ou volume)
         detectou_som = False
-        if meu_gravador and hasattr(meu_gravador, 'volume_atual'):
-            if meu_gravador.volume_atual > 0.15:
+        if estado.nota_atual_detectada != "--":
+            detectou_som = True
+        elif meu_gravador and hasattr(meu_gravador, 'volume_atual'):
+            # Se a nota falhar, usamos um volume residual bem baixo como backup
+            if meu_gravador.volume_atual > 0.02: 
                 detectou_som = True
 
         if detectou_som:
@@ -124,11 +127,11 @@ class RhythmHero:
         self.feedback_cor = cor
         self.feedback_timer = time.time() + 0.4
 
-    def desenhar(self, tela, largura, altura, meu_gravador, configs=None):
+    def desenhar(self, tela, largura, altura, estado, meu_gravador=None, configs=None):
         if not self.inicializado:
             self.inicializar(largura, altura)
         
-        self.atualizar(meu_gravador, configs)
+        self.atualizar(estado, meu_gravador, configs)
         
         tela.fill((15, 15, 25))
         

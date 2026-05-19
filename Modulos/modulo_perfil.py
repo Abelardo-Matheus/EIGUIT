@@ -27,6 +27,7 @@ class GerenciadorPerfil:
         self.AZUL_BOTAO = (0, 120, 215)
         self.CINZA = (100, 100, 100)
         self.VERMELHO = (200, 50, 50)
+        self.VERMELHO_DARK = (150, 30, 30)
 
     def abrir_modal_novo(self):
         self.ativo = True
@@ -38,6 +39,11 @@ class GerenciadorPerfil:
         self.modo = 'carregar'
         self.lista_perfis = [f for f in os.listdir(self.pasta_padrao) if f.endswith('.json')]
         self.indice_selecionado = 0
+
+    def abrir_modal_conta(self, estado):
+        self.ativo = True
+        self.modo = 'conta'
+        self.email_exibir = getattr(estado, 'email_usuario', '---')
 
     def fechar_modal(self):
         self.ativo = False
@@ -149,7 +155,8 @@ class GerenciadorPerfil:
                 "cor_braco": getattr(configs, 'cor_braco', (80, 40, 15)),
                 "cor_notas": getattr(configs, 'cor_notas', (255, 255, 255)),
                 "indice_modo": getattr(configs, 'indice_modo', 0),
-                "indice_fonte": getattr(configs, 'indice_fonte', 0)
+                "indice_fonte": getattr(configs, 'indice_fonte', 0),
+                "indice_idioma": getattr(configs, 'indice_idioma', 0)
             },
             "campo_harmonico": {
                 "tonica_campo": getattr(campo, 'tonica_campo', 'C'),
@@ -212,6 +219,14 @@ class GerenciadorPerfil:
                 configs.cor_notas = tuple(d_cfg.get("cor_notas", (255, 255, 255)))
                 configs.indice_modo = d_cfg.get("indice_modo", 0)
                 configs.indice_fonte = d_cfg.get("indice_fonte", 0)
+                
+                # Tradução
+                configs.indice_idioma = d_cfg.get("indice_idioma", 0)
+                if hasattr(configs, 'idiomas'):
+                    codigo = configs.idiomas[configs.indice_idioma]['code']
+                    from Core.i18n import sistema_traducao
+                    sistema_traducao.atualizar_configuracao(codigo)
+                    estado.idioma = codigo
 
             if "campo_harmonico" in dados:
                 d_ch = dados["campo_harmonico"]
@@ -269,11 +284,11 @@ class GerenciadorPerfil:
         for evento in eventos:
             if evento.type == pygame.QUIT:
                 estado.solicitou_saida = True
-                
+
             if evento.type == pygame.KEYDOWN:
                 if evento.key == pygame.K_ESCAPE:
                     self.fechar_modal()
-                
+
                 elif self.modo == 'salvar':
                     if evento.key == pygame.K_RETURN:
                         self.salvar_perfil(estado, configs, campo, gravador)
@@ -282,7 +297,7 @@ class GerenciadorPerfil:
                     else:
                         if len(self.texto_input) < 20 and evento.unicode.isprintable():
                             self.texto_input += evento.unicode
-                            
+
                 elif self.modo == 'carregar' and evento.key == pygame.K_RETURN:
                     if len(self.lista_perfis) > 0:
                         caminho = os.path.join(self.pasta_padrao, self.lista_perfis[self.indice_selecionado])
@@ -291,14 +306,14 @@ class GerenciadorPerfil:
 
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                 pos_mouse = pygame.mouse.get_pos()
-                
+
                 if hasattr(self, 'btn_cancelar') and self.btn_cancelar.collidepoint(pos_mouse):
                     self.fechar_modal()
-                    
+
                 if self.modo == 'salvar':
                     if hasattr(self, 'btn_acao') and self.btn_acao.collidepoint(pos_mouse):
                         self.salvar_perfil(estado, configs, campo, gravador)
-                        
+
                 elif self.modo == 'carregar':
                     if hasattr(self, 'btn_esq') and self.btn_esq.collidepoint(pos_mouse) and len(self.lista_perfis) > 0:
                         self.indice_selecionado = (self.indice_selecionado - 1) % len(self.lista_perfis)
@@ -308,6 +323,26 @@ class GerenciadorPerfil:
                         caminho = os.path.join(self.pasta_padrao, self.lista_perfis[self.indice_selecionado])
                         self.carregar_perfil(caminho, estado, configs, campo, gravador)
                         self.fechar_modal()
+
+                elif self.modo == 'conta':
+                    if hasattr(self, 'btn_deletar_conta') and self.btn_deletar_conta.collidepoint(pos_mouse):
+                        from tkinter import messagebox, Tk
+                        root = Tk()
+                        root.withdraw()
+                        if messagebox.askyesno("CONFIRMAÇÃO CRÍTICA", "Deseja REALMENTE deletar sua conta permanentemente?\n\nIsso apagará todos os seus perfis e projetos na nuvem!"):
+                            from BD.gerenciador_remoto_db import GerenciadorDB
+                            db = GerenciadorDB()
+                            if db.deletar_conta(estado.usuario_id_logado):
+                                # Limpa o cache de login
+                                if os.path.exists("sessao_cache.json"):
+                                    try: os.remove("sessao_cache.json")
+                                    except: pass
+                                
+                                messagebox.showinfo("Sucesso", "Conta deletada com sucesso. O programa será fechado.")
+                                estado.solicitou_saida = True
+                            else:
+                                messagebox.showerror("Erro", "Não foi possível deletar a conta. Tente novamente.")
+                        root.destroy()
 
         return True 
 
@@ -319,7 +354,7 @@ class GerenciadorPerfil:
         tela.blit(overlay, (0, 0))
 
         largura_modal = 450
-        altura_modal = 250
+        altura_modal = 300 if self.modo == 'conta' else 250
         cx = tela.get_width() // 2 - largura_modal // 2
         cy = tela.get_height() // 2 - altura_modal // 2
         rect_modal = pygame.Rect(cx, cy, largura_modal, altura_modal)
@@ -335,10 +370,10 @@ class GerenciadorPerfil:
             rect_input = pygame.Rect(cx + 20, cy + 95, largura_modal - 40, 40)
             pygame.draw.rect(tela, (20, 20, 20), rect_input, border_radius=5)
             pygame.draw.rect(tela, self.AZUL_BOTAO, rect_input, width=2, border_radius=5)
-            
+
             txt_digitado = fonte_titulo.render(self.texto_input + "_", True, self.BRANCO)
             tela.blit(txt_digitado, (rect_input.x + 10, rect_input.y + 10))
-            
+
             texto_btn_acao = "Salvar Setup"
             cor_acao = self.AZUL_BOTAO if len(self.texto_input) > 0 else self.CINZA
 
@@ -347,7 +382,7 @@ class GerenciadorPerfil:
             tela.blit(txt_tit, (cx + 20, cy + 20))
 
             tela.blit(fonte_ui.render("Selecione o arquivo salvo:", True, self.CINZA), (cx + 20, cy + 70))
-            
+
             self.btn_esq = pygame.Rect(cx + 20, cy + 95, 40, 40)
             self.btn_dir = pygame.Rect(cx + largura_modal - 60, cy + 95, 40, 40)
             rect_meio = pygame.Rect(cx + 70, cy + 95, largura_modal - 140, 40)
@@ -371,14 +406,31 @@ class GerenciadorPerfil:
             texto_btn_acao = "Carregar"
             cor_acao = self.AZUL_BOTAO if len(self.lista_perfis) > 0 else self.CINZA
 
-        txt_dir = fonte_ui.render(f"Pasta Base: ./EIGUIT/{self.pasta_padrao}/", True, (150, 150, 150))
-        tela.blit(txt_dir, (cx + 20, cy + 150))
+        elif self.modo == 'conta':
+            txt_tit = fonte_titulo.render("Minha Conta (Cloud)", True, self.BRANCO)
+            tela.blit(txt_tit, (cx + 20, cy + 20))
 
-        self.btn_cancelar = pygame.Rect(cx + 20, cy + 190, 150, 40)
-        self.btn_acao = pygame.Rect(cx + largura_modal - 170, cy + 190, 150, 40)
+            tela.blit(fonte_ui.render("Email Logado:", True, self.CINZA), (cx + 20, cy + 70))
+            txt_email = fonte_titulo.render(self.email_exibir, True, self.AZUL_BOTAO)
+            tela.blit(txt_email, (cx + 20, cy + 95))
 
-        pygame.draw.rect(tela, self.VERMELHO, self.btn_cancelar, border_radius=5)
-        txt_canc = fonte_ui.render("Cancelar", True, self.BRANCO)
+            self.btn_deletar_conta = pygame.Rect(cx + 20, cy + 150, largura_modal - 40, 45)
+            pygame.draw.rect(tela, self.VERMELHO_DARK, self.btn_deletar_conta, border_radius=5)
+            txt_del = fonte_ui.render("DELETAR MINHA CONTA PERMANENTEMENTE", True, self.BRANCO)
+            tela.blit(txt_del, (self.btn_deletar_conta.centerx - txt_del.get_width()//2, self.btn_deletar_conta.centery - txt_del.get_height()//2))
+
+            texto_btn_acao = "Ok"
+            cor_acao = self.AZUL_BOTAO
+
+        if self.modo != 'conta':
+            txt_dir = fonte_ui.render(f"Pasta Base: ./EIGUIT/{self.pasta_padrao}/", True, (150, 150, 150))
+            tela.blit(txt_dir, (cx + 20, cy + 150))
+
+        self.btn_cancelar = pygame.Rect(cx + 20, cy + altura_modal - 60, 150, 40)
+        self.btn_acao = pygame.Rect(cx + largura_modal - 170, cy + altura_modal - 60, 150, 40)
+
+        pygame.draw.rect(tela, self.VERMELHO if self.modo != 'conta' else self.CINZA, self.btn_cancelar, border_radius=5)
+        txt_canc = fonte_ui.render("Sair" if self.modo == 'conta' else "Cancelar", True, self.BRANCO)
         tela.blit(txt_canc, (self.btn_cancelar.centerx - txt_canc.get_width()//2, self.btn_cancelar.centery - txt_canc.get_height()//2))
 
         pygame.draw.rect(tela, cor_acao, self.btn_acao, border_radius=5)

@@ -20,6 +20,7 @@ class TutorialSuporte:
         self.abas = ["Escalas", "Configurações", "Metrônomo", "Acordes", "Análise IA"]
         
         # Dicionário com os tutoriais. Cada item é uma seção do scroll.
+        # As chaves e textos são traduzidos na hora de desenhar para manter flexibilidade
         self.conteudo = {
             0: [ # Escalas
                 {"titulo": "Sistema Drag & Drop", "texto": "Para utilizar as escalas, ative o ícone do 'Alfinete' (canto superior direito). Com o modo de edição ativado, clique e arraste qualquer escala do painel inferior diretamente para o braço da guitarra."},
@@ -122,7 +123,7 @@ class TutorialSuporte:
         # =========================================================
         # CABEÇALHO E ABAS
         # =========================================================
-        tit = fonte_titulo.render("Central de Suporte & Tutoriais", True, self.BRANCO)
+        tit = fonte_titulo.render(_t("Central de Suporte & Tutoriais"), True, self.BRANCO)
         tela.blit(tit, (cx + 20, cy + 20))
 
         self.rects_abas = []
@@ -136,7 +137,7 @@ class TutorialSuporte:
             cor_fundo = self.AZUL_CLARO if self.aba_ativa == i else (60, 60, 60)
             pygame.draw.rect(tela, cor_fundo, rect_aba, border_radius=5)
             
-            txt_aba = fonte_ui.render(nome_aba, True, self.BRANCO)
+            txt_aba = fonte_ui.render(_t(nome_aba), True, self.BRANCO)
             tela.blit(txt_aba, (rect_aba.centerx - txt_aba.get_width()//2, rect_aba.centery - txt_aba.get_height()//2))
 
         # =========================================================

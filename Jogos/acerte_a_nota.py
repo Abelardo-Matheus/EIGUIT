@@ -167,27 +167,20 @@ class AcerteANota:
                 'vida': 1.0 
             })
 
-    def atualizar_audio(self, freq_detectada):
-        try:
-            f = float(freq_detectada)
-            if f < 20.0:
-                self.nota_atual_mic = ""; self.nota_perfeita_mic = ""
-                self.nivel_volume = max(0.0, self.nivel_volume - 0.1)
-                return
-            valor_exato = 12 * math.log2(f / 440.0)
-            semitons_de_A4 = round(valor_exato)
-            self.desvio_afinacao = valor_exato - semitons_de_A4 
-            indice_nota = (semitons_de_A4 + 9) % 12
-            notas_str = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-            nota_encontrada = notas_str[int(indice_nota)]
-            self.nota_atual_mic = nota_encontrada
-            self.nivel_volume = min(1.0, 0.7 + random.uniform(0.0, 0.3))
-            if abs(self.desvio_afinacao) <= 0.15: self.nota_perfeita_mic = self.nota_atual_mic
-            else: self.nota_perfeita_mic = ""
-        except:
-            self.nota_atual_mic = ""; self.nota_perfeita_mic = ""
+    def atualizar_audio_centralizado(self, estado):
+        """Usa a nota já detectada pelo motor global no main.py"""
+        self.nota_atual_mic = estado.nota_atual_detectada
+        # Para o jogo "Acerte a Nota", consideramos 'perfeita' se houver qualquer nota válida
+        # vinda do motor, pois a persistência e threshold já foram tratados lá.
+        self.nota_perfeita_mic = self.nota_atual_mic if self.nota_atual_mic != "--" else ""
+        
+        # Volume visual apenas para feedback
+        if self.nota_atual_mic != "--":
+            self.nivel_volume = min(1.0, self.nivel_volume + 0.2)
+        else:
             self.nivel_volume = max(0.0, self.nivel_volume - 0.1)
 
+        # Lógica de Calibração
         if self.nota_perfeita_mic and self.em_calibracao and not self.calibrado and not self.jogo_iniciado:
             if self.nota_perfeita_mic == self.notas_calibracao[self.indice_atual]:
                 self.status_notas[self.indice_atual] = 2 
@@ -245,7 +238,8 @@ class AcerteANota:
                     'sustain': 0, 'sendo_tocada': False, 'ponto_computado': False
                 })
 
-    def desenhar(self, tela, largura, altura, meu_gravador=None, configs=None):
+    def desenhar(self, tela, largura, altura, estado, meu_gravador=None, configs=None):
+        self.atualizar_audio_centralizado(estado)
         self.atualizar_fila_voz()
         mult_vel = configs.get_vel_jogo() if configs else 1.0
         particulas_on = configs.get_particulas() if configs else True

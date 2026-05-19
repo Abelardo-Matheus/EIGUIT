@@ -5,9 +5,8 @@
 # =============================================================================
 import pygame
 import sys
-from Core import config 
+from Core import config, i18n
 import Modulos.modulo_metronomo as modulo_metronomo
-import Modulos.modulo_gravador as modulo_gravador
 import Modulos.modulo_processamento as modulo_processamento
 from Modulos.modulo_campo_harmonico import CampoHarmonico
 from Core import estado_app
@@ -17,8 +16,17 @@ from Core import controlador_eventos
 from Jogos.Jogos_interativos import GerenciadorJogos
 from Modulos.modulo_perfil import GerenciadorPerfil
 import Modulos.modulo_camera as modulo_camera
+from AudioEngine.global_audio import GlobalAudioEngine
+
+from Interface import tela_login
 
 def main():
+    # 0. AUTENTICAÇÃO
+    usuario_logado = tela_login.iniciar_fluxo_autenticacao()
+    if not usuario_logado:
+        print("Autenticação cancelada. Saindo...")
+        sys.exit()
+
     pygame.mixer.pre_init(44100, -16, 2, 512)
     pygame.init()
     try: pygame.mixer.Sound(buffer=bytearray(b'\x00' * 4096)).play()
@@ -35,6 +43,9 @@ def main():
     
     # 2. USA O TAMANHO REAL DA TELA: O layout nasce normal, compacto e centralizado!
     estado = estado_app.EstadoGlobal(tela.get_width(), tela.get_height())
+    estado.usuario_id_logado = usuario_logado["id"]
+    estado.email_usuario = usuario_logado["email"]
+    
     estado.LARGURA_TELA = tela.get_width()
     estado.ALTURA_TELA = tela.get_height()
     
@@ -47,7 +58,12 @@ def main():
     minhas_configs = config.Configuracoes(x_base + 20, y_virtual_caixa + 60)
     meu_metronomo = modulo_metronomo.Metronomo(x_base + 50, y_virtual_caixa + 80)
     meu_campo_harmonico = CampoHarmonico()
-    meu_gravador = modulo_gravador.GravadorAudio(device_id=3)
+    
+    # MOTOR GLOBAL DE ÁUDIO (Sempre Ouvindo)
+    from AudioEngine.global_audio import GlobalAudioEngine
+    motor_audio = GlobalAudioEngine()
+    meu_gravador = motor_audio
+    
     meu_processador = modulo_processamento.ProcessadorAudio()
     
     estado.gerenciador_perfil = GerenciadorPerfil()
@@ -67,8 +83,42 @@ def main():
 
     # Salva a função original do mouse antes de fazer a mágica
     original_get_pos = pygame.mouse.get_pos
+    relogio = pygame.time.Clock()
 
     while not estado.solicitou_saida:
+        relogio.tick(60)
+        
+        # OTIMIZAÇÃO: O motor processa IA em background continuamente
+        motor_audio.atualizar_analise_ia(estado.afinador_threshold)
+        
+        # Sincroniza dados do motor com o estado do app
+        estado.freq_detectada = motor_audio.freq_detectada
+        estado.notas_detectadas_ia = motor_audio.notas_polifonicas
+
+        # CÁLCULO CENTRAL DE NOTA COM PERSISTÊNCIA
+        import math
+        agora = pygame.time.get_ticks()
+        nota_instante = "--"
+        
+        try:
+            f = float(estado.freq_detectada)
+            if f >= 20.0:
+                valor_exato = 12 * math.log2(f / 440.0)
+                semitons = round(valor_exato)
+                desvio = valor_exato - semitons
+                if abs(desvio) <= 0.35: 
+                    indice_nota = (semitons + 9) % 12
+                    nota_instante = estado.notas_base[int(indice_nota)]
+        except: pass
+
+        if nota_instante != "--":
+            estado.nota_atual_detectada = nota_instante
+            estado.tempo_ultima_nota = agora
+        else:
+            # Se a nota sumiu, verifica se ainda está dentro do tempo de persistência
+            if agora - estado.tempo_ultima_nota > estado.afinador_persistencia:
+                estado.nota_atual_detectada = "--"
+        
         # =====================================================================
         # MÁGICA DA CÂMERA: Captura o mouse real e converte para o virtual
         # =====================================================================
@@ -98,33 +148,7 @@ def main():
         meu_metronomo.processar_logica(pos_mouse_virtual, estado)
         minhas_configs.processar_logica(pos_mouse_virtual)
 
-        if estado.tela_jogo_ativa and not jogo_aberto_anteriormente:
-            memoria_botao_ia = getattr(estado, 'analise_ativa', getattr(estado, 'ia_ligada', False))
-            estado.analise_ativa = True
-            estado.ia_ligada = True
-            for func_name in ['iniciar_gravacao', 'start', 'iniciar', 'iniciar_stream']:
-                if hasattr(meu_gravador, func_name):
-                    try: getattr(meu_gravador, func_name)()
-                    except: pass
-            jogo_aberto_anteriormente = True
-
-        elif not estado.tela_jogo_ativa and jogo_aberto_anteriormente:
-            estado.analise_ativa = memoria_botao_ia
-            estado.ia_ligada = memoria_botao_ia
-            if not memoria_botao_ia:
-                for func_name in ['parar_gravacao', 'stop', 'parar', 'parar_stream']:
-                    if hasattr(meu_gravador, func_name):
-                        try: getattr(meu_gravador, func_name)()
-                        except: pass
-            meu_processador.processar_logica_continua(meu_gravador, estado)
-            jogo_aberto_anteriormente = False
-
-        meu_processador.processar_logica_continua(meu_gravador, estado)
-
-        if estado.tela_jogo_ativa and meu_gerenciador_jogos.jogo_id_ativo == "acerte_a_nota":
-            nota_para_envio = getattr(estado, 'freq_detectada', "") 
-            if meu_gerenciador_jogos.jogo_instancia:
-                meu_gerenciador_jogos.jogo_instancia.atualizar_audio(nota_para_envio)
+        # Removemos o bloco antigo de "if estado.tela_jogo_ativa" que manipulava o microfone manualmente
         
         if nome_fonte != minhas_configs.get_fonte():
             nome_fonte = minhas_configs.get_fonte()
@@ -132,9 +156,17 @@ def main():
 
         controlador_eventos.processar(
             eventos_traduzidos, estado, minhas_configs,
-            dicionario_escalas, meu_metronomo, meu_processador, meu_gravador,
+            dicionario_escalas, meu_metronomo, meu_processador, motor_audio,
             meu_campo_harmonico, meu_gerenciador_jogos
         )
+
+        # Lógica contínua (A afinidade com o motor global é transparente agora)
+        meu_processador.processar_logica_continua(motor_audio, estado)
+
+        if estado.tela_jogo_ativa and meu_gerenciador_jogos.jogo_id_ativo == "acerte_a_nota":
+            # ... logic ...
+            pass
+
 
         # =====================================================================
         # NOVO RENDERIZADOR: PINTA NA MESA VIRTUAL E COLA NO MONITOR
