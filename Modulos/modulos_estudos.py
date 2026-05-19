@@ -190,6 +190,11 @@ class GerenciadorEstudos:
             txt_info = fontes['ui'].render("Módulo em desenvolvimento...", True, (150, 150, 150))
             tela.blit(txt_info, (meio_x - txt_info.get_width() // 2, meio_y))
 
+    def _limpar_modulos(self):
+        self.modulo_notas = None
+        self.modulo_escalas = None
+        self.modulo_acordes = None
+
     def tratar_eventos(self, evento, pos_mouse, estado):
         cam_x = estado.camera.offset_x if hasattr(estado, 'camera') else 0
         cam_y = estado.camera.offset_y if hasattr(estado, 'camera') else 0
@@ -199,15 +204,17 @@ class GerenciadorEstudos:
         if evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
             estado.tela_estudo_ativa = False
             estado.estudo_ativo = ""
+            self._limpar_modulos()
             return True
 
         if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
             if self.rect_voltar.collidepoint(pos_mouse_virtual):
                 estado.tela_estudo_ativa = False
                 estado.estudo_ativo = ""
+                self._limpar_modulos()
                 return True
 
-            if estado.estudo_ativo in ["Notas", "Acerte a Nota"] and self.modulo_notas:
+            if estado.estudo_ativo in ["Notas", "Acerte a Nota", "Acerte o Som", "Acerte a Próxima"] and self.modulo_notas:
                 if self.modulo_notas.tratar_cliques(pos_mouse_virtual, estado): return True
             elif estado.estudo_ativo in ["Escalas", "Acerte a Escala"] and self.modulo_escalas:
                 if self.modulo_escalas.tratar_cliques(pos_mouse_virtual, estado): return True
