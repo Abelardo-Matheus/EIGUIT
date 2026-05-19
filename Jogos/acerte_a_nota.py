@@ -97,7 +97,7 @@ class AcerteANota:
             self.pasta_audios = os.path.join(pasta_raiz, "Audios")
             
             # Exemplo de carregamento do fundo (se ele também estiver fora do .exe)
-            caminho_fundo = os.path.join(pasta_raiz, "fundo_jogo.png")
+            caminho_fundo = os.path.join(pasta_raiz, "Imagens", "fundo_jogo.png")
             if os.path.exists(caminho_fundo):
                 self.fundo = pygame.image.load(caminho_fundo).convert_alpha()
             else:
@@ -222,9 +222,9 @@ class AcerteANota:
             if tempo_atual - self.tempo_inicio_fala >= self.duracao_permitida:
                 self.canal_voz.stop()
 
-    def gerar_notas_jogo(self, largura):
+    def gerar_notas_jogo(self, largura, mult_vel=1.0):
         agora = time.time()
-        intervalo_spawn = 5.0 - ((self.velocidade / 100.0) * 3.5) 
+        intervalo_spawn = (5.0 - ((self.velocidade / 100.0) * 3.5)) / mult_vel
         if agora - self.ultimo_spawn > intervalo_spawn:
             self.ultimo_spawn = agora
             dif = self.dificuldades[self.idx_dificuldade]
@@ -245,8 +245,10 @@ class AcerteANota:
                     'sustain': 0, 'sendo_tocada': False, 'ponto_computado': False
                 })
 
-    def desenhar(self, tela, largura, altura, meu_gravador=None):
+    def desenhar(self, tela, largura, altura, meu_gravador=None, configs=None):
         self.atualizar_fila_voz()
+        mult_vel = configs.get_vel_jogo() if configs else 1.0
+        particulas_on = configs.get_particulas() if configs else True
 
         if self.fundo:
             if self.tam_anterior != (largura, altura):
@@ -275,15 +277,19 @@ class AcerteANota:
             tela.blit(fonte_peq.render("10", True, self.VERDE), (x_regua + 15, 100))
             tela.blit(fonte_peq.render("1", True, self.VERMELHO), (x_regua + 15, linha_vermelha_y - 20))
 
-            self.gerar_notas_jogo(largura)
-            for p in self.particulas[:]:
-                p['x'] += p['vx']; p['y'] += p['vy']; p['vy'] += 0.2; p['vida'] -= 0.03
-                if p['vida'] > 0:
-                    pygame.draw.circle(tela, (255, int(255 * p['vida']), 0), (int(p['x']), int(p['y'])), max(1, int(6 * p['vida'])))
-                else: self.particulas.remove(p)
+            self.gerar_notas_jogo(largura, mult_vel)
+            
+            if particulas_on:
+                for p in self.particulas[:]:
+                    p['x'] += p['vx']; p['y'] += p['vy']; p['vy'] += 0.2; p['vida'] -= 0.03
+                    if p['vida'] > 0:
+                        pygame.draw.circle(tela, (255, int(255 * p['vida']), 0), (int(p['x']), int(p['y'])), max(1, int(6 * p['vida'])))
+                    else: self.particulas.remove(p)
+            else:
+                self.particulas.clear()
 
             for i, n in enumerate(self.notas_na_tela[:]):
-                n['y'] += 1.0 + (self.velocidade / 50.0)
+                n['y'] += (1.0 + (self.velocidade / 50.0)) * mult_vel
                 pygame.draw.circle(tela, self.AZUL_INTERFACE, (n['x'], int(n['y'])), 35)
                 pygame.draw.circle(tela, self.BRANCO, (n['x'], int(n['y'])), 35, 2)
                 txt_n = fonte_ui.render(n['nota'], True, self.BRANCO)
@@ -296,7 +302,7 @@ class AcerteANota:
                             pontos = int((distancia / linha_vermelha_y) * 9) + 1 if distancia >= 0 else -2
                             self.pontuacao += min(10, max(-2, pontos))
                             n['ponto_computado'] = True
-                        self.gerar_faiscas(n['x'], n['y'])
+                        if particulas_on: self.gerar_faiscas(n['x'], n['y'])
                         self.notas_na_tela.remove(n)
                 if n['y'] > altura:
                     self.pontuacao -= 5

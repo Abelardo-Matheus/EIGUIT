@@ -5,15 +5,15 @@
 # =============================================================================
 import pygame
 import sys
-import config 
+from Core import config 
 import Modulos.modulo_metronomo as modulo_metronomo
 import Modulos.modulo_gravador as modulo_gravador
 import Modulos.modulo_processamento as modulo_processamento
 from Modulos.modulo_campo_harmonico import CampoHarmonico
-import estado_app
-import fabrica_escalas
-import renderizador_ui
-import controlador_eventos
+from Core import estado_app
+from Interface import fabrica_escalas
+from Interface import renderizador_ui
+from Core import controlador_eventos
 from Jogos.Jogos_interativos import GerenciadorJogos
 from Modulos.modulo_perfil import GerenciadorPerfil
 import Modulos.modulo_camera as modulo_camera

@@ -4,9 +4,9 @@
 # =============================================================================
 
 import pygame
-import fabrica_escalas
-import gerenciador_interface
-from constantes_ui import *
+from Interface import fabrica_escalas
+from Interface import gerenciador_interface
+from Core.constantes_ui import *
 import Modulos.modulo_menu_contexto as modulo_menu_contexto
 import Modulos.modulo_menu_superior as modulo_menu_superior 
 
@@ -238,18 +238,13 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                         sub_aba_ia = secao["memoria_sub_aba"]
                         if sub_aba_ia == 0:
                             btn_gravar_ia = pygame.Rect(dx_inf + 20, estado.Y_AREA_DESENHO + 50 - scroll_atual, 150, 40)
-                            if meu_processador.tratar_clique(evento.pos, btn_gravar_ia, meu_gravador): 
+                            if meu_processador.tratar_clique(evento.pos, btn_gravar_ia, meu_gravador):
                                 clicou_conteudo = True; break
-                            if meu_processador.tratar_clique_calibracao(evento.pos, estado, dx_inf, estado.Y_AREA_DESENHO - scroll_atual): 
+                            if meu_processador.tratar_clique_calibracao(evento.pos, estado, dx_inf, estado.Y_AREA_DESENHO - scroll_atual):
                                 clicou_conteudo = True; break
                         elif sub_aba_ia == 1:
-                            tempo_atual = pygame.time.get_ticks()
-                            if hasattr(meu_processador, 'tratar_clique_ritmo') and meu_processador.tratar_clique_ritmo(evento.pos, tempo_atual, meu_metronomo, estado): 
+                            if meu_gerenciador_jogos.tratar_clique_aba(evento.pos, estado):
                                 clicou_conteudo = True; break
-                        elif sub_aba_ia == 2:
-                            if meu_gerenciador_jogos.tratar_clique_aba(evento.pos, estado): 
-                                clicou_conteudo = True; break
-
                     elif secao["conteudo"] == "configuracao":
                         configs.y = estado.Y_AREA_DESENHO + 20
                         configs.x = dx_inf + 20 
@@ -284,7 +279,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                 continue 
 
             # Painel de Cores (Graus)
-            from constantes_ui import CORES_TONICA
+            from Core.constantes_ui import CORES_TONICA
             if hasattr(estado, 'rect_cor_tonica') and estado.rect_cor_tonica.collidepoint(evento.pos):
                 estado.indice_cor_tonica = (estado.indice_cor_tonica + 1) % len(CORES_TONICA)
                 continue

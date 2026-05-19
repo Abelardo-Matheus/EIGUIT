@@ -1,14 +1,15 @@
 import pygame
 import os
 import sys
-# Importamos o primeiro jogo
+# Importamos os jogos
 from Jogos.acerte_a_nota import AcerteANota
+from Jogos.jogo2 import RhythmHero
 
 class GerenciadorJogos:
     def __init__(self):
         self.jogos = [
             {"nome": "Acerte a Nota", "id": "acerte_a_nota"},
-            {"nome": "Em breve...", "id": "jogo2"},
+            {"nome": "Rhythm Hero", "id": "jogo2"},
             {"nome": "Em breve...", "id": "jogo3"},
             {"nome": "Em breve...", "id": "jogo4"}
         ]
@@ -38,15 +39,24 @@ class GerenciadorJogos:
             rect = pygame.Rect(x, y, largura_btn, altura_btn)
             self.botoes_menu.append((rect, jogo["id"]))
             
-            pygame.draw.rect(tela, (0, 120, 215), rect, border_radius=5)
+            # Cor diferenciada se o jogo estiver "Em breve..."
+            cor_bg = (0, 120, 215) if jogo["id"] in ["acerte_a_nota", "jogo2"] else (80, 80, 80)
+            pygame.draw.rect(tela, cor_bg, rect, border_radius=5)
+            
             txt = fonte_ui.render(jogo["nome"], True, (255, 255, 255))
             tela.blit(txt, (rect.centerx - txt.get_width()//2, rect.centery - txt.get_height()//2))
 
-    def desenhar_tela_jogo(self, tela, largura_tela, altura_tela, meu_gravador=None):
+    def desenhar_tela_jogo(self, tela, largura_tela, altura_tela, meu_gravador=None, configs=None):
         """Gerencia qual tela de jogo desenhar"""
         if self.jogo_instancia:
-            # Repassa o gravador para o jogo específico desenhar o seletor
-            self.jogo_instancia.desenhar(tela, largura_tela, altura_tela, meu_gravador)
+            # Repassa o gravador e configurações para o jogo específico
+            # Checa se o jogo aceita configs (como o Rhythm Hero)
+            import inspect
+            sig = inspect.signature(self.jogo_instancia.desenhar)
+            if 'configs' in sig.parameters:
+                self.jogo_instancia.desenhar(tela, largura_tela, altura_tela, meu_gravador, configs)
+            else:
+                self.jogo_instancia.desenhar(tela, largura_tela, altura_tela, meu_gravador)
         
         # Botão Voltar Universal
         pygame.draw.rect(tela, (200, 50, 50), self.btn_voltar, border_radius=5)
@@ -75,11 +85,14 @@ class GerenciadorJogos:
                 # Inicializa o jogo escolhido
                 if jogo_id == "acerte_a_nota":
                     self.jogo_instancia = AcerteANota()
+                elif jogo_id == "jogo2":
+                    self.jogo_instancia = RhythmHero()
                 else:
                     self.jogo_instancia = None # Outros jogos em branco por enquanto
                 
-                estado.tela_jogo_ativa = True
-                return True
+                if self.jogo_instancia:
+                    estado.tela_jogo_ativa = True
+                    return True
         return False
 
     

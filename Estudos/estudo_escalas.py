@@ -6,12 +6,13 @@
 import pygame
 import random
 import Modulos.escalas as escalas
-from constantes_ui import lista_afinacoes
+from Core.constantes_ui import lista_afinacoes
 
 # Importa as suas bibliotecas nativas de shape (Para o Modo Desenhar)
 import Modulos.modulos_escala_maior as esc_maior
 import Modulos.modulos_penta as esc_penta 
 import Modulos.modulos_teoria_avancada as esc_avancada
+import Modulos.modulos_modos as esc_modos
 
 class EstudoEscalas:
     def __init__(self):
@@ -64,8 +65,9 @@ class EstudoEscalas:
             "Penta Menor - Shape 5": esc_penta.SHAPE_5,
             
             "Blues - Shape 1": esc_avancada.SHAPE_1_BLUES,
-            "Modo Dórico": esc_avancada.DORICO
+            "Modo Dórico": esc_modos.DORICO
         }
+
 
         # =====================================================================
         # DADOS: MODO ADIVINHAR (Motor Matemático Dinâmico)
@@ -79,6 +81,8 @@ class EstudoEscalas:
             "Blues": [0, 3, 5, 6, 7, 10],
             "Dórico": [0, 2, 3, 5, 7, 9, 10]
         }
+        self.msg_adivinhar = ""
+        self.cor_msg_adivinhar = (255, 255, 255)
 
     def inicializar_questao(self, estado):
         self.posicoes_corretas.clear()
@@ -140,8 +144,11 @@ class EstudoEscalas:
             notas_alvo = [self.notas_base[(idx_tom + i) % 12] for i in self.tipos_escala_adivinhar[tipo_sorteado]]
 
             # 3. Mapeia no braço inteiro
+            # Correção: Se não for 7 cordas, começamos da corda 1 (E) em vez da 0 (B)
+            offset_afinacao = 1 if self.num_cordas <= 6 else 0
+
             for c in range(self.num_cordas):
-                nota_aberta = notas_abertas[c if instrumento != 'baixo' else c + 2]
+                nota_aberta = notas_abertas[c + offset_afinacao]
                 for casa in range(0, self.casas_estudo + 1):
                     if escalas.obter_nota(nota_aberta, casa) in notas_alvo:
                         self.posicoes_corretas.add((c, casa))
@@ -220,8 +227,10 @@ class EstudoEscalas:
         # =====================================================================
         # 3. LÓGICA DE BOLINHAS CLICADAS VS MOSTRADAS
         # =====================================================================
+        offset_notas = 1 if self.num_cordas <= 6 else 0
+
         for c in range(self.num_cordas):
-            nota_aberta = notas_abertas[c if instrumento != 'baixo' else c + 2]
+            nota_aberta = notas_abertas[c + offset_notas]
             for casa in range(self.casas_estudo + 1):
                 x_centro = self.x_braco - 25 if casa == 0 else self.x_braco + (casa * self.espaco_casas) - (self.espaco_casas / 2)
                 y_corda = self.y_braco + self.altura_braco - (c * self.espaco_cordas)
@@ -340,12 +349,10 @@ class EstudoEscalas:
     def tratar_cliques(self, pos_mouse_virtual, estado):
         if self.rect_btn_desenhar.collidepoint(pos_mouse_virtual) and self.modo_jogo != "desenhar":
             self.modo_jogo = "desenhar"
-            self.acertos = 0
             self.inicializar_questao(estado)
             return True
         if self.rect_btn_adivinhar.collidepoint(pos_mouse_virtual) and self.modo_jogo != "adivinhar":
             self.modo_jogo = "adivinhar"
-            self.acertos = 0
             self.inicializar_questao(estado)
             return True
 

@@ -43,7 +43,7 @@ class EstadoGlobal:
         self.LARGURA_BRACO = max(800, largura_tela - 350) 
         self.ALTURA_BRACO = 300 
         self.scroll_y = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}
-        self.max_scroll = {0: 600, 1: 0, 2: 400, 3: 500, 4: 500}
+        self.max_scroll = {0: 1000, 1: 800, 2: 400, 3: 500, 4: 500}
         
         self.atualizar_medidas()
 
@@ -72,9 +72,9 @@ class EstadoGlobal:
 
         # Painéis Inferiores Expansíveis (5 Abas)
         self.secoes_inferiores = [
-            {"titulo": "ESCALAS", "expandido": False, "conteudo": "escalas", "memoria_sub_aba": 0, "sub_abas": ["Maior", "Menor", "Penta", "Blues", "Modos"]},
-            {"titulo": "ACORDES", "expandido": False, "conteudo": "acordes", "memoria_sub_aba": 0, "sub_abas": ["CAGED", "Tríades Maiores", "Tríades Menores"]},
-            {"titulo": "ANÁLISE DE IA", "expandido": False, "conteudo": "analise_ia", "memoria_sub_aba": 0, "sub_abas": ["Afinador / IA", "Treino de Ritmo", "JOGOS"]},
+            {"titulo": "ESCALAS", "expandido": False, "conteudo": "escalas", "memoria_sub_aba": 0, "sub_abas": ["Maior", "Menor", "Penta Maior", "Penta Menor", "Blues", "Modos", "Harmônica", "Melódica", "Exóticas"]},
+            {"titulo": "ACORDES", "expandido": False, "conteudo": "acordes", "memoria_sub_aba": 0, "sub_abas": ["CAGED", "Tríades Maiores", "Tríades Menores", "Sétimas", "Power Chords"]},
+            {"titulo": "ANÁLISE DE IA", "expandido": False, "conteudo": "analise_ia", "memoria_sub_aba": 0, "sub_abas": ["Afinador / IA", "JOGOS"]},
             {"titulo": "ESTUDOS", "expandido": False, "conteudo": "estudos", "memoria_sub_aba": 0, "sub_abas": ["Notas", "Escalas", "Ritmo", "Acordes"]},
             {"titulo": "CONFIGURAÇÃO", "expandido": False, "conteudo": "configuracao", "memoria_sub_aba": 0, "sub_abas": ["Cores da Interface", "Configurações Globais"]}
         ]

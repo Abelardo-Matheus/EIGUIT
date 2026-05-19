@@ -59,10 +59,10 @@ class GerenciadorPerfil:
        
         largura_braco = getattr(estado, 'LARGURA_BRACO', largura_tela - 350)
         altura_braco = getattr(estado, 'ALTURA_BRACO', 300)
-        largura_acordes = getattr(estado, 'LARGURA_ACORDES', 580)
+        largura_acordes = getattr(estado, 'LARGURA_ACORDES', 620)
         altura_acordes = getattr(estado, 'ALTURA_ACORDES', 110)
         largura_metronomo = getattr(estado, 'LARGURA_METRONOMO', 250)
-        largura_topo = 480
+        largura_topo = 650
 
         centro_x_braco = (largura_tela - largura_braco) // 2
         centro_x_acordes = (largura_tela - largura_acordes) // 2

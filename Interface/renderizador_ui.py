@@ -6,8 +6,8 @@
 import pygame
 import math 
 import Modulos.escalas as escalas
-import gerenciador_interface
-from constantes_ui import *
+from Interface import gerenciador_interface
+from Core.constantes_ui import *
 from Jogos.Jogos_interativos import GerenciadorJogos
 import Modulos.modulos_estudos as modulo_estudos
 
@@ -24,9 +24,12 @@ def equivalencia_notas(nota1, nota2):
     return enarmonicas.get(nota1) == nota2 or enarmonicas.get(nota2) == nota1
 
 def desenhar_painel_superior(tela, estado, fontes):
+    if hasattr(estado, 'dragger_controles_topo') and estado.dragger_controles_topo.largura < 650:
+        estado.dragger_controles_topo.largura = 650
+        
     dx = estado.dragger_controles_topo.x if hasattr(estado, 'dragger_controles_topo') else 100
     dy = estado.dragger_controles_topo.y if hasattr(estado, 'dragger_controles_topo') else 30
-    largura_caixa = estado.dragger_controles_topo.largura if hasattr(estado, 'dragger_controles_topo') else 580
+    largura_caixa = estado.dragger_controles_topo.largura if hasattr(estado, 'dragger_controles_topo') else 650
     
     largura_tela_real = getattr(estado, 'LARGURA_TELA', 1280)
     estado.rect_btn_pin = pygame.Rect(largura_tela_real - 60, 20, 40, 40)
@@ -333,8 +336,8 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
 
             if secao["conteudo"] in ["escalas", "acordes"]:
                 chaves = []
-                if secao["conteudo"] == "escalas": chaves = ['maior', 'menor', 'penta', 'blues', 'modos']
-                elif secao["conteudo"] == "acordes": chaves = ['caged', 'triades_maior', 'triades_menor']
+                if secao["conteudo"] == "escalas": chaves = ['maior', 'menor', 'penta_maior', 'penta_menor', 'blues', 'modos', 'harmonica', 'melodica', 'exoticas']
+                elif secao["conteudo"] == "acordes": chaves = ['caged', 'triades_maior', 'triades_menor', 'setimas', 'power']
                 
                 if secao["memoria_sub_aba"] < len(chaves):
                     chave_atual = chaves[secao["memoria_sub_aba"]]
@@ -343,7 +346,11 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
                         if modulo.estado == 'painel':
                             modulo.x_braco = pos_x_guit
                             modulo.y_braco = offset_y_guit
-                            modulo.y_painel = y_start + 20 
+                            
+                            # Suporte a multi-linha: Usa y_relativo calculado na fábrica
+                            y_rel = getattr(modulo, 'y_relativo', 0)
+                            modulo.rect_painel.y = y_start + 20 + y_rel
+                            
                             modulo.scroll_offset = 0 
                             modulo.atualizar_e_desenhar(tela, pygame.mouse.get_pos(), rect_braco_real, fontes['pequena'], alpha_atual)
                     tela.set_clip(rect_clipping)
@@ -355,8 +362,6 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
                     except: notas_abertas = ['E', 'A', 'D', 'G', 'B', 'E', 'B']
                     meu_processador.desenhar_aba_ia(tela, dx, y_start, btn_gravar_ia, meu_gravador, fontes['ui'], fontes['titulo'], notas_abertas, estado)
                 elif secao["memoria_sub_aba"] == 1:
-                     meu_processador.desenhar_aba_treino_ritmo(tela, dx, y_start, fontes['ui'], fontes['titulo'])
-                elif secao["memoria_sub_aba"] == 2:
                     meu_gerenciador_jogos.desenhar_aba_jogos(tela, dx, y_start, fontes['ui'])
 
             elif secao["conteudo"] == "configuracao":
@@ -447,12 +452,15 @@ def desenhar_tudo(tela, estado, configs, dicionario_escalas, fontes, meu_metrono
     desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador, meu_gerenciador_jogos)
     
     # 2. Desenho de Telas Cheias (Cobre o Workspace)
+    largura_real = getattr(estado, 'LARGURA_TELA', 1280)
+    altura_real = getattr(estado, 'ALTURA_TELA', 720)
+
     if getattr(estado, 'tela_estudo_ativa', False):
         if not hasattr(estado, 'gerenciador_estudos'):
             estado.gerenciador_estudos = modulo_estudos.GerenciadorEstudos()
-        estado.gerenciador_estudos.desenhar_tela_estudo(tela, tela.get_width(), tela.get_height(), estado, fontes)
+        estado.gerenciador_estudos.desenhar_tela_estudo(tela, largura_real, altura_real, estado, fontes)
     elif estado.tela_jogo_ativa: 
-        meu_gerenciador_jogos.desenhar_tela_jogo(tela, tela.get_width(), tela.get_height(), meu_gravador)
+        meu_gerenciador_jogos.desenhar_tela_jogo(tela, largura_real, altura_real, meu_gravador, configs)
 
     # 3. Desenho de Menus Flutuantes (UI Suprema)
     if hasattr(estado, 'menu_superior'):

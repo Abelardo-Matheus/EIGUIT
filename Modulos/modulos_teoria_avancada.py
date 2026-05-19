@@ -8,12 +8,22 @@
 # --- PENTATÔNICA BLUES (Penta Menor + 4# / 5b) ---
 SHAPE_1_BLUES = [
     [1, 0, 0, 1, 0], # 7ª Corda
-    [1, 0, 0, 1, 0], # 6ª Corda
-    [1, 0, 1, 1, 0], # 5ª Corda (Blue note na 3ª casa do desenho)
-    [1, 0, 1, 0, 0], # 4ª Corda
-    [1, 1, 1, 0, 0], # 3ª Corda (Blue note na 2ª casa do desenho)
-    [1, 0, 0, 1, 0], # 2ª Corda
-    [1, 0, 0, 1, 0]  # 1ª Corda
+    [2, 0, 0, 1, 1], # 6ª Corda (A, C, Eb)
+    [1, 0, 1, 0, 0], # 5ª Corda
+    [1, 1, 2, 0, 0], # 4ª Corda
+    [1, 0, 1, 0, 0], # 3ª Corda
+    [1, 0, 0, 1, 1], # 2ª Corda
+    [2, 0, 0, 1, 1]  # 1ª Corda
+]
+
+SHAPE_2_BLUES = [
+    [0, 1, 0, 2, 0], 
+    [0, 1, 1, 1, 0], 
+    [1, 0, 0, 1, 0], 
+    [2, 0, 1, 0, 0], 
+    [1, 1, 1, 0, 0], 
+    [0, 2, 0, 1, 1], 
+    [0, 1, 1, 1, 0]
 ]
 
 # Shape Completo Blues (12 casas)
@@ -27,18 +37,4 @@ SHAPE_COMPLETO_BLUES = [
     [1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0]  
 ]
 
-TODOS_OS_SHAPES_BLUES = [SHAPE_1_BLUES, SHAPE_COMPLETO_BLUES]
-
-# --- MODOS GREGOS ---
-# Modo Dórico (Escala Maior começando da 2ª nota)
-DORICO = [
-    [0, 1, 1, 0, 1], # 7ª
-    [0, 1, 0, 1, 1], # 6ª
-    [1, 0, 1, 1, 0], # 5ª
-    [1, 0, 1, 0, 1], # 4ª
-    [1, 0, 1, 0, 1], # 3ª
-    [0, 1, 1, 0, 1], # 2ª
-    [0, 1, 0, 1, 1]  # 1ª
-]
-
-TODOS_OS_MODOS = [DORICO]
+TODOS_OS_SHAPES_BLUES = [SHAPE_1_BLUES, SHAPE_2_BLUES, SHAPE_COMPLETO_BLUES]
