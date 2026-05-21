@@ -66,7 +66,8 @@ class GerenciadorDB:
                         usuario_id INTEGER NOT NULL,
                         nome_perfil VARCHAR(100) NOT NULL,
                         configuracoes JSONB, 
-                        CONSTRAINT fk_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios (id) ON DELETE CASCADE
+                        CONSTRAINT fk_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios (id) ON DELETE CASCADE,
+                        CONSTRAINT unique_usuario_perfil UNIQUE (usuario_id, nome_perfil)
                     );
                 ''')
 
@@ -82,8 +83,22 @@ class GerenciadorDB:
                     );
                 ''')
 
+                # 4. Tabela de Favoritos (Global por Usuário)
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS favoritos (
+                        id SERIAL PRIMARY KEY,
+                        usuario_id INTEGER NOT NULL,
+                        song_id INTEGER NOT NULL,
+                        titulo VARCHAR(255),
+                        artista VARCHAR(255),
+                        CONSTRAINT fk_usuario_favorito FOREIGN KEY (usuario_id) REFERENCES usuarios (id) ON DELETE CASCADE,
+                        CONSTRAINT unique_user_song UNIQUE (usuario_id, song_id)
+                    );
+                ''')
+
                 # Índices
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_projetos_nome ON projetos (nome_projeto);')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_favoritos_user ON favoritos (usuario_id);')
                 
                 self.conexao.commit()
                 print("Estrutura do banco de dados verificada/criada com sucesso!")
@@ -154,19 +169,81 @@ class GerenciadorDB:
             self.fechar()
 
     def salvar_perfil(self, usuario_id, nome_perfil, configuracoes_dict):
-        """Salva ou atualiza configurações do perfil."""
+        """Salva ou atualiza configurações do perfil (Upsert)."""
         if not self.conectar(): return False
         try:
             config_json = json.dumps(configuracoes_dict)
             with self.conexao.cursor() as cursor:
                 cursor.execute(
-                    "INSERT INTO perfis (usuario_id, nome_perfil, configuracoes) VALUES (%s, %s, %s);",
+                    """
+                    INSERT INTO perfis (usuario_id, nome_perfil, configuracoes) 
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (usuario_id, nome_perfil) 
+                    DO UPDATE SET configuracoes = EXCLUDED.configuracoes;
+                    """,
                     (usuario_id, nome_perfil, config_json)
                 )
                 self.conexao.commit()
                 return True
         except Exception as e:
             print(f"Erro ao salvar perfil: {e}")
+            return False
+        finally:
+            self.fechar()
+
+    # --- GESTÃO DE FAVORITOS (CLOUD) ---
+
+    def obter_favoritos(self, usuario_id):
+        """Busca todos os favoritos do usuário no banco."""
+        if not self.conectar(): return []
+        try:
+            with self.conexao.cursor() as cursor:
+                cursor.execute(
+                    "SELECT song_id, titulo, artista FROM favoritos WHERE usuario_id = %s;",
+                    (usuario_id,)
+                )
+                rows = cursor.fetchall()
+                return [{"songId": r[0], "title": r[1], "artist": r[2]} for r in rows]
+        except Exception as e:
+            print(f"Erro ao obter favoritos: {e}")
+            return []
+        finally:
+            self.fechar()
+
+    def adicionar_favorito(self, usuario_id, song_id, titulo, artista):
+        """Adiciona uma música aos favoritos do usuário no banco."""
+        if not self.conectar(): return False
+        try:
+            with self.conexao.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO favoritos (usuario_id, song_id, titulo, artista)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (usuario_id, song_id) DO NOTHING;
+                    """,
+                    (usuario_id, song_id, titulo, artista)
+                )
+                self.conexao.commit()
+                return True
+        except Exception as e:
+            print(f"Erro ao adicionar favorito: {e}")
+            return False
+        finally:
+            self.fechar()
+
+    def remover_favorito(self, usuario_id, song_id):
+        """Remove uma música dos favoritos do usuário no banco."""
+        if not self.conectar(): return False
+        try:
+            with self.conexao.cursor() as cursor:
+                cursor.execute(
+                    "DELETE FROM favoritos WHERE usuario_id = %s AND song_id = %s;",
+                    (usuario_id, song_id)
+                )
+                self.conexao.commit()
+                return True
+        except Exception as e:
+            print(f"Erro ao remover favorito: {e}")
             return False
         finally:
             self.fechar()

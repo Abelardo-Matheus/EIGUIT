@@ -5,6 +5,7 @@
 # =============================================================================
 
 import pygame
+from Modulos.modulos_config import *
 
 class CampoHarmonico:
     def __init__(self):

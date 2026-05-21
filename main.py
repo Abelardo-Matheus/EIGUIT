@@ -45,6 +45,12 @@ def main():
     estado = estado_app.EstadoGlobal(tela.get_width(), tela.get_height())
     estado.usuario_id_logado = usuario_logado["id"]
     estado.email_usuario = usuario_logado["email"]
+
+    # --- NOVO: Carregar Favoritos da Nuvem (NEON) ---
+    from BD.gerenciador_remoto_db import GerenciadorDB
+    db = GerenciadorDB()
+    estado.favoritos_songsterr = db.obter_favoritos(estado.usuario_id_logado)
+    print(f"[CLOUD] {len(estado.favoritos_songsterr)} favoritos carregados da conta.")
     
     estado.LARGURA_TELA = tela.get_width()
     estado.ALTURA_TELA = tela.get_height()
@@ -172,18 +178,25 @@ def main():
         # NOVO RENDERIZADOR: PINTA NA MESA VIRTUAL E COLA NO MONITOR
         # =====================================================================
         minha_camera.tela_virtual.fill((20, 20, 20)) # Fundo base da mesa
-        
-        renderizador_ui.desenhar_tudo(
-            minha_camera.tela_virtual, estado, minhas_configs, dicionario_escalas, 
+
+        # Camada 1: Mesa Virtual (Instrumento, Acordes, etc)
+        renderizador_ui.desenhar_workspace(
+            minha_camera.tela_virtual, estado, minhas_configs, dicionario_escalas,
             fontes, meu_metronomo, meu_processador, meu_gravador,
             meu_campo_harmonico, meu_gerenciador_jogos
         )
-        
+
         # Agora a câmera processa o que foi pintado e exibe na sua tela
         tela.fill((0, 0, 0)) # Borda preta caso arraste demais
         minha_camera.renderizar(tela)
-        pygame.display.flip()
 
+        # Camada 2: UI FIXA (Menus, Modais, Telas de Estudo)
+        # Fica travado na tela do usuário, ignorando o zoom da câmera
+        renderizador_ui.desenhar_ui_fixa(
+            tela, estado, fontes, meu_gravador, minhas_configs, meu_gerenciador_jogos
+        )
+
+        pygame.display.flip()
     # Devolve a função original para fechar limpo
     pygame.mouse.get_pos = original_get_pos
     pygame.quit()

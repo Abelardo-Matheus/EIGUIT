@@ -6,6 +6,7 @@
 import pygame
 import os
 import json
+from Modulos.modulos_config import *
 
 class GerenciadorPerfil:
     def __init__(self):
@@ -22,12 +23,12 @@ class GerenciadorPerfil:
         if not os.path.exists(self.pasta_padrao):
             os.makedirs(self.pasta_padrao)
 
-        self.BRANCO = (255, 255, 255)
-        self.FUNDO = (30, 30, 30)
-        self.AZUL_BOTAO = (0, 120, 215)
-        self.CINZA = (100, 100, 100)
-        self.VERMELHO = (200, 50, 50)
-        self.VERMELHO_DARK = (150, 30, 30)
+        self.BRANCO = PERFIL_BRANCO
+        self.FUNDO = PERFIL_FUNDO
+        self.AZUL_BOTAO = PERFIL_AZUL_BOTAO
+        self.CINZA = PERFIL_CINZA
+        self.VERMELHO = PERFIL_VERMELHO
+        self.VERMELHO_DARK = PERFIL_VERMELHO_DARK
 
     def abrir_modal_novo(self):
         self.ativo = True
@@ -70,18 +71,20 @@ class GerenciadorPerfil:
         largura_metronomo = getattr(estado, 'LARGURA_METRONOMO', 250)
         largura_topo = 650
 
-        centro_x_braco = (largura_tela - largura_braco) // 2
-        centro_x_acordes = (largura_tela - largura_acordes) // 2
-        centro_x_metronomo = (largura_tela - largura_metronomo) // 2
-        centro_x_topo = (largura_tela - largura_topo) // 2
-
+        # Posicionamento Dashboard Profissional (Largura 1100px)
+        centro_x_global = largura_tela // 2
+        largura_toolbar = 1100
+        
+        y_acordes = 120 + altura_braco + 100
+        
         padroes = {
-            'dragger_controles_topo': {'x': centro_x_topo, 'y': 30},
-            'dragger_guitarra': {'x': centro_x_braco, 'y': 100},
-            'dragger_acordes': {'x': centro_x_acordes, 'y': 480},
-            'dragger_metronomo': {'x': centro_x_metronomo, 'y': 480 + altura_acordes + 90},
-            'dragger_painel_inferior': {'x': centro_x_braco, 'y': altura_tela - 60},
-            'dragger_cores': {'x': 20, 'y': altura_tela - 270} 
+            'dragger_controles_topo': {'x': centro_x_global - (largura_toolbar // 2), 'y': 40},
+            'dragger_guitarra': {'x': centro_x_global - (largura_braco // 2), 'y': 120},
+            'dragger_acordes': {'x': centro_x_global - (largura_braco // 2), 'y': y_acordes},
+            'dragger_metronomo': {'x': centro_x_global + (largura_braco // 2) - 240, 'y': y_acordes + 10},
+            'dragger_painel_inferior': {'x': centro_x_global - (largura_toolbar // 2), 'y': altura_tela - 75},
+            'dragger_nota_atual': {'x': 30, 'y': altura_tela - 470},
+            'dragger_cores': {'x': 30, 'y': altura_tela - 220} 
         }
         
         for nome, coords in padroes.items():
@@ -174,8 +177,22 @@ class GerenciadorPerfil:
                 obj = getattr(estado, nome)
                 dados["posicoes_draggers"][nome] = {"x": obj.x, "y": obj.y}
 
+        # Salva localmente
         with open(caminho, 'w', encoding='utf-8') as f:
             json.dump(dados, f, indent=4)
+
+        # Salva no Banco de Dados Remoto (Cloud) se estiver logado
+        if hasattr(estado, 'usuario_id_logado') and estado.usuario_id_logado:
+            try:
+                from BD.gerenciador_remoto_db import GerenciadorDB
+                db = GerenciadorDB()
+                sucesso = db.salvar_perfil(estado.usuario_id_logado, nome_arquivo.replace(".json", ""), dados)
+                if sucesso:
+                    print(f"[CLOUD] Perfil '{nome_arquivo}' sincronizado com sucesso!")
+                else:
+                    print(f"[CLOUD] Erro ao sincronizar perfil '{nome_arquivo}'")
+            except Exception as e:
+                print(f"[CLOUD] Falha na conexão com o banco: {e}")
 
         self.salvar_ultimo_perfil_config(caminho)
         print(f"[PERFIL] Perfil completo salvo em: {caminho}")

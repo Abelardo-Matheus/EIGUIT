@@ -6,16 +6,18 @@
 import pygame
 import webbrowser
 import Modulos.modulo_suporte as modulo_suporte
+from Core.i18n import _t
+from Modulos.modulos_config import *
 
 class MenuSuperior:
     def __init__(self):
-        self.altura_barra = 25
-        self.cor_barra = (35, 35, 35)        
-        self.cor_texto = (230, 230, 230)     
-        self.cor_hover = (0, 120, 215)       
-        self.cor_dropdown = (45, 45, 45)     
-        self.cor_borda = (80, 80, 80)        
-        self.BRANCO = (255, 255, 255)
+        self.altura_barra = MENU_SUPERIOR_ALTURA_BARRA
+        self.cor_barra = MENU_SUPERIOR_COR_BARRA        
+        self.cor_texto = MENU_SUPERIOR_COR_TEXTO     
+        self.cor_hover = MENU_SUPERIOR_COR_HOVER       
+        self.cor_dropdown = MENU_SUPERIOR_COR_DROPDOWN     
+        self.cor_borda = MENU_SUPERIOR_COR_BORDA        
+        self.BRANCO = MENU_SUPERIOR_BRANCO
 
         self.menu_aberto = None # Guarda a chave original em PT
         self.item_hover = None
@@ -40,17 +42,27 @@ class MenuSuperior:
         self.rects_principais = {} # Mapeia Chave PT -> Rect
         self.rects_dropdown = []
         
-        self.largura_item = 130 
+        # Agora o tamanho do item é calculado dinamicamente com base na largura total
+        # Padrão: 620 / 4 = 155
         self.largura_dropdown = 220
 
+    def recalcular_posicoes(self, largura_total):
+        num_menus = len(self.ordem_menus)
+        largura_item = largura_total / num_menus
+        
         x_atual = 0
+        self.rects_principais.clear()
         for menu in self.ordem_menus:
-            self.rects_principais[menu] = pygame.Rect(x_atual, 0, self.largura_item, self.altura_barra)
-            x_atual += self.largura_item
+            self.rects_principais[menu] = pygame.Rect(x_atual, 0, largura_item, self.altura_barra)
+            x_atual += largura_item
             
-        self.largura_total_menu = x_atual
+        self.largura_total_menu = largura_total
 
     def tratar_eventos(self, evento, pos_mouse, estado, configs=None, campo=None, gravador=None):
+        # Garante que os rects batam com a largura do dragger na mesa
+        largura_atual = estado.dragger_controles_topo.largura if hasattr(estado, 'dragger_controles_topo') else 620
+        self.recalcular_posicoes(largura_atual)
+        
         if self.gerenciador_suporte.aberto:
             if self.gerenciador_suporte.tratar_eventos([evento], pos_mouse):
                 return True

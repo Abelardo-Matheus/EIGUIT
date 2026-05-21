@@ -4,6 +4,7 @@
 # =============================================================================
 
 import pygame
+from Modulos.modulos_config import *
 
 class MenuContexto:
     def __init__(self):
@@ -18,12 +19,12 @@ class MenuContexto:
         self.tipo_alvo = ""     # String identificadora (ex: "guitarra", "fundo")
 
         # Estilo visual moderno e escuro
-        self.largura = 200
-        self.altura_item = 35
-        self.cor_fundo = (40, 40, 40)
-        self.cor_borda = (90, 90, 90)
-        self.cor_hover = (0, 120, 215)
-        self.cor_texto = (240, 240, 240)
+        self.largura = MENU_CONTEXTO_LARGURA
+        self.altura_item = MENU_CONTEXTO_ALTURA_ITEM
+        self.cor_fundo = MENU_CONTEXTO_COR_FUNDO
+        self.cor_borda = MENU_CONTEXTO_COR_BORDA
+        self.cor_hover = MENU_CONTEXTO_COR_HOVER
+        self.cor_texto = MENU_CONTEXTO_COR_TEXTO
         
         self.item_hover = -1
 

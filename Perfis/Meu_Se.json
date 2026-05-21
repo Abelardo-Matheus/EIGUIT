@@ -1,0 +1,289 @@
+{
+    "posicoes_draggers": {
+        "dragger_guitarra": {
+            "x": 200,
+            "y": 120
+        },
+        "dragger_acordes": {
+            "x": 650,
+            "y": 440
+        },
+        "dragger_controles_topo": {
+            "x": 650,
+            "y": 40
+        },
+        "dragger_painel_inferior": {
+            "x": 200,
+            "y": 1015
+        },
+        "dragger_metronomo": {
+            "x": 1300,
+            "y": 450
+        },
+        "dragger_cores": {
+            "x": 30,
+            "y": 860
+        }
+    },
+    "estado": {
+        "instrumento": "guitarra",
+        "NUM_CASAS": 18,
+        "tom_atual": "C",
+        "indice_afinacao": 0,
+        "indice_cor_tonica": 0,
+        "indice_cor_terca": 0,
+        "indice_cor_quinta": 0,
+        "afinador_suavizacao": 5,
+        "afinador_sensibilidade": 0.5
+    },
+    "configs": {
+        "transparencia": 100,
+        "cor_braco": [
+            80,
+            40,
+            15
+        ],
+        "cor_notas": [
+            255,
+            255,
+            255
+        ],
+        "indice_modo": 0,
+        "indice_fonte": 0,
+        "indice_idioma": 0
+    },
+    "campo_harmonico": {
+        "tonica_campo": "C",
+        "indice_escala_campo": 0
+    },
+    "gravador": {
+        "device_id": 1
+    },
+    "favoritos": [
+        {
+            "songId": 444,
+            "title": "One",
+            "artist": "Metallica",
+            "tracks": [
+                {
+                    "instrumentId": 66,
+                    "instrument": "Tenor Sax",
+                    "views": 4080,
+                    "name": "James Hetfield | Lead Vocals",
+                    "tuning": [
+                        64,
+                        59,
+                        55,
+                        50,
+                        45,
+                        40
+                    ],
+                    "hash": "vocals_ms0nkTF8",
+                    "isVocalTrack": true,
+                    "isEmpty": false
+                },
+                {
+                    "instrumentId": 71,
+                    "instrument": "Clarinet",
+                    "views": 343,
+                    "name": "James Hetfield | Backing Vocals",
+                    "tuning": [
+                        64,
+                        59,
+                        55,
+                        50,
+                        45,
+                        40
+                    ],
+                    "hash": "vocals_PD4gTzjk",
+                    "isVocalTrack": true,
+                    "isEmpty": false
+                },
+                {
+                    "instrumentId": 25,
+                    "instrument": "Acoustic Guitar (steel)",
+                    "views": 50992,
+                    "name": "James Hetfield | Acoustic",
+                    "tuning": [
+                        64,
+                        59,
+                        55,
+                        50,
+                        45,
+                        40
+                    ],
+                    "difficulty": 2,
+                    "hash": "guitar_C1Jrxd0q",
+                    "isVocalTrack": false,
+                    "isEmpty": false
+                },
+                {
+                    "instrumentId": 25,
+                    "instrument": "Acoustic Guitar (steel)",
+                    "views": 1228,
+                    "name": "James Hetfield | Acoustic Harmony",
+                    "tuning": [
+                        64,
+                        59,
+                        55,
+                        50,
+                        45,
+                        40
+                    ],
+                    "difficulty": 2,
+                    "hash": "guitar_mRN4rOel",
+                    "isVocalTrack": false,
+                    "isEmpty": false
+                },
+                {
+                    "instrumentId": 30,
+                    "instrument": "Distortion Guitar",
+                    "views": 661398,
+                    "name": "Kirk Hammett | ESP \"Zorlac\" MM-270 | Lead",
+                    "tuning": [
+                        64,
+                        59,
+                        55,
+                        50,
+                        45,
+                        40
+                    ],
+                    "difficulty": 4,
+                    "hash": "guitar_3zcYro2q",
+                    "isVocalTrack": false,
+                    "isEmpty": false
+                },
+                {
+                    "instrumentId": 30,
+                    "instrument": "Distortion Guitar",
+                    "views": 232981,
+                    "name": "James Hetfield | ESP \"So Fucking What\" MX-220 | Rhythm",
+                    "tuning": [
+                        64,
+                        59,
+                        55,
+                        50,
+                        45,
+                        40
+                    ],
+                    "difficulty": 3,
+                    "hash": "guitar_34Zy5ADr",
+                    "isVocalTrack": false,
+                    "isEmpty": false
+                },
+                {
+                    "instrumentId": 30,
+                    "instrument": "Distortion Guitar",
+                    "views": 10921,
+                    "name": "James Hetfield | Overdubs",
+                    "tuning": [
+                        64,
+                        59,
+                        55,
+                        50,
+                        45,
+                        40
+                    ],
+                    "difficulty": 2,
+                    "hash": "guitar_viZhcyIw",
+                    "isVocalTrack": false,
+                    "isEmpty": false
+                },
+                {
+                    "instrumentId": 34,
+                    "instrument": "Electric Bass (pick)",
+                    "views": 129339,
+                    "name": "Jason Newsted | Wal Mk II | Bass",
+                    "tuning": [
+                        43,
+                        38,
+                        33,
+                        28
+                    ],
+                    "difficulty": 5,
+                    "hash": "bass_0yka08KB",
+                    "isVocalTrack": false,
+                    "isEmpty": false
+                },
+                {
+                    "instrumentId": 70,
+                    "instrument": "Bassoon",
+                    "views": 336,
+                    "name": "Johnny Got His Gun | Dialogue II",
+                    "tuning": [
+                        64,
+                        59,
+                        55,
+                        50,
+                        45,
+                        40
+                    ],
+                    "hash": "other_zhtLsBow",
+                    "isVocalTrack": false,
+                    "isEmpty": false
+                },
+                {
+                    "instrumentId": 127,
+                    "instrument": "Gunshot",
+                    "views": 85,
+                    "name": "Johnny Got His Gun | Explosions",
+                    "tuning": [
+                        64,
+                        59,
+                        55,
+                        50,
+                        45,
+                        40
+                    ],
+                    "hash": "other_CQCaBCdu",
+                    "isVocalTrack": false,
+                    "isEmpty": false
+                },
+                {
+                    "instrumentId": 127,
+                    "instrument": "Gunshot",
+                    "views": 686,
+                    "name": "Johnny Got His Gun | Gunshots",
+                    "tuning": [
+                        64,
+                        59,
+                        55,
+                        50,
+                        45,
+                        40
+                    ],
+                    "hash": "other_Pu2k2ck3",
+                    "isVocalTrack": false,
+                    "isEmpty": false
+                },
+                {
+                    "instrumentId": 125,
+                    "instrument": "Helicopter",
+                    "views": 336,
+                    "name": "Johnny Got His Gun | Helicopter",
+                    "tuning": [
+                        64,
+                        59,
+                        55,
+                        50,
+                        45,
+                        40
+                    ],
+                    "hash": "other_Shy7Vi3P",
+                    "isVocalTrack": false,
+                    "isEmpty": false
+                },
+                {
+                    "instrumentId": 1024,
+                    "instrument": "Drums",
+                    "views": 90662,
+                    "name": "Lars Ulrich | TAMA Starclassic | Drums",
+                    "difficulty": 4,
+                    "hash": "drums_SPPeNsXI",
+                    "isVocalTrack": false,
+                    "isEmpty": false
+                }
+            ]
+        }
+    ]
+}

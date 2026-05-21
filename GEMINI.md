@@ -33,6 +33,7 @@ O projeto segue uma estrutura modular baseada em estados e gerenciadores. Se eu 
 ### 5. /Modulos/ (Motor e Lógica)
 Contém os sistemas independentes que rodam por trás da UI:
 - **Áudio/Hardware:** `modulo_gravador.py`, `modulo_processamento.py`, `modulo_metronomo.py`, `gerenciador_ritmo.py`, `detector_palhetadas.py`.
+- **Integração:** `modulo_songsterr.py` (Busca e metadados do Songsterr).
 - **Teoria Musical:** `escalas.py`, `modulo_campo_harmonico.py`, `modulos_acordes.py`, `modulos_escala_maior.py`, `modulos_escala_menor.py`, `modulos_penta.py`, `modulos_teoria_avancada.py`.
 - **UI Flutuante:** `modulo_menu_superior.py`, `modulo_menu_contexto.py`, `modulo_perfil.py`.
 - **Módulo de Estudos Base:** `modulos_estudos.py` (Roteador da tela cheia de estudos).

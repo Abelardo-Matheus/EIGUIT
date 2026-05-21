@@ -15,6 +15,10 @@ import Modulos.modulos_acordes as acordes
 
 from Core.constantes_ui import BRANCO
 from Interface.ui_componentes import DesenhoEscala
+from Interface.Componentes.config_componentes import (
+    CARDS_GAP_HORIZONTAL, CARDS_GAP_VERTICAL, CARDS_ESC_LARGURA, CARDS_OFFSET_X_INICIAL,
+    FABRICA_Y_BASE_OFFSET, FABRICA_LARG_UTIL_MARGIN
+)
 
 def gerar_modulos(estado, configs):
     dicionario = {
@@ -23,11 +27,13 @@ def gerar_modulos(estado, configs):
         'caged': [], 'triades_maior': [], 'triades_menor': [], 'setimas': [], 'power': []
     }
 
+    # Pegamos as coordenadas reais do dragger inferior (que agora tem largura isolada de 1100px)
     x_base = estado.dragger_painel_inferior.x if hasattr(estado, 'dragger_painel_inferior') else 100
-    largura_max = estado.dragger_painel_inferior.largura if hasattr(estado, 'dragger_painel_inferior') else 800
+    largura_max = estado.dragger_painel_inferior.largura if hasattr(estado, 'dragger_painel_inferior') else 1100
 
-    y_base_painel = estado.Y_AREA_DESENHO + 50 
-    espaco = 30 
+    y_base_painel = estado.Y_AREA_DESENHO + FABRICA_Y_BASE_OFFSET 
+    gap_horizontal = CARDS_GAP_HORIZONTAL 
+    gap_vertical = CARDS_GAP_VERTICAL 
 
     nomes_shapes = ["Shape 1", "Shape 2", "Shape 3", "Shape 4", "Shape 5", "Completo"]
     nomes_modos = ["Jônico", "Dórico", "Frígio", "Lídio", "Mixolídio", "Eólio", "Lócrio"]
@@ -39,20 +45,24 @@ def gerar_modulos(estado, configs):
     cor_base = configs.get_cor_notas() if configs else BRANCO
 
     def carregar(chave, matrizes, nomes, aba_origem, sub_aba_origem):
-        offset_x_atual = x_base + 20 
-        offset_y_atual = y_base_painel
+        # Ajuste Fino: A largura útil agora é baseada nos 1200px
+        largura_util_painel = largura_max - FABRICA_LARG_UTIL_MARGIN 
+        largura_coluna = largura_util_painel / 4 # Força 4 colunas
 
+        contador_grid = 0
         for i, padrao in enumerate(matrizes):
             nome_label = nomes[i] if i < len(nomes) else f"Shape {i+1}"
 
-            # Cálculo temporário para saber a largura e decidir se pula linha
-            # Criamos um objeto temporário ou estimamos a largura
-            # A largura do DesenhoEscala é baseada em len(padrao[0]) * espaco_casas
-            largura_modulo = len(padrao[0]) * estado.ESPACO_CASAS + 40 # 40 de margem interna aproximada
+            # Filtro: Ignora shapes que sejam o "Completo" para economizar espaço e focar em treino
+            if nome_label == "Completo":
+                continue
 
-            if offset_x_atual + largura_modulo > x_base + largura_max - 20:
-                offset_x_atual = x_base + 20
-                offset_y_atual += 160 # Altura aproximada de um bloco + espaço
+            # Cálculo de Grid Dinâmico (4 por linha)
+            coluna = contador_grid % 4
+            linha = contador_grid // 4
+            
+            offset_x_atual = x_base + CARDS_OFFSET_X_INICIAL + (coluna * largura_coluna)
+            offset_y_atual = y_base_painel + (linha * gap_vertical)
 
             modulo = DesenhoEscala(
                 x_painel=offset_x_atual, y_painel=offset_y_atual, espaco_casas=estado.ESPACO_CASAS,
@@ -61,13 +71,15 @@ def gerar_modulos(estado, configs):
                 padrao=padrao, nome=nome_label, cor_base=cor_base 
             )
             
+            # Sincroniza escala interna do componente
             modulo.y_relativo = offset_y_atual - y_base_painel
+            modulo.x_original_relativo = offset_x_atual - x_base
 
             modulo.aba = aba_origem
             modulo.sub_aba = sub_aba_origem
 
             dicionario[chave].append(modulo)
-            offset_x_atual += modulo.imagem_painel.get_width() + espaco
+            contador_grid += 1
 
     # ABA 0: ESCALAS
     carregar('maior', modulos_escala_maior.TODOS_OS_SHAPES, nomes_shapes, aba_origem=0, sub_aba_origem=0)

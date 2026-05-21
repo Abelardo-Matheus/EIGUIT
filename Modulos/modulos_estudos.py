@@ -6,6 +6,8 @@
 import pygame
 import random
 from Core.constantes_ui import *
+from Core.i18n import _t
+from Modulos.modulos_config import *
 import Estudos.estudo_notas as estudo_notas
 import Estudos.estudo_escalas as estudo_escalas
 import Estudos.estudo_acordes_pratico as estudo_acordes_pratico
@@ -61,9 +63,9 @@ class EstudoAcordes:
         tela.blit(txt_tit, (meio_x - txt_tit.get_width()//2, cam_y + 100))
         
         shape = self.shapes[self.acorde_alvo]
-        num_cordas = 7
-        espaco_cordas = 30
-        espaco_casas = 45
+        num_cordas = ESTUDOS_ACORDES_NUM_CORDAS
+        espaco_cordas = ESTUDOS_ACORDES_ESPACO_CORDAS
+        espaco_casas = ESTUDOS_ACORDES_ESPACO_CASAS
         altura_shape = (num_cordas - 1) * espaco_cordas
         largura_shape = (len(shape[0])) * espaco_casas
         

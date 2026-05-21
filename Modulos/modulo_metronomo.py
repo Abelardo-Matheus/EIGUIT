@@ -7,6 +7,7 @@
 import pygame
 import os
 import sys 
+from Modulos.modulos_config import *
 
 class Metronomo:
     def __init__(self, x_painel, y_painel):
@@ -26,9 +27,9 @@ class Metronomo:
         self.bpm_texto = str(self.bpm)
         
         # Cores e Visual
-        self.BRANCO = (255, 255, 255)
-        self.CINZA = (100, 100, 100)
-        self.FUNDO_INPUT = (60, 60, 60)
+        self.BRANCO = METRONOMO_BRANCO
+        self.CINZA = METRONOMO_CINZA
+        self.FUNDO_INPUT = METRONOMO_FUNDO_INPUT
         
         self.paleta_cores = [
             (255, 50, 50),   # Vermelho
@@ -42,7 +43,7 @@ class Metronomo:
         self.indices_cores = [0] + [1] * 7 
         
         # --- Definição de Retângulos ---
-        self.slider_largura = 150 # Tamanho compacto para centralizar melhor
+        self.slider_largura = METRONOMO_SLIDER_LARGURA # Tamanho compacto para centralizar melhor
         self.btn_play = pygame.Rect(0, 0, 55, 30)
         self.rect_slider_barra = pygame.Rect(0, 0, self.slider_largura, 10)
         self.rect_cursor = pygame.Rect(0, 0, 15, 20)

@@ -9,6 +9,7 @@ from Interface import gerenciador_interface
 from Core.constantes_ui import *
 import Modulos.modulo_menu_contexto as modulo_menu_contexto
 import Modulos.modulo_menu_superior as modulo_menu_superior 
+from Interface.Componentes.tablatura_view import BlocoTablatura
 
 def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos):
     
@@ -48,6 +49,19 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                 estado.gerenciador_estudos.tratar_eventos(evento, pygame.mouse.get_pos(), estado)
         return
     
+    # --- NOVO: Trava de Tela Cheia Tablatura ---
+    if getattr(estado, 'tab_tela_cheia_ativa', False):
+        for evento in eventos:
+            if evento.type == pygame.QUIT: estado.solicitou_saida = True
+            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+                if hasattr(estado, 'rect_voltar_tab') and estado.rect_voltar_tab.collidepoint(evento.pos):
+                    estado.tab_tela_cheia_ativa = False
+            if evento.type == pygame.MOUSEWHEEL and hasattr(estado, 'tab_focada'):
+                estado.tab_focada.tratar_scroll(evento.y)
+            if evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
+                estado.tab_tela_cheia_ativa = False
+        return
+    
     pos_mouse = pygame.mouse.get_pos()
 
     # =========================================================================
@@ -75,6 +89,8 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             if hasattr(estado, d): lista.append(getattr(estado, d))
         if hasattr(estado, 'lista_guitarras'):
             lista.extend(reversed(estado.lista_guitarras))
+        if hasattr(estado, 'lista_tabs'):
+            lista.extend(reversed(estado.lista_tabs))
         return lista
 
     # =========================================================================
@@ -142,27 +158,86 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
         # --- SCROLL DO MOUSE ---
         if evento.type == pygame.MOUSEWHEEL:
             velocidade_scroll = 40
-            for i, secao in enumerate(estado.secoes_inferiores):
-                if secao["expandido"] and estado.max_scroll.get(i, 0) > 0:
-                    estado.scroll_y[i] -= evento.y * velocidade_scroll
-                    estado.scroll_y[i] = max(0, min(estado.scroll_y[i], estado.max_scroll[i]))
+            consumiu_scroll = False
+            
+            # 1. Tenta Scroll Interno das Tabs (Prioridade)
+            if hasattr(estado, 'lista_tabs'):
+                for tab in reversed(estado.lista_tabs):
+                    rect_tab = pygame.Rect(tab.x, tab.y, tab.largura, tab.altura)
+                    if rect_tab.collidepoint(pos_mouse):
+                        if tab.tratar_scroll(evento.y):
+                            consumiu_scroll = True
+                            break
+            
+            # 2. Scroll das Seções Inferiores
+            if not consumiu_scroll:
+                for i, secao in enumerate(estado.secoes_inferiores):
+                    if secao["expandido"] and estado.max_scroll.get(i, 0) > 0:
+                        estado.scroll_y[i] -= evento.y * velocidade_scroll
+                        estado.scroll_y[i] = max(0, min(estado.scroll_y[i], estado.max_scroll[i]))
 
         # --- TECLADO ---
         if evento.type == pygame.KEYDOWN:
+            # Integração Songsterr: Captura de Digitação
+            if getattr(estado, 'songsterr_search_active', False):
+                if evento.key == pygame.K_BACKSPACE:
+                    estado.query_songsterr = estado.query_songsterr[:-1]
+                elif evento.key == pygame.K_RETURN:
+                    import threading
+                    def thread_busca():
+                        estado.resultados_songsterr = estado.songsterr.buscar_musicas(estado.query_songsterr)
+                    threading.Thread(target=thread_busca).start()
+                else:
+                    if len(evento.unicode) > 0 and evento.unicode.isprintable():
+                        estado.query_songsterr += evento.unicode
+                continue
+
             meu_metronomo.tratar_teclado(evento)
             if evento.key == pygame.K_ESCAPE: estado.solicitou_saida = True
+
+        # --- ARRASTAR E SOLTAR ARQUIVOS (DRAG AND DROP OS) ---
+        if evento.type == pygame.DROPFILE:
+            caminho_arquivo = evento.file
+            if caminho_arquivo.lower().endswith(('.mid', '.midi')):
+                import shutil
+                import os
+                nome_arquivo = os.path.basename(caminho_arquivo)
+                destino = os.path.join("Audios/Midis", nome_arquivo)
+                try:
+                    shutil.copy(caminho_arquivo, destino)
+                    nova_musica = {
+                        'songId': f"local_{nome_arquivo}",
+                        'title': nome_arquivo.replace('.mid','').replace('.midi',''),
+                        'artist': 'Arquivo Local',
+                        'local_path': destino
+                    }
+                    if not any(m['local_path'] == destino for m in estado.musicas_locais):
+                        estado.musicas_locais.append(nova_musica)
+                    
+                    # Abre a tab automaticamente ao soltar
+                    nova_tab = BlocoTablatura(200, 200, 700, 450, nova_musica)
+                    nova_tab.caminho_midi_local = destino
+                    nova_tab.carregar_dados_completos(estado.songsterr)
+                    estado.lista_tabs.append(nova_tab)
+                    print(f"[DROP] MIDI Adicionado: {nome_arquivo}")
+                except Exception as e:
+                    print(f"[DROP] Erro ao copiar MIDI: {e}")
 
         # =====================================================================
         # DRAGGERS - MOVIMENTO (MOUSEMOTION) E SOLTAR (MOUSEBUTTONUP)
         # =====================================================================
-        if estado.drag_ativado and evento.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP):
+        if evento.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP):
             for dragger in obter_draggers_ativos(estado):
-                dragger.processar_eventos_mouse(evento)
-                # Se for a guitarra redimensionando, sincroniza
-                if hasattr(dragger, 'redimensionando') and evento.type == pygame.MOUSEMOTION and dragger.redimensionando:
-                    estado.LARGURA_BRACO = dragger.largura
-                    estado.ALTURA_BRACO = dragger.altura
-                    estado.atualizar_medidas()
+                # NOVO: Tablaturas sempre são arrastáveis e redimensionáveis!
+                pode_arrastar = estado.drag_ativado or isinstance(dragger, BlocoTablatura)
+                if pode_arrastar:
+                    dragger.processar_eventos_mouse(evento)
+                    # Sincroniza apenas se for o dragger da guitarra redimensionando
+                    is_guitarra = hasattr(dragger, 'num_cordas') or dragger == getattr(estado, 'dragger_guitarra', None)
+                    if is_guitarra and hasattr(dragger, 'redimensionando') and evento.type == pygame.MOUSEMOTION and dragger.redimensionando:
+                        estado.LARGURA_BRACO = dragger.largura
+                        estado.ALTURA_BRACO = dragger.altura
+                        estado.atualizar_medidas()
         
         # --- SOLTAR O CLIQUE ESQUERDO: Atualizar os dados das escalas de vez ---
         if evento.type == pygame.MOUSEBUTTONUP and evento.button == 1 and estado.drag_ativado:
@@ -178,15 +253,43 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                     for dragger in obter_draggers_ativos(estado): dragger.arrastando = False
                 continue 
 
-            # Detecção de Draggers (Saber se ele Clicou em cima de um bloco)
+            # NOVO ORDENAMENTO:
+            # 1. Primeiro verifica botões INTERNOS das Tabs (Fechar, Track, Site, FullScreen)
+            clicou_conteudo = False
+            tab_para_fechar = None
+            if hasattr(estado, 'lista_tabs'):
+                for tab in reversed(estado.lista_tabs):
+                    acao = tab.tratar_clique(evento.pos)
+                    if acao == "FECHAR":
+                        tab_para_fechar = tab
+                        clicou_conteudo = True
+                        break
+                    elif acao == "TELA_CHEIA":
+                        estado.tab_tela_cheia_ativa = True
+                        estado.tab_focada = tab
+                        clicou_conteudo = True
+                        break
+                    elif acao:
+                        clicou_conteudo = True
+                        break
+            
+            if tab_para_fechar:
+                estado.lista_tabs.remove(tab_para_fechar)
+            
+            if clicou_conteudo:
+                continue
+
+            # 2. Detecção de Draggers (Saber se ele Clicou no CORPO do bloco para arrastar)
             clicou_em_dragger = False
-            if estado.drag_ativado:
-                for dragger in obter_draggers_ativos(estado):
-                    # Guitarras têm margem maior
+            for dragger in obter_draggers_ativos(estado):
+                pode_arrastar = estado.drag_ativado or isinstance(dragger, BlocoTablatura)
+                if pode_arrastar:
                     margem = 20 if hasattr(dragger, 'num_cordas') else 5
                     if dragger.processar_eventos_mouse(evento, margem_clique=margem):
                         clicou_em_dragger = True
-                        if hasattr(dragger, 'redimensionando') and dragger.redimensionando:
+                        # Sincroniza apenas se for o dragger da guitarra redimensionando
+                        is_guitarra = hasattr(dragger, 'num_cordas') or dragger == getattr(estado, 'dragger_guitarra', None)
+                        if is_guitarra and hasattr(dragger, 'redimensionando') and dragger.redimensionando:
                             estado.LARGURA_BRACO = dragger.largura
                             estado.ALTURA_BRACO = dragger.altura
                             estado.atualizar_medidas()
@@ -199,20 +302,23 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             # Tabs Expansíveis (Cabeçalhos e Sub-abas)
             clicou_interface = False
             for i, secao in enumerate(estado.secoes_inferiores):
-                if secao.get("rect_cabecalho") and secao["rect_cabecalho"].collidepoint(pos_mouse):
+                # Header Click
+                if secao.get("rect_cabecalho") and secao["rect_cabecalho"].collidepoint(evento.pos):
                     estado_anterior = secao["expandido"]
                     for s in estado.secoes_inferiores: s["expandido"] = False
                     secao["expandido"] = not estado_anterior
                     clicou_interface = True
                     break
                 
+                # Sub-aba Click
                 if secao["expandido"]:
                     for j in range(len(secao["sub_abas"])):
                         chave_rect = f"rect_sub_{j}"
-                        if secao.get(chave_rect) and secao[chave_rect].collidepoint(pos_mouse):
+                        if secao.get(chave_rect) and secao[chave_rect].collidepoint(evento.pos):
                             secao["memoria_sub_aba"] = j
                             clicou_interface = True
                             break
+                    if clicou_interface: break
             
             if clicou_interface: 
                 continue 
@@ -221,6 +327,14 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             clicou_conteudo = False
             for i, secao in enumerate(estado.secoes_inferiores):
                 if secao["expandido"]:
+                    # Calcula o retângulo de fundo para evitar vazamento de clique
+                    y_conteudo = dy_inf - altura_caixa_total - 10
+                    rect_fundo_conteudo = pygame.Rect(dx_inf, y_conteudo, largura_conteudo, altura_caixa_total)
+                    
+                    # Se clicou no fundo mas não em nada específico ainda, marca como conteúdo
+                    if rect_fundo_conteudo.collidepoint(evento.pos):
+                        clicou_conteudo = True
+
                     scroll_atual = estado.scroll_y.get(i, 0)
                     
                     if secao["conteudo"] in ["escalas", "acordes"]:
@@ -228,7 +342,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                         pos_y_guit = estado.dragger_guitarra.y if hasattr(estado, 'dragger_guitarra') else 90
                         rect_braco_real = pygame.Rect(pos_x_guit, pos_y_guit, estado.LARGURA_BRACO, estado.ALTURA_BRACO)
                         
-                        if gerenciador_interface.tratar_cliques_escalas(pos_mouse, i, secao["memoria_sub_aba"], dicionario_escalas, rect_braco_real, scroll_atual):
+                        if gerenciador_interface.tratar_cliques_escalas(evento.pos, i, secao["memoria_sub_aba"], dicionario_escalas, rect_braco_real, scroll_atual):
                             clicou_conteudo = True
                             break
                             
@@ -267,8 +381,141 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                                     break
                             if clicou_conteudo: break
 
+                    elif secao["conteudo"] == "musicas":
+                        # Navegação Interna: Busca vs Favoritas vs Locais
+                        if hasattr(estado, 'rect_aba_songsterr_busca') and estado.rect_aba_songsterr_busca.collidepoint(evento.pos):
+                            estado.sub_memoria_musicas = 0
+                            clicou_conteudo = True
+                        elif hasattr(estado, 'rect_aba_songsterr_favs') and estado.rect_aba_songsterr_favs.collidepoint(evento.pos):
+                            estado.sub_memoria_musicas = 1
+                            clicou_conteudo = True
+                        elif hasattr(estado, 'rect_aba_songsterr_locais') and estado.rect_aba_songsterr_locais.collidepoint(evento.pos):
+                            estado.sub_memoria_musicas = 2
+                            clicou_conteudo = True
+
+                        if not clicou_conteudo and estado.sub_memoria_musicas == 0:
+                            # ... (existing search logic)
+                            # Ativa/Desativa campo de busca
+                            if hasattr(estado, 'rect_busca_songsterr') and estado.rect_busca_songsterr.collidepoint(evento.pos):
+                                estado.songsterr_search_active = True
+                                clicou_conteudo = True
+                            else:
+                                estado.songsterr_search_active = False
+                                
+                            # Botão Buscar
+                            if hasattr(estado, 'rect_btn_songsterr') and estado.rect_btn_songsterr.collidepoint(evento.pos):
+                                import threading
+                                def thread_busca():
+                                    estado.resultados_songsterr = estado.songsterr.buscar_musicas(estado.query_songsterr)
+                                threading.Thread(target=thread_busca).start()
+                                clicou_conteudo = True
+                        
+                        elif not clicou_conteudo and estado.sub_memoria_musicas == 2:
+                            # Botão Adicionar MIDI Local
+                            if hasattr(estado, 'rect_btn_add_midi') and estado.rect_btn_add_midi.collidepoint(evento.pos):
+                                import tkinter as tk
+                                from tkinter import filedialog
+                                root = tk.Tk()
+                                root.withdraw()
+                                root.attributes("-topmost", True)
+                                caminho = filedialog.askopenfilename(filetypes=[("MIDI files", "*.mid *.midi")])
+                                root.destroy()
+                                
+                                if caminho:
+                                    import shutil
+                                    import os
+                                    nome_arquivo = os.path.basename(caminho)
+                                    destino = os.path.join("Audios/Midis", nome_arquivo)
+                                    try:
+                                        if not os.path.exists("Audios/Midis"): os.makedirs("Audios/Midis")
+                                        shutil.copy(caminho, destino)
+                                        nova_musica = {
+                                            'songId': f"local_{nome_arquivo}",
+                                            'title': nome_arquivo.replace('.mid','').replace('.midi',''),
+                                            'artist': 'Arquivo Local',
+                                            'local_path': destino
+                                        }
+                                        if not any(m['local_path'] == destino for m in estado.musicas_locais):
+                                            estado.musicas_locais.append(nova_musica)
+                                        
+                                        # Abre a tab automaticamente
+                                        nova_tab = BlocoTablatura(200, 200, 700, 450, nova_musica)
+                                        nova_tab.caminho_midi_local = destino
+                                        nova_tab.carregar_dados_completos(estado.songsterr)
+                                        estado.lista_tabs.append(nova_tab)
+                                        clicou_conteudo = True
+                                    except Exception as e:
+                                        print(f"[UI] Erro ao selecionar MIDI: {e}")
+
+                            # Clique em Música Local da Lista
+                            if hasattr(estado, 'rects_musicas_locais'):
+                                for rect_item, song_data in estado.rects_musicas_locais:
+                                    if rect_item.collidepoint(evento.pos):
+                                        nova_tab = BlocoTablatura(200, 200, 700, 450, song_data)
+                                        nova_tab.caminho_midi_local = song_data.get('local_path')
+                                        nova_tab.carregar_dados_completos(estado.songsterr)
+                                        estado.lista_tabs.append(nova_tab)
+                                        clicou_conteudo = True
+                                        break
+                        
+                        # Clique em Resultado da Lista (Busca ou Favoritas)
+                        if not clicou_conteudo and hasattr(estado, 'rects_resultados_songsterr'):
+                                for rect_res, song_data in estado.rects_resultados_songsterr:
+                                    if rect_res.collidepoint(evento.pos):
+                                        nova_tab = BlocoTablatura(200, 200, 700, 450, song_data)
+                                        nova_tab.favoritos_ref = estado.favoritos_songsterr
+                                        nova_tab.carregar_dados_completos(estado.songsterr)
+                                        estado.lista_tabs.append(nova_tab)
+                                        clicou_conteudo = True
+                                        break
+                        
+                        # --- NOVO: Clique no Botão Estrela (Favoritos Cloud) ---
+                        if hasattr(estado, 'rects_favoritos_click'):
+                                for rect_star, song_data in estado.rects_favoritos_click:
+                                    if rect_star.collidepoint(evento.pos):
+                                        song_id = song_data.get('songId')
+                                        # Toggle Local
+                                        song_idx = -1
+                                        for idx, f in enumerate(estado.favoritos_songsterr):
+                                            if f.get('songId') == song_id:
+                                                    song_idx = idx; break
+                                        
+                                        from BD.gerenciador_remoto_db import GerenciadorDB
+                                        db = GerenciadorDB()
+                                        
+                                        if song_idx >= 0:
+                                            estado.favoritos_songsterr.pop(song_idx)
+                                            if estado.usuario_id_logado:
+                                                    db.remover_favorito(estado.usuario_id_logado, song_id)
+                                        else:
+                                            novo_fav = {
+                                                    'songId': song_id,
+                                                    'title': song_data.get('title'),
+                                                    'artist': song_data.get('artist')
+                                            }
+                                            estado.favoritos_songsterr.append(novo_fav)
+                                            if estado.usuario_id_logado:
+                                                    db.adicionar_favorito(estado.usuario_id_logado, song_id, novo_fav['title'], novo_fav['artist'])
+                                        
+                                        clicou_conteudo = True
+                                        break
+                        
+                        if clicou_conteudo: break
+
             if clicou_conteudo:
                 continue
+
+            # Processa Cliques dentro das Tablaturas Songsterr (Track/Site/Full)
+            for tab in estado.lista_tabs[:]:
+                acao = tab.tratar_clique(evento.pos)
+                if acao == "TELA_CHEIA":
+                    estado.tab_tela_cheia_ativa = True
+                    estado.tab_focada = tab
+                    bloqueio_z_index = True
+                    break
+                elif acao:
+                    bloqueio_z_index = True
+                    break
 
             if bloqueio_z_index: 
                 continue 

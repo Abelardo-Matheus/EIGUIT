@@ -8,6 +8,7 @@ import numpy as np
 import pygame
 from Modulos.detector_palhetadas import DetectorPalhetadas
 from Modulos.gerenciador_ritmo import MaestroRitmo
+from Core.i18n import _t
 
 class ProcessadorAudio:
     """

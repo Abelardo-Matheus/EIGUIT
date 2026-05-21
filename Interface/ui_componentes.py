@@ -8,6 +8,7 @@ import pygame
 import math 
 import Modulos.escalas as escalas
 from Core.constantes_ui import *
+from Interface.Componentes.config_componentes import CARDS_ESC_INTERNA, CARDS_TEXTO_OFFSET_Y
 
 # =============================================================================
 # ui_componentes.py (Desenho da Escala Arrastável com Redimensionamento Vivo)
@@ -76,7 +77,7 @@ class DesenhoEscala:
                     else:
                         pygame.draw.circle(self.imagem_braco, COR_NORMAL, (int(x_bolinha), int(y_bolinha)), raio, max(1, int(raio//5)))
 
-        escala = 0.40
+        escala = CARDS_ESC_INTERNA 
         w_painel = int(w_surf * escala)
         h_painel = int(h_surf * escala)
         
@@ -120,7 +121,7 @@ class DesenhoEscala:
             if self.nome != "":
                 texto_nome = fonte_pequena.render(self.nome, True, BRANCO)
                 txt_x = self.rect_painel.centerx - (texto_nome.get_width() / 2)
-                txt_y = y_desenho_rolado - 25 
+                txt_y = y_desenho_rolado + CARDS_TEXTO_OFFSET_Y 
                 tela.blit(texto_nome, (txt_x, txt_y))
             
         elif self.estado in ['mouse', 'braco']:

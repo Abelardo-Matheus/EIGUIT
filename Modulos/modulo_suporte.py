@@ -4,6 +4,8 @@
 # =============================================================================
 
 import pygame
+from Core.i18n import _t
+from Modulos.modulos_config import *
 
 class TutorialSuporte:
     def __init__(self):
@@ -12,10 +14,10 @@ class TutorialSuporte:
         self.scroll_y = 0
         self.max_scroll = 0
         
-        self.BRANCO = (255, 255, 255)
-        self.CINZA = (150, 150, 150)
-        self.AZUL = (0, 120, 215)
-        self.AZUL_CLARO = (0, 160, 255)
+        self.BRANCO = SUPORTE_BRANCO
+        self.CINZA = SUPORTE_CINZA
+        self.AZUL = SUPORTE_AZUL
+        self.AZUL_CLARO = SUPORTE_AZUL_CLARO
 
         self.abas = ["Escalas", "Configurações", "Metrônomo", "Acordes", "Análise IA"]
         
@@ -94,14 +96,11 @@ class TutorialSuporte:
         return False
     
     def calcular_centro_camera(self, estado, tela, largura_obj, altura_obj):
-        if estado and hasattr(estado, 'camera'):
-            w_monitor = getattr(estado, 'LARGURA_TELA', 1280)
-            h_monitor = getattr(estado, 'ALTURA_TELA', 720)
-            zoom = estado.camera.zoom
-            cx = estado.camera.offset_x + (w_monitor / 2) / zoom - (largura_obj / 2)
-            cy = estado.camera.offset_y + (h_monitor / 2) / zoom - (altura_obj / 2)
-            return int(cx), int(cy)
-        return tela.get_width() // 2 - largura_obj // 2, tela.get_height() // 2 - altura_obj // 2
+        # Como agora desenhamos na camada fixa (Monitor), 
+        # basta centralizar na largura real da tela passada.
+        largura_real = tela.get_width()
+        altura_real = tela.get_height()
+        return (largura_real // 2 - largura_obj // 2), (altura_real // 2 - altura_obj // 2)
 
     def desenhar(self, tela, fonte_ui, fonte_titulo, estado=None): 
         if not self.aberto: return
@@ -112,17 +111,13 @@ class TutorialSuporte:
 
         largura_modal = 850
         altura_modal = 550
-        # === A NOVA MATEMÁTICA ===
         cx, cy = self.calcular_centro_camera(estado, tela, largura_modal, altura_modal)
         
         rect_modal = pygame.Rect(cx, cy, largura_modal, altura_modal)
-        # Desenha a Janela
         pygame.draw.rect(tela, (30, 30, 30), rect_modal, border_radius=10)
         pygame.draw.rect(tela, (100, 100, 100), rect_modal, width=2, border_radius=10)
 
-        # =========================================================
-        # CABEÇALHO E ABAS
-        # =========================================================
+        # Cabeçalho
         tit = fonte_titulo.render(_t("Central de Suporte & Tutoriais"), True, self.BRANCO)
         tela.blit(tit, (cx + 20, cy + 20))
 
@@ -133,41 +128,27 @@ class TutorialSuporte:
         for i, nome_aba in enumerate(self.abas):
             rect_aba = pygame.Rect(cx + 20 + (i * largura_aba), y_abas, largura_aba - 5, 35)
             self.rects_abas.append(rect_aba)
-            
             cor_fundo = self.AZUL_CLARO if self.aba_ativa == i else (60, 60, 60)
             pygame.draw.rect(tela, cor_fundo, rect_aba, border_radius=5)
-            
             txt_aba = fonte_ui.render(_t(nome_aba), True, self.BRANCO)
             tela.blit(txt_aba, (rect_aba.centerx - txt_aba.get_width()//2, rect_aba.centery - txt_aba.get_height()//2))
 
-        # =========================================================
-        # ÁREA DE SCROLL (CONTEÚDO)
-        # =========================================================
+        # Área de Conteúdo
         y_conteudo = y_abas + 45
         altura_conteudo = altura_modal - 120
         rect_clipping = pygame.Rect(cx + 20, y_conteudo, largura_modal - 40, altura_conteudo)
-        
         pygame.draw.rect(tela, (20, 20, 20), rect_clipping, border_radius=5)
-        tela.set_clip(rect_clipping) # Corta tudo que passar dessa caixa!
-
+        
+        tela.set_clip(rect_clipping)
         y_item = y_conteudo + 20 - self.scroll_y
         itens_atuais = self.conteudo.get(self.aba_ativa, [])
         
-        # --- MATEMÁTICA DE MARGENS CORRIGIDA ---
-        margem_esq = 40
-        margem_dir = 60 # Adiciona um respiro robusto na direita para não colar na scrollbar
-        espacamento_meio = 30
-        
-        largura_imagem = 280
-        altura_imagem = 160
-        
-        # A largura do texto agora respeita as margens dos dois lados
+        margem_esq, margem_dir, espacamento_meio = 40, 60, 30
+        largura_imagem, altura_imagem = 280, 160
         largura_texto_max = largura_modal - margem_esq - margem_dir - largura_imagem - espacamento_meio
 
         for i, item in enumerate(itens_atuais):
-            # Lógica Zigue-Zague (Par = Img na Esquerda / Ímpar = Img na Direita)
             img_na_esquerda = (i % 2 == 0)
-            
             if img_na_esquerda:
                 x_img = cx + margem_esq
                 x_texto = x_img + largura_imagem + espacamento_meio
@@ -175,50 +156,37 @@ class TutorialSuporte:
                 x_texto = cx + margem_esq
                 x_img = x_texto + largura_texto_max + espacamento_meio
 
-            # 1. Desenha Placeholder da Imagem
             rect_img = pygame.Rect(x_img, y_item, largura_imagem, altura_imagem)
             pygame.draw.rect(tela, (50, 50, 50), rect_img, border_radius=8)
             pygame.draw.rect(tela, self.CINZA, rect_img, width=2, border_radius=8)
-            
-            txt_img = fonte_ui.render("Imagem Ilustrativa", True, (100, 100, 100))
+            txt_img = fonte_ui.render(_t("Imagem Ilustrativa"), True, (100, 100, 100))
             tela.blit(txt_img, (rect_img.centerx - txt_img.get_width()//2, rect_img.centery - txt_img.get_height()//2))
 
-            # 2. Renderiza o Título do Bloco
-            txt_titulo = fonte_titulo.render(item["titulo"], True, self.AZUL_CLARO)
+            txt_titulo = fonte_titulo.render(_t(item["titulo"]), True, self.AZUL_CLARO)
             tela.blit(txt_titulo, (x_texto, y_item))
 
-            # 3. Renderiza o Texto descritivo com Quebra de Linha Automática
-            linhas = self.quebrar_texto(item["texto"], fonte_ui, largura_texto_max)
+            linhas = self.quebrar_texto(_t(item["texto"]), fonte_ui, largura_texto_max)
             y_linha = y_item + 35
             for linha in linhas:
                 txt_linha = fonte_ui.render(linha, True, (200, 200, 200))
                 tela.blit(txt_linha, (x_texto, y_linha))
                 y_linha += 22
-
-            # O próximo item desce o suficiente para caber a imagem e o espaçamento
             y_item += altura_imagem + 40 
 
-        # Atualiza o limite máximo de scroll para esta aba
         altura_total_renderizada = (y_item + self.scroll_y) - y_conteudo
         self.max_scroll = max(0, altura_total_renderizada - altura_conteudo)
+        tela.set_clip(None)
 
-        tela.set_clip(None) # Libera o corte da tela
-
-        # =========================================================
-        # SCROLLBAR (Barra de Rolagem Direita)
-        # =========================================================
+        # Scrollbar
         if self.max_scroll > 0:
             x_bar = cx + largura_modal - 15
             tamanho_alca = max(40, altura_conteudo * (altura_conteudo / (altura_conteudo + self.max_scroll)))
             y_alca = y_conteudo + (self.scroll_y / self.max_scroll) * (altura_conteudo - tamanho_alca)
-            
             pygame.draw.rect(tela, (50, 50, 50), (x_bar, y_conteudo, 8, altura_conteudo), border_radius=4)
             pygame.draw.rect(tela, self.CINZA, (x_bar, y_alca, 8, tamanho_alca), border_radius=4)
 
-        # =========================================================
-        # BOTÃO FECHAR
-        # =========================================================
+        # Botão Fechar
         self.rect_fechar = pygame.Rect(cx + largura_modal - 140, cy + 20, 120, 30)
         pygame.draw.rect(tela, (200, 50, 50), self.rect_fechar, border_radius=5)
-        txt_fechar = fonte_ui.render("Fechar X", True, self.BRANCO)
+        txt_fechar = fonte_ui.render(_t("Fechar X"), True, self.BRANCO)
         tela.blit(txt_fechar, (self.rect_fechar.centerx - txt_fechar.get_width()//2, self.rect_fechar.centery - txt_fechar.get_height()//2))

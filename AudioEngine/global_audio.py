@@ -66,20 +66,30 @@ class GlobalAudioEngine:
 
     def iniciar(self):
         if not self.ativo:
-            try:
-                self.stream = sd.InputStream(
-                    samplerate=self.sr,
-                    channels=self.canais,
-                    device=self.device_id,
-                    callback=self.callback_audio,
-                    blocksize=512, # Menor para latência menor
-                    latency='low'
-                )
-                self.stream.start()
-                self.ativo = True
-                print(f"🎤 [GLOBAL AUDIO] Captura iniciada no ID {self.device_id}")
-            except Exception as e:
-                print(f"❌ [GLOBAL AUDIO] Erro ao iniciar: {e}")
+            taxas_tentar = [self.sr, 44100, 48000, 22050]
+            sucesso = False
+            
+            for taxa in taxas_tentar:
+                try:
+                    self.sr = taxa
+                    self.stream = sd.InputStream(
+                        samplerate=self.sr,
+                        channels=self.canais,
+                        device=self.device_id,
+                        callback=self.callback_audio,
+                        blocksize=1024, # Aumentado para maior compatibilidade
+                        latency='high'  # Aumentado para evitar erros de driver
+                    )
+                    self.stream.start()
+                    self.ativo = True
+                    print(f"🎤 [GLOBAL AUDIO] Captura iniciada no ID {self.device_id} @ {self.sr}Hz")
+                    sucesso = True
+                    break
+                except Exception as e:
+                    print(f"⚠️ [GLOBAL AUDIO] Falha ao iniciar @ {taxa}Hz: {e}")
+            
+            if not sucesso:
+                print(f"❌ [GLOBAL AUDIO] Erro fatal: Não foi possível abrir nenhum dispositivo de entrada.")
 
     def parar(self):
         if self.ativo and self.stream:

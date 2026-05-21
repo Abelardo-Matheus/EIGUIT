@@ -5,6 +5,7 @@
 # =============================================================================
 
 import pygame
+from Core.i18n import _t
 
 class Configuracoes:
     def __init__(self, x_painel, y_painel):
@@ -161,13 +162,28 @@ class Configuracoes:
                 rel_x = max(0, min(self.largura_slider, pos_mouse[0] - self.rect_barra_vol_fx.x))
                 self.volume_fx = int((rel_x / self.largura_slider) * 100)
 
-    def desenhar(self, tela, fontes, scroll_y=0):
+    def desenhar(self, tela, fontes, scroll_y=0, largura_max=1200):
         # Desempacota do dicionário para manter compatibilidade com o código abaixo
         fonte_titulo = fontes['titulo']
         fonte_ui = fontes['ui']
         
-        x_atual, y_atual = self.x, self.y - scroll_y 
-        altura_bloco, largura_bloco, esp = 180, 310, 20
+        # Margem de segurança para não encostar na borda direita
+        largura_util = largura_max - 40 
+        
+        # Variáveis de Layout Dinâmico (Calculado para caber exatamente 4 por linha)
+        x_start, y_start = self.x, self.y - scroll_y + 15
+        esp = 15
+        altura_bloco = 185
+        largura_bloco = (largura_util - (3 * esp)) // 4
+        
+        x_atual, y_atual = x_start, y_start
+
+        def avancar_posicao(x, y):
+            x += largura_bloco + esp
+            if x + largura_bloco > x_start + largura_util:
+                x = x_start
+                y += altura_bloco + esp
+            return x, y
 
         def container(x, y, titulo):
             rect = pygame.Rect(x, y, largura_bloco, altura_bloco)
@@ -176,7 +192,7 @@ class Configuracoes:
             tela.blit(fonte_ui.render(_t(titulo), True, self.AZUL_DESTAQUE), (x + 15, y + 10))
             return y + 45
 
-        # Bloco 1
+        # --- BLOCO 1: AJUSTES DE ÁUDIO ---
         y_int = container(x_atual, y_atual, "Ajustes de Áudio")
         tela.blit(fonte_ui.render(f"{_t('Transparência')}: {self.transparencia}%", True, self.BRANCO), (x_atual + 15, y_int))
         self.rect_barra_transp.topleft = (x_atual + 15, y_int + 25)
@@ -191,22 +207,24 @@ class Configuracoes:
         pxv = self.rect_barra_vol_fx.x + (self.volume_fx / 100) * self.largura_slider
         self.rect_cursor_vol_fx.topleft = (pxv - 7, self.rect_barra_vol_fx.y - 5)
         pygame.draw.rect(tela, self.BRANCO, self.rect_cursor_vol_fx, border_radius=3)
+        
+        x_atual, y_atual = avancar_posicao(x_atual, y_atual)
 
-        # Bloco 2
-        x_c2 = x_atual + largura_bloco + esp
-        y_int = container(x_c2, y_atual, "Cores do Instrumento")
-        self.rect_btn_cor_braco.topleft = (x_c2 + 20, y_int + 5)
+        # --- BLOCO 2: CORES DO INSTRUMENTO ---
+        y_int = container(x_atual, y_atual, "Cores do Instrumento")
+        self.rect_btn_cor_braco.topleft = (x_atual + 20, y_int + 5)
         pygame.draw.rect(tela, self.cor_braco, self.rect_btn_cor_braco, border_radius=8)
         pygame.draw.rect(tela, self.BRANCO, self.rect_btn_cor_braco, 2, border_radius=8)
         tela.blit(fonte_ui.render(_t("Cor Madeira"), True, self.BRANCO), (self.rect_btn_cor_braco.right + 15, y_int + 15))
-        self.rect_btn_cor_notas.topleft = (x_c2 + 20, y_int + 70)
+        self.rect_btn_cor_notas.topleft = (x_atual + 20, y_int + 70)
         pygame.draw.rect(tela, self.cor_notas, self.rect_btn_cor_notas, border_radius=8)
         pygame.draw.rect(tela, self.BRANCO, self.rect_btn_cor_notas, 2, border_radius=8)
         tela.blit(fonte_ui.render(_t("Cor Notas"), True, self.BRANCO), (self.rect_btn_cor_notas.right + 15, y_int + 80))
+        
+        x_atual, y_atual = avancar_posicao(x_atual, y_atual)
 
-        # Bloco 3
-        y_l2 = y_atual + altura_bloco + esp
-        y_int = container(x_atual, y_l2, "Performance e Jogos")
+        # --- BLOCO 3: PERFORMANCE E JOGOS ---
+        y_int = container(x_atual, y_atual, "Performance e Jogos")
         self.rect_btn_particulas.topleft = (x_atual + 15, y_int)
         pygame.draw.rect(tela, (60, 60, 60), self.rect_btn_particulas, border_radius=5)
         if self.particulas_habilitadas: pygame.draw.rect(tela, self.AZUL_DESTAQUE, self.rect_btn_particulas.inflate(-10, -10), border_radius=3)
@@ -218,42 +236,49 @@ class Configuracoes:
         pygame.draw.rect(tela, self.AZUL_DESTAQUE, self.rect_btn_vel_menos, border_radius=5); pygame.draw.rect(tela, self.AZUL_DESTAQUE, self.rect_btn_vel_mais, border_radius=5)
         tela.blit(fonte_titulo.render("-", True, self.BRANCO), (self.rect_btn_vel_menos.centerx-5, self.rect_btn_vel_menos.centery-15))
         tela.blit(fonte_titulo.render("+", True, self.BRANCO), (self.rect_btn_vel_mais.centerx-7, self.rect_btn_vel_mais.centery-15))
+        
+        x_atual, y_atual = avancar_posicao(x_atual, y_atual)
 
-        # Bloco 4
-        y_int = container(x_c2, y_l2, "Temas e Aparência")
-        tela.blit(fonte_ui.render(_t("Tema de Cores:"), True, self.BRANCO), (x_c2 + 15, y_int))
-        self.rect_btn_tema_esq.topleft = (x_c2 + 15, y_int + 30); self.rect_btn_tema_dir.topleft = (x_c2 + 180, y_int + 30)
+        # --- BLOCO 4: TEMAS E APARÊNCIA ---
+        y_int = container(x_atual, y_atual, "Temas e Aparência")
+        tela.blit(fonte_ui.render(_t("Tema de Cores:"), True, self.BRANCO), (x_atual + 15, y_int))
+        self.rect_btn_tema_esq.topleft = (x_atual + 15, y_int + 30); self.rect_btn_tema_dir.topleft = (x_atual + 180, y_int + 30)
         pygame.draw.rect(tela, self.AZUL_DESTAQUE, self.rect_btn_tema_esq, border_radius=5); pygame.draw.rect(tela, self.AZUL_DESTAQUE, self.rect_btn_tema_dir, border_radius=5)
         tela.blit(fonte_ui.render("<", True, self.BRANCO), (self.rect_btn_tema_esq.centerx-5, self.rect_btn_tema_esq.centery-10))
         tela.blit(fonte_ui.render(">", True, self.BRANCO), (self.rect_btn_tema_dir.centerx-5, self.rect_btn_tema_dir.centery-10))
         txt_t = fonte_ui.render(_t(self.temas[self.indice_tema]), True, self.BRANCO)
-        tela.blit(txt_t, (x_c2 + 100 - txt_t.get_width()//2, y_int + 35))
+        tela.blit(txt_t, (x_atual + 100 - txt_t.get_width()//2, y_int + 35))
         y_int += 75
-        tela.blit(fonte_ui.render(f"{_t('Escala Notas')}: {self.tamanho_notas}x", True, self.BRANCO), (x_c2 + 15, y_int))
-        self.rect_btn_nota_menos.topleft = (x_c2 + 15, y_int + 30); self.rect_btn_nota_mais.topleft = (x_c2 + 110, y_int + 30)
+        tela.blit(fonte_ui.render(f"{_t('Escala Notas')}: {self.tamanho_notas}x", True, self.BRANCO), (x_atual + 15, y_int))
+        self.rect_btn_nota_menos.topleft = (x_atual + 15, y_int + 30); self.rect_btn_nota_mais.topleft = (x_atual + 110, y_int + 30)
         pygame.draw.rect(tela, self.AZUL_DESTAQUE, self.rect_btn_nota_menos, border_radius=5); pygame.draw.rect(tela, self.AZUL_DESTAQUE, self.rect_btn_nota_mais, border_radius=5)
         tela.blit(fonte_titulo.render("-", True, self.BRANCO), (self.rect_btn_nota_menos.centerx-5, self.rect_btn_nota_menos.centery-15))
         tela.blit(fonte_titulo.render("+", True, self.BRANCO), (self.rect_btn_nota_mais.centerx-7, self.rect_btn_nota_mais.centery-15))
+        
+        x_atual, y_atual = avancar_posicao(x_atual, y_atual)
 
-        # Bloco 5 e 6
-        y_l3 = y_l2 + altura_bloco + esp
-        y_int = container(x_atual, y_l3, "Estilo de Notas")
+        # --- BLOCO 5: ESTILO DE NOTAS ---
+        y_int = container(x_atual, y_atual, "Estilo de Notas")
         self.rects_modos.clear()
         for i, n in enumerate(self.nomes_modos):
             r = pygame.Rect(x_atual + 15, y_int + (i * 35), 220, 28)
             self.rects_modos.append(r); pygame.draw.rect(tela, self.AZUL_DESTAQUE if i == self.indice_modo else (60, 60, 60), r, border_radius=5)
             tela.blit(fonte_ui.render(_t(n), True, self.BRANCO), (r.x + 10, r.y + 3))
+        
+        x_atual, y_atual = avancar_posicao(x_atual, y_atual)
 
-        y_int = container(x_c2, y_l3, "Fontes do Sistema")
+        # --- BLOCO 6: FONTES DO SISTEMA ---
+        y_int = container(x_atual, y_atual, "Fontes do Sistema")
         self.rects_fontes.clear()
         for i, f in enumerate(self.fontes_disponiveis):
-            r = pygame.Rect(x_c2 + 15, y_int + (i * 25), 180, 22)
+            r = pygame.Rect(x_atual + 15, y_int + (i * 25), 180, 22)
             self.rects_fontes.append(r); pygame.draw.rect(tela, self.AZUL_DESTAQUE if i == self.indice_fonte else (60, 60, 60), r, border_radius=5)
             tela.blit(fonte_ui.render(f, True, self.BRANCO), (r.x + 10, r.y + 1))
+        
+        x_atual, y_atual = avancar_posicao(x_atual, y_atual)
 
-        # Bloco 7: Idioma
-        y_l4 = y_l3 + altura_bloco + esp
-        y_int = container(x_atual, y_l4, "Idioma da Interface")
+        # --- BLOCO 7: IDIOMA DA INTERFACE ---
+        y_int = container(x_atual, y_atual, "Idioma da Interface")
         self.rect_btn_idioma_esq.topleft = (x_atual + 15, y_int + 15)
         self.rect_btn_idioma_dir.topleft = (x_atual + 180, y_int + 15)
         pygame.draw.rect(tela, self.AZUL_DESTAQUE, self.rect_btn_idioma_esq, border_radius=5)
