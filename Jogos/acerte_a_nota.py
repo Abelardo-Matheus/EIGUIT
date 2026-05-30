@@ -4,384 +4,440 @@ import sys
 import random
 import math
 import time
-import array # Necessário para a síntese matemática
+import array
+from Modulos.escalas import equivalencia_notas
+from Modulos.detector_palhetadas import DetectorPalhetadas
 
 class AcerteANota:
+    """
+        Como funciona: Define a estrutura e estado do componente 'AcerteANota'.
+        Para que serve: Atua como o modelo principal para instâncias de 'AcerteANota'.
+        Onde é usada: Chamado a partir do módulo ou classe base de 'acerte_a_nota'.
+    """
+
     def __init__(self):
-        # --- CORES ---
+        """
+            Como funciona: Inicializa os atributos e o estado inicial da instância.
+            Para que serve: Prepara o objeto para ser utilizado no ciclo de vida da aplicação.
+            Onde é usada: Chamado a partir do módulo ou classe base de 'acerte_a_nota'.
+        """
         self.VERMELHO = (200, 50, 50)
         self.VERDE = (50, 200, 50)
         self.AMARELO = (255, 255, 50)
         self.BRANCO = (255, 255, 255)
         self.AZUL_INTERFACE = (0, 120, 215)
         self.ROXO = (150, 50, 200)
-
-        # --- TABELA DE FREQUÊNCIAS (Síntese Matemática) ---
-        self.frequencias = {
-            "C": 261.63, "C#": 277.18, "Db": 277.18,
-            "D": 293.66, "D#": 311.13, "Eb": 311.13,
-            "E": 329.63, "F": 349.23, "F#": 369.99,
-            "Gb": 369.99, "G": 392.00, "G#": 415.30,
-            "Ab": 415.30, "A": 440.00, "A#": 466.16, "Bb": 466.16,
-            "B": 493.88
-        }
-
-        # --- NOTAS MUSICAIS ---
-        self.notas_naturais = ["C", "D", "E", "F", "G", "A", "B"]
-        self.notas_sustenidos = ["C#", "D#", "F#", "G#", "A#"]
-        self.notas_bemois = ["Db", "Eb", "Gb", "Ab", "Bb"]
-        
-        self.notas_calibracao = ["C", "D", "E", "F", "G", "A", "B"]
-        self.status_notas = [0] * 7  
+        self.detector_palhetadas = DetectorPalhetadas()
+        self.palhetada_detectada = False
+        self.tempo_ultima_palhetada = 0
+        self.delay_tolerancia_palhetada = 0.15
+        self.metronomo_on = True
+        self.ultimo_tick_ms = 0
+        self.som_tick = None
+        self.som_acento = None
+        self.frequencias = {'C': 261.63, 'C#': 277.18, 'Db': 277.18, 'D': 293.66, 'D#': 311.13, 'Eb': 311.13, 'E': 329.63, 'F': 349.23, 'F#': 369.99, 'Gb': 369.99, 'G': 392.0, 'G#': 415.3, 'Ab': 415.3, 'A': 440.0, 'A#': 466.16, 'Bb': 466.16, 'B': 493.88}
+        self.notas_naturais = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
+        self.notas_sustenidos = ['C#', 'D#', 'F#', 'G#', 'A#']
+        self.notas_bemois = ['Db', 'Eb', 'Gb', 'Ab', 'Bb']
+        self.notas_calibracao = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
+        self.status_notas = [0] * 7
         self.indice_atual = 0
-        self.status_notas[0] = 1 
-        
+        self.status_notas[0] = 1
         self.calibrado = True
         self.em_calibracao = False
-        self.jogo_iniciado = False 
-        
-        # --- PRECISÃO DO MICROFONE ---
-        self.nota_atual_mic = ""
-        self.nota_perfeita_mic = "" 
-        self.desvio_afinacao = 0.0  
-        self.nivel_volume = 0.0 
-        self.y_indicador_anim = None 
-        
-        # --- VARIÁVEIS DO JOGO ---
-        self.dificuldades = ["FÁCIL", "MÉDIA", "DIFÍCIL", "IMPOSSÍVEL"]
+        self.jogo_iniciado = False
+        self.nota_atual_mic = ''
+        self.nota_perfeita_mic = ''
+        self.desvio_afinacao = 0.0
+        self.nivel_volume = 0.0
+        self.y_indicador_anim = None
+        self.dificuldades = ['FÁCIL', 'MÉDIA', 'DIFÍCIL', 'IMPOSSÍVEL']
         self.idx_dificuldade = 0
-        self.velocidade = 50 
-
-        # --- SELETOR DE ÁUDIO E FILA ---
-        self.modos_audio = ["DESLIGADO", "VOZ (NOME)", "SOM (NOTA)"]
+        self.velocidade = 50
+        self.modos_audio = ['DESLIGADO', 'VOZ (NOME)', 'SOM (NOTA)']
         self.idx_audio = 0
-        self.fila_audio = [] 
+        self.fila_audio = []
         self.tempo_inicio_fala = 0
         self.duracao_permitida = 0
-        
         self.pontuacao = 0
-        self.notas_na_tela = [] 
-        self.particulas = [] 
+        self.notas_na_tela = []
+        self.particulas = []
         self.ultimo_spawn = time.time()
-        
-        # Retângulos de Interface
         self.btn_calibrar = pygame.Rect(0, 0, 320, 60)
         self.btn_play = pygame.Rect(0, 0, 320, 60)
-        self.btn_disp_esq, self.btn_disp_dir = pygame.Rect(0, 0, 40, 40), pygame.Rect(0, 0, 40, 40)
-        self.btn_dif_esq, self.btn_dif_dir = pygame.Rect(0, 0, 30, 40), pygame.Rect(0, 0, 30, 40)
-        self.btn_vel_esq, self.btn_vel_dir = pygame.Rect(0, 0, 30, 40), pygame.Rect(0, 0, 30, 40)
-        self.btn_aud_esq, self.btn_aud_dir = pygame.Rect(0, 0, 30, 40), pygame.Rect(0, 0, 30, 40)
-
-        # Mapeamento de Dispositivos
+        self.btn_disp_esq, self.btn_disp_dir = (pygame.Rect(0, 0, 40, 40), pygame.Rect(0, 0, 40, 40))
+        self.btn_dif_esq, self.btn_dif_dir = (pygame.Rect(0, 0, 30, 40), pygame.Rect(0, 0, 30, 40))
+        self.btn_vel_esq, self.btn_vel_dir = (pygame.Rect(0, 0, 30, 40), pygame.Rect(0, 0, 30, 40))
+        self.btn_aud_esq, self.btn_aud_dir = (pygame.Rect(0, 0, 30, 40), pygame.Rect(0, 0, 30, 40))
         self.lista_dispositivos = []
         try:
             import sounddevice as sd
             for i, dev in enumerate(sd.query_devices()):
                 if dev['max_input_channels'] > 0:
                     self.lista_dispositivos.append({'id': i, 'name': dev['name']})
-        except: pass
-        
-        # --- ASSETS ---
+        except:
+            pass
         try:
             if getattr(sys, 'frozen', False):
-                # Se for o executável, pega a pasta onde o .exe está localizado
                 pasta_raiz = os.path.dirname(sys.executable)
             else:
-                # Se for o script .py, pega a pasta raiz do projeto
-                # (ajuste a quantidade de os.path.dirname dependendo de onde o script está)
                 pasta_raiz = os.path.dirname(os.path.abspath(__file__))
-                # Se este script estiver dentro de /Jogos, suba um nível:
-                pasta_raiz = os.path.dirname(pasta_raiz) 
-
-            # Busca a pasta Audios diretamente na mesma pasta do .exe
-            self.pasta_audios = os.path.join(pasta_raiz, "Audios")
-            
-            # Exemplo de carregamento do fundo (se ele também estiver fora do .exe)
-            caminho_fundo = os.path.join(pasta_raiz, "Imagens", "fundo_jogo.png")
+                pasta_raiz = os.path.dirname(pasta_raiz)
+            self.pasta_audios = os.path.join(pasta_raiz, 'Audios')
+            caminho_fundo = os.path.join(pasta_raiz, 'Imagens', 'fundo_jogo.png')
             if os.path.exists(caminho_fundo):
                 self.fundo = pygame.image.load(caminho_fundo).convert_alpha()
             else:
                 self.fundo = None
-                
         except Exception as e:
-            print(f"Erro ao localizar arquivos externos em {pasta_raiz}: {e}")
+            print(f'Erro ao localizar arquivos externos em {pasta_raiz}: {e}')
             self.fundo = None
-            self.pasta_audios = ""
-            
+            self.pasta_audios = ''
         self.tam_anterior = (0, 0)
         self.fundo_render = None
-
-        # --- SISTEMA DE SOM ---
         if not pygame.mixer.get_init():
             pygame.mixer.init(frequency=44100, size=-16, channels=1)
-        
         self.canal_voz = pygame.mixer.Channel(0)
-        pygame.mixer.set_num_channels(64) 
-
-        # Dicionários para armazenar os sons
+        pygame.mixer.set_num_channels(64)
         self.sons_vozes = {}
         self.sons_sintetizados = {}
-
-        # Carregar arquivos de voz e gerar sons matemáticos
         todas_as_notas_nomes = self.notas_naturais + self.notas_sustenidos + self.notas_bemois
         for n in todas_as_notas_nomes:
-            # 1. Tenta carregar a Voz (.wav)
-            caminho_wav = os.path.join(self.pasta_audios, f"{n}.wav")
+            caminho_wav = os.path.join(self.pasta_audios, f'{n}.wav')
             if os.path.exists(caminho_wav):
                 try:
                     self.sons_vozes[n] = pygame.mixer.Sound(caminho_wav)
-                except: pass
-            
-            # 2. Gera o Som Matemático (Sintetizado)
+                except:
+                    pass
             if n in self.frequencias:
                 self.sons_sintetizados[n] = self._gerar_amostra_nota(self.frequencias[n])
+        try:
+            caminho_tick = os.path.join(self.pasta_audios, 'tick.wav')
+            caminho_acento = os.path.join(self.pasta_audios, 'tick_high.wav')
+            if os.path.exists(caminho_tick):
+                self.som_tick = pygame.mixer.Sound(caminho_tick)
+            if os.path.exists(caminho_acento):
+                self.som_acento = pygame.mixer.Sound(caminho_acento)
+        except:
+            pass
 
     def _gerar_amostra_nota(self, freq, duracao=1):
-        """Gera um Sound do Pygame usando síntese matemática (onda senoidal)"""
+        """
+            Como funciona: Executa o fluxo lógico necessário para a operação ' gerar amostra nota'.
+            Para que serve: Realiza as tarefas fundamentais de ' gerar amostra nota' dentro do contexto do módulo.
+            Onde é usada: Utilizado internamente para gerenciar comportamentos de ' gerar amostra nota'.
+        """
         sample_rate = 44100
         n_samples = int(sample_rate * duracao)
-        # Cria um buffer de áudio de 16 bits
         buf = array.array('h', [0] * n_samples)
         for i in range(n_samples):
             t = float(i) / sample_rate
-            # Aplica um pequeno fade-out para evitar cliques no final do áudio
             envelope = min(1.0, (n_samples - i) / (sample_rate * 0.1))
-            # Gera a onda senoidal (volume em 16384 para evitar distorção)
             v = int(envelope * 16384 * math.sin(2.0 * math.pi * freq * t))
             buf[i] = v
         return pygame.mixer.Sound(buf)
 
     def equivalencia_notas(self, nota1, nota2):
-        if nota1 == nota2: return True
-        enarmonicas = {"C#": "Db", "Db": "C#", "D#": "Eb", "Eb": "D#", "F#": "Gb", "Gb": "F#", "G#": "Ab", "Ab": "G#", "A#": "Bb", "Bb": "A#"}
-        return enarmonicas.get(nota1) == nota2 or enarmonicas.get(nota2) == nota1
+        """
+            Como funciona: Executa o fluxo lógico necessário para a operação 'equivalencia notas'.
+            Para que serve: Realiza as tarefas fundamentais de 'equivalencia notas' dentro do contexto do módulo.
+            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'equivalencia notas'.
+        """
+        return equivalencia_notas(nota1, nota2)
 
     def gerar_faiscas(self, x, y):
+        """
+            Como funciona: Executa o fluxo lógico necessário para a operação 'gerar faiscas'.
+            Para que serve: Realiza as tarefas fundamentais de 'gerar faiscas' dentro do contexto do módulo.
+            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'gerar faiscas'.
+        """
         for _ in range(20):
             angulo = random.uniform(0, math.pi * 2)
             velocidade = random.uniform(2, 8)
-            self.particulas.append({
-                'x': x, 'y': y,
-                'vx': math.cos(angulo) * velocidade,
-                'vy': math.sin(angulo) * velocidade,
-                'vida': 1.0 
-            })
+            self.particulas.append({'x': x, 'y': y, 'vx': math.cos(angulo) * velocidade, 'vy': math.sin(angulo) * velocidade, 'vida': 1.0})
 
-    def atualizar_audio_centralizado(self, estado):
-        """Usa a nota já detectada pelo motor global no main.py"""
+    def atualizar_audio_centralizado(self, estado, meu_gravador=None):
+        """
+            Como funciona: Recalcula dimensões, estados e processa alterações temporais.
+            Para que serve: Garante que os dados e a interface reflitam as últimas mudanças.
+            Onde é usada: Chamado a partir do módulo ou classe base de 'acerte_a_nota'.
+        """
         self.nota_atual_mic = estado.nota_atual_detectada
-        # Para o jogo "Acerte a Nota", consideramos 'perfeita' se houver qualquer nota válida
-        # vinda do motor, pois a persistência e threshold já foram tratados lá.
-        self.nota_perfeita_mic = self.nota_atual_mic if self.nota_atual_mic != "--" else ""
-        
-        # Volume visual apenas para feedback
-        if self.nota_atual_mic != "--":
+        self.notas_atuais_ia = getattr(estado, 'notas_detectadas_ia', [])
+        self.nota_perfeita_mic = self.nota_atual_mic if self.nota_atual_mic != '--' else ''
+        self.palhetada_detectada = False
+        if meu_gravador and hasattr(meu_gravador, 'buffer'):
+            if self.detector_palhetadas.processar_buffer(meu_gravador.buffer):
+                self.palhetada_detectada = True
+                self.tempo_ultima_palhetada = time.time()
+        if self.nota_atual_mic != '--':
             self.nivel_volume = min(1.0, self.nivel_volume + 0.2)
         else:
             self.nivel_volume = max(0.0, self.nivel_volume - 0.1)
-
-        # Lógica de Calibração
-        if self.nota_perfeita_mic and self.em_calibracao and not self.calibrado and not self.jogo_iniciado:
+        if self.nota_perfeita_mic and self.em_calibracao and (not self.calibrado) and (not self.jogo_iniciado):
             if self.nota_perfeita_mic == self.notas_calibracao[self.indice_atual]:
-                self.status_notas[self.indice_atual] = 2 
+                self.status_notas[self.indice_atual] = 2
                 self.indice_atual += 1
-                if self.indice_atual < len(self.notas_calibracao): self.status_notas[self.indice_atual] = 1 
-                else: self.calibrado = True
+                if self.indice_atual < len(self.notas_calibracao):
+                    self.status_notas[self.indice_atual] = 1
+                else:
+                    self.calibrado = True
 
     def atualizar_fila_voz(self):
-        if self.modos_audio[self.idx_audio] == "DESLIGADO" or not self.fila_audio:
+        """
+            Como funciona: Recalcula dimensões, estados e processa alterações temporais.
+            Para que serve: Garante que os dados e a interface reflitam as últimas mudanças.
+            Onde é usada: Chamado a partir do módulo ou classe base de 'acerte_a_nota'.
+        """
+        if self.modos_audio[self.idx_audio] == 'DESLIGADO' or not self.fila_audio:
             return
-
         tempo_atual = time.time()
-        # Aceleração conforme pedido: dificuldade e velocidade encurtam o tempo de áudio
-        fator_aceleracao = 1.0 - (self.idx_dificuldade * 0.12) - (self.velocidade / 400.0)
+        fator_aceleracao = 1.0 - self.idx_dificuldade * 0.12 - self.velocidade / 400.0
         fator_aceleracao = max(0.35, fator_aceleracao)
-
         if not self.canal_voz.get_busy():
             proxima_nota = self.fila_audio.pop(0)
-            
-            # ESCOLHA DA FONTE DE ÁUDIO
-            if self.modos_audio[self.idx_audio] == "VOZ (NOME)":
+            if self.modos_audio[self.idx_audio] == 'VOZ (NOME)':
                 biblioteca = self.sons_vozes
             else:
                 biblioteca = self.sons_sintetizados
-                
             if proxima_nota in biblioteca:
                 som = biblioteca[proxima_nota]
                 self.duracao_permitida = som.get_length() * fator_aceleracao
                 self.tempo_inicio_fala = tempo_atual
                 self.canal_voz.play(som)
-        else:
-            if tempo_atual - self.tempo_inicio_fala >= self.duracao_permitida:
-                self.canal_voz.stop()
+        elif tempo_atual - self.tempo_inicio_fala >= self.duracao_permitida:
+            self.canal_voz.stop()
 
     def gerar_notas_jogo(self, largura, mult_vel=1.0):
+        """
+            Como funciona: Executa o fluxo lógico necessário para a operação 'gerar notas jogo'.
+            Para que serve: Realiza as tarefas fundamentais de 'gerar notas jogo' dentro do contexto do módulo.
+            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'gerar notas jogo'.
+        """
         agora = time.time()
-        intervalo_spawn = (5.0 - ((self.velocidade / 100.0) * 3.5)) / mult_vel
+        intervalo_spawn = (5.0 - self.velocidade / 100.0 * 3.5) / mult_vel
         if agora - self.ultimo_spawn > intervalo_spawn:
             self.ultimo_spawn = agora
             dif = self.dificuldades[self.idx_dificuldade]
             pool = self.notas_naturais[:]
             qnt = 1
-            if dif != "FÁCIL": pool += self.notas_sustenidos
-            if dif == "MÉDIA": qnt = random.choice([1, 2])
-            if dif == "DIFÍCIL": qnt = random.randint(2, 3)
-            if dif == "IMPOSSÍVEL": pool += self.notas_bemois; qnt = random.randint(3, 5)
-            
+            if dif != 'FÁCIL':
+                pool += self.notas_sustenidos
+            if dif == 'MÉDIA':
+                qnt = random.choice([1, 2])
+            if dif == 'DIFÍCIL':
+                qnt = random.randint(2, 3)
+            if dif == 'IMPOSSÍVEL':
+                pool += self.notas_bemois
+                qnt = random.randint(3, 5)
             for _ in range(qnt):
                 nota_sorteada = random.choice(pool)
-                if self.modos_audio[self.idx_audio] != "DESLIGADO":
+                if self.modos_audio[self.idx_audio] != 'DESLIGADO':
                     self.fila_audio.append(nota_sorteada)
-                
-                self.notas_na_tela.append({
-                    'nota': nota_sorteada, 'x': random.randint(150, largura-250), 'y': -50,
-                    'sustain': 0, 'sendo_tocada': False, 'ponto_computado': False
-                })
+                self.notas_na_tela.append({'nota': nota_sorteada, 'x': random.randint(150, largura - 250), 'y': -50, 'sustain': 0, 'sendo_tocada': False, 'ponto_computado': False})
 
     def desenhar(self, tela, largura, altura, estado, meu_gravador=None, configs=None):
-        self.atualizar_audio_centralizado(estado)
+        """
+            Como funciona: Utiliza funções de renderização do Pygame para desenhar na tela.
+            Para que serve: Apresenta o elemento visual 'desenhar' na interface gráfica.
+            Onde é usada: Chamado a partir do módulo ou classe base de 'acerte_a_nota'.
+        """
+        self.atualizar_audio_centralizado(estado, meu_gravador)
         self.atualizar_fila_voz()
         mult_vel = configs.get_vel_jogo() if configs else 1.0
         particulas_on = configs.get_particulas() if configs else True
-
+        if self.jogo_iniciado and self.metronomo_on:
+            bpm_jogo = 60 + self.velocidade * 1.2 * mult_vel
+            intervalo_ms = 60000 / bpm_jogo
+            agora_ms = pygame.time.get_ticks()
+            if agora_ms - self.ultimo_tick_ms >= intervalo_ms:
+                self.ultimo_tick_ms = agora_ms
+                if self.som_tick:
+                    self.som_tick.play()
         if self.fundo:
             if self.tam_anterior != (largura, altura):
                 self.fundo_render = pygame.transform.smoothscale(self.fundo, (largura, altura))
                 self.tam_anterior = (largura, altura)
             tela.blit(self.fundo_render, (0, 0))
-        else: tela.fill((30, 30, 30))
-
-        fonte_tit = pygame.font.SysFont("Arial", 40, bold=True)
-        fonte_ui = pygame.font.SysFont("Arial", 25, bold=True)
-        fonte_peq = pygame.font.SysFont("Arial", 18, bold=True)
+        else:
+            tela.fill((30, 30, 30))
+        fonte_tit = pygame.font.SysFont('Arial', 40, bold=True)
+        fonte_ui = pygame.font.SysFont('Arial', 25, bold=True)
+        fonte_peq = pygame.font.SysFont('Arial', 18, bold=True)
         linha_vermelha_y = altura - 150
         y_centro = altura // 2
-
-        if self.y_indicador_anim is None: self.y_indicador_anim = y_centro - 160
+        if self.y_indicador_anim is None:
+            self.y_indicador_anim = y_centro - 160
         alvo_y = altura - 60 if self.jogo_iniciado else y_centro - 160
         self.y_indicador_anim += (alvo_y - self.y_indicador_anim) * 0.08
-
         if self.jogo_iniciado:
-            txt_pontos = fonte_tit.render(f"PONTOS: {self.pontuacao}", True, self.AMARELO)
+            txt_pontos = fonte_tit.render(f'PONTOS: {self.pontuacao}', True, self.AMARELO)
             tela.blit(txt_pontos, (largura - txt_pontos.get_width() - 30, 40))
             pygame.draw.line(tela, self.VERMELHO, (0, linha_vermelha_y), (largura - 100, linha_vermelha_y), 3)
-
             x_regua = largura - 80
             pygame.draw.line(tela, self.BRANCO, (x_regua, 100), (x_regua, altura - 50), 4)
-            tela.blit(fonte_peq.render("10", True, self.VERDE), (x_regua + 15, 100))
-            tela.blit(fonte_peq.render("1", True, self.VERMELHO), (x_regua + 15, linha_vermelha_y - 20))
-
+            tela.blit(fonte_peq.render('10', True, self.VERDE), (x_regua + 15, 100))
+            tela.blit(fonte_peq.render('1', True, self.VERMELHO), (x_regua + 15, linha_vermelha_y - 20))
             self.gerar_notas_jogo(largura, mult_vel)
-            
             if particulas_on:
                 for p in self.particulas[:]:
-                    p['x'] += p['vx']; p['y'] += p['vy']; p['vy'] += 0.2; p['vida'] -= 0.03
+                    p['x'] += p['vx']
+                    p['y'] += p['vy']
+                    p['vy'] += 0.2
+                    p['vida'] -= 0.03
                     if p['vida'] > 0:
                         pygame.draw.circle(tela, (255, int(255 * p['vida']), 0), (int(p['x']), int(p['y'])), max(1, int(6 * p['vida'])))
-                    else: self.particulas.remove(p)
+                    else:
+                        self.particulas.remove(p)
             else:
                 self.particulas.clear()
-
+            hit_realizado_nesta_frame = False
             for i, n in enumerate(self.notas_na_tela[:]):
-                n['y'] += (1.0 + (self.velocidade / 50.0)) * mult_vel
+                n['y'] += (1.0 + self.velocidade / 50.0) * mult_vel
                 pygame.draw.circle(tela, self.AZUL_INTERFACE, (n['x'], int(n['y'])), 35)
                 pygame.draw.circle(tela, self.BRANCO, (n['x'], int(n['y'])), 35, 2)
                 txt_n = fonte_ui.render(n['nota'], True, self.BRANCO)
-                tela.blit(txt_n, (n['x'] - txt_n.get_width()//2, int(n['y']) - txt_n.get_height()//2))
-
+                tela.blit(txt_n, (n['x'] - txt_n.get_width() // 2, int(n['y']) - txt_n.get_height() // 2))
                 distancia = linha_vermelha_y - n['y']
                 if distancia > -50:
-                    if self.nota_perfeita_mic and self.equivalencia_notas(self.nota_perfeita_mic, n['nota']):
+                    agora = time.time()
+                    palhetada_recente = agora - self.tempo_ultima_palhetada < self.delay_tolerancia_palhetada
+                    notas_usuario = self.notas_atuais_ia if self.notas_atuais_ia else [self.nota_perfeita_mic] if self.nota_perfeita_mic else []
+                    match = any((self.equivalencia_notas(n_user, n['nota']) for n_user in notas_usuario))
+                    if match and palhetada_recente:
                         if not n['ponto_computado']:
-                            pontos = int((distancia / linha_vermelha_y) * 9) + 1 if distancia >= 0 else -2
+                            pontos = int(distancia / linha_vermelha_y * 9) + 1 if distancia >= 0 else -2
                             self.pontuacao += min(10, max(-2, pontos))
                             n['ponto_computado'] = True
-                        if particulas_on: self.gerar_faiscas(n['x'], n['y'])
+                            hit_realizado_nesta_frame = True
+                        if particulas_on:
+                            self.gerar_faiscas(n['x'], n['y'])
                         self.notas_na_tela.remove(n)
                 if n['y'] > altura:
                     self.pontuacao -= 5
                     self.notas_na_tela.remove(n)
-
+            if hit_realizado_nesta_frame:
+                self.tempo_ultima_palhetada = 0
         if not self.jogo_iniciado:
             if not self.em_calibracao:
-                txt_tit = fonte_tit.render("ACERTE A NOTA", True, self.BRANCO)
-                tela.blit(txt_tit, (largura//2 - txt_tit.get_width()//2, 50))
-                x_sel = largura // 2 - 270; y_sel = y_centro + 50
-                self._desenhar_botao_seletor(tela, x_sel, y_sel, f"{self.dificuldades[self.idx_dificuldade]}", self.btn_dif_esq, self.btn_dif_dir)
-                self._desenhar_botao_seletor(tela, x_sel + 185, y_sel, f"{self.modos_audio[self.idx_audio]}", self.btn_aud_esq, self.btn_aud_dir)
-                self._desenhar_botao_seletor(tela, x_sel + 370, y_sel, f"Vel: {self.velocidade}", self.btn_vel_esq, self.btn_vel_dir)
-                
+                txt_tit = fonte_tit.render('ACERTE A NOTA', True, self.BRANCO)
+                tela.blit(txt_tit, (largura // 2 - txt_tit.get_width() // 2, 50))
+                x_sel = largura // 2 - 270
+                y_sel = y_centro + 50
+                self._desenhar_botao_seletor(tela, x_sel, y_sel, f'{self.dificuldades[self.idx_dificuldade]}', self.btn_dif_esq, self.btn_dif_dir)
+                self._desenhar_botao_seletor(tela, x_sel + 185, y_sel, f'{self.modos_audio[self.idx_audio]}', self.btn_aud_esq, self.btn_aud_dir)
+                self._desenhar_botao_seletor(tela, x_sel + 370, y_sel, f'Vel: {self.velocidade}', self.btn_vel_esq, self.btn_vel_dir)
                 self.btn_calibrar.center = (largura // 2, y_centro - 20)
                 pygame.draw.rect(tela, self.AZUL_INTERFACE, self.btn_calibrar, border_radius=10)
-                txt_c = fonte_ui.render("INICIAR CALIBRAÇÃO", True, self.BRANCO)
-                tela.blit(txt_c, (self.btn_calibrar.centerx - txt_c.get_width()//2, self.btn_calibrar.centery - txt_c.get_height()//2))
-
+                txt_c = fonte_ui.render('INICIAR CALIBRAÇÃO', True, self.BRANCO)
+                tela.blit(txt_c, (self.btn_calibrar.centerx - txt_c.get_width() // 2, self.btn_calibrar.centery - txt_c.get_height() // 2))
                 self.btn_play.center = (largura // 2, altura - 100)
                 pygame.draw.rect(tela, self.VERDE, self.btn_play, border_radius=10)
-                txt_p = fonte_ui.render("COMEÇAR JOGO", True, self.BRANCO)
-                tela.blit(txt_p, (self.btn_play.centerx - txt_p.get_width()//2, self.btn_play.centery - txt_p.get_height()//2))
+                txt_p = fonte_ui.render('COMEÇAR JOGO', True, self.BRANCO)
+                tela.blit(txt_p, (self.btn_play.centerx - txt_p.get_width() // 2, self.btn_play.centery - txt_p.get_height() // 2))
             else:
-                msg = "Toque a nota amarela" if not self.calibrado else "Calibração Concluída!"
+                msg = 'Toque a nota amarela' if not self.calibrado else 'Calibração Concluída!'
                 txt_m = fonte_ui.render(msg, True, self.AMARELO if not self.calibrado else self.VERDE)
-                tela.blit(txt_m, (largura//2 - txt_m.get_width()//2, y_centro - 100))
-                esp = 100; x_i = largura//2 - (3*esp)
+                tela.blit(txt_m, (largura // 2 - txt_m.get_width() // 2, y_centro - 100))
+                esp = 100
+                x_i = largura // 2 - 3 * esp
                 for i, n in enumerate(self.notas_calibracao):
-                    cor = self.VERDE if self.status_notas[i] == 2 else (self.AMARELO if self.status_notas[i] == 1 else self.VERMELHO)
-                    pygame.draw.circle(tela, cor, (x_i + i*esp, y_centro), 35)
-                    pygame.draw.circle(tela, self.BRANCO, (x_i + i*esp, y_centro), 35, 2)
+                    cor = self.VERDE if self.status_notas[i] == 2 else self.AMARELO if self.status_notas[i] == 1 else self.VERMELHO
+                    pygame.draw.circle(tela, cor, (x_i + i * esp, y_centro), 35)
+                    pygame.draw.circle(tela, self.BRANCO, (x_i + i * esp, y_centro), 35, 2)
                     txt_n = fonte_peq.render(n, True, self.BRANCO)
-                    tela.blit(txt_n, (x_i + i*esp - txt_n.get_width()//2, y_centro - txt_n.get_height()//2))
+                    tela.blit(txt_n, (x_i + i * esp - txt_n.get_width() // 2, y_centro - txt_n.get_height() // 2))
                 self.btn_play.center = (largura // 2, altura - 80)
                 pygame.draw.rect(tela, self.VERDE, self.btn_play, border_radius=10)
-                txt_v = fonte_ui.render("VOLTAR" if self.calibrado else "CANCELAR", True, self.BRANCO)
-                tela.blit(txt_v, (self.btn_play.centerx - txt_v.get_width()//2, self.btn_play.centery - txt_v.get_height()//2))
-
-        cor_b = self.VERDE if self.nota_perfeita_mic else (self.AMARELO if self.nota_atual_mic else self.BRANCO)
-        x_mic = largura // 2; y_mic = int(self.y_indicador_anim)
+                txt_v = fonte_ui.render('VOLTAR' if self.calibrado else 'CANCELAR', True, self.BRANCO)
+                tela.blit(txt_v, (self.btn_play.centerx - txt_v.get_width() // 2, self.btn_play.centery - txt_v.get_height() // 2))
+        cor_b = self.VERDE if self.nota_perfeita_mic else self.AMARELO if self.nota_atual_mic else self.BRANCO
+        x_mic = largura // 2
+        y_mic = int(self.y_indicador_anim)
         pygame.draw.circle(tela, (60, 60, 60), (x_mic, y_mic), 28)
         pygame.draw.circle(tela, cor_b, (x_mic, y_mic), 28, 3)
         if self.nota_atual_mic:
             txt_m = fonte_ui.render(self.nota_atual_mic, True, self.BRANCO)
-            tela.blit(txt_m, (x_mic - txt_m.get_width()//2, y_mic - txt_m.get_height()//2))
-        w_vol = 15; h_vol = 50; x_vol = x_mic + 40; y_vol = y_mic - (h_vol // 2) 
+            tela.blit(txt_m, (x_mic - txt_m.get_width() // 2, y_mic - txt_m.get_height() // 2))
+        w_vol = 15
+        h_vol = 50
+        x_vol = x_mic + 40
+        y_vol = y_mic - h_vol // 2
         pygame.draw.rect(tela, (40, 40, 40), (x_vol, y_vol, w_vol, h_vol), border_radius=3)
         alt_p = int(h_vol * self.nivel_volume)
         pygame.draw.rect(tela, self.VERDE, pygame.Rect(x_vol, y_vol + h_vol - alt_p, w_vol, alt_p), border_radius=3)
         pygame.draw.rect(tela, self.BRANCO, (x_vol, y_vol, w_vol, h_vol), 1, border_radius=3)
 
     def _desenhar_botao_seletor(self, tela, x, y, texto, b_esq, b_dir):
+        """
+            Como funciona: Executa o fluxo lógico necessário para a operação ' desenhar botao seletor'.
+            Para que serve: Realiza as tarefas fundamentais de ' desenhar botao seletor' dentro do contexto do módulo.
+            Onde é usada: Utilizado internamente para gerenciar comportamentos de ' desenhar botao seletor'.
+        """
         pygame.draw.rect(tela, (40, 40, 40), (x, y, 175, 40), border_radius=5)
-        b_esq.topleft = (x, y); b_dir.topleft = (x + 145, y)
+        b_esq.topleft = (x, y)
+        b_dir.topleft = (x + 145, y)
         pygame.draw.rect(tela, self.AZUL_INTERFACE, b_esq, border_radius=5)
         pygame.draw.rect(tela, self.AZUL_INTERFACE, b_dir, border_radius=5)
-        f = pygame.font.SysFont("Arial", 16, bold=True)
+        f = pygame.font.SysFont('Arial', 16, bold=True)
         t = f.render(texto, True, self.BRANCO)
-        tela.blit(t, (x + 87 - t.get_width()//2, y + 10))
-        tela.blit(f.render("<", True, self.BRANCO), (b_esq.centerx-5, b_esq.centery-10))
-        tela.blit(f.render(">", True, self.BRANCO), (b_dir.centerx-5, b_dir.centery-10))
+        tela.blit(t, (x + 87 - t.get_width() // 2, y + 10))
+        tela.blit(f.render('<', True, self.BRANCO), (b_esq.centerx - 5, b_esq.centery - 10))
+        tela.blit(f.render('>', True, self.BRANCO), (b_dir.centerx - 5, b_dir.centery - 10))
 
     def tratar_clique(self, pos_mouse, meu_gravador=None):
-        if self.jogo_iniciado: return False 
+        """
+            Como funciona: Verifica colisões e processa inputs do mouse/teclado.
+            Para que serve: Mapeia ações do usuário para atualizações de estado.
+            Onde é usada: Chamado a partir do módulo ou classe base de 'acerte_a_nota'.
+        """
+        if self.jogo_iniciado:
+            return False
         if not self.em_calibracao:
-            if self.btn_dif_esq.collidepoint(pos_mouse): self.idx_dificuldade = (self.idx_dificuldade - 1) % 4; return True
-            if self.btn_dif_dir.collidepoint(pos_mouse): self.idx_dificuldade = (self.idx_dificuldade + 1) % 4; return True
-            if self.btn_aud_esq.collidepoint(pos_mouse): self.idx_audio = (self.idx_audio - 1) % 3; return True
-            if self.btn_aud_dir.collidepoint(pos_mouse): self.idx_audio = (self.idx_audio + 1) % 3; return True
-            if self.btn_vel_esq.collidepoint(pos_mouse): self.velocidade = max(1, self.velocidade - 5); return True
-            if self.btn_vel_dir.collidepoint(pos_mouse): self.velocidade = min(100, self.velocidade + 5); return True
-            if self.btn_calibrar.collidepoint(pos_mouse): self.em_calibracao = True; return True
+            if self.btn_dif_esq.collidepoint(pos_mouse):
+                self.idx_dificuldade = (self.idx_dificuldade - 1) % 4
+                return True
+            if self.btn_dif_dir.collidepoint(pos_mouse):
+                self.idx_dificuldade = (self.idx_dificuldade + 1) % 4
+                return True
+            if self.btn_aud_esq.collidepoint(pos_mouse):
+                self.idx_audio = (self.idx_audio - 1) % 3
+                return True
+            if self.btn_aud_dir.collidepoint(pos_mouse):
+                self.idx_audio = (self.idx_audio + 1) % 3
+                return True
+            if self.btn_vel_esq.collidepoint(pos_mouse):
+                self.velocidade = max(1, self.velocidade - 5)
+                return True
+            if self.btn_vel_dir.collidepoint(pos_mouse):
+                self.velocidade = min(100, self.velocidade + 5)
+                return True
+            if self.btn_calibrar.collidepoint(pos_mouse):
+                self.em_calibracao = True
+                return True
         if self.btn_play.collidepoint(pos_mouse):
-            if self.em_calibracao: self.em_calibracao = False
-            else: self.jogo_iniciado = True; self.ultimo_spawn = time.time()
+            if self.em_calibracao:
+                self.em_calibracao = False
+            else:
+                self.jogo_iniciado = True
+                self.ultimo_spawn = time.time()
             return True
         return False
 
     def _alterar_dispositivo(self, direcao, meu_gravador):
-        if not self.lista_dispositivos: return 
+        """
+            Como funciona: Executa o fluxo lógico necessário para a operação ' alterar dispositivo'.
+            Para que serve: Realiza as tarefas fundamentais de ' alterar dispositivo' dentro do contexto do módulo.
+            Onde é usada: Utilizado internamente para gerenciar comportamentos de ' alterar dispositivo'.
+        """
+        if not self.lista_dispositivos:
+            return
         id_atual = getattr(meu_gravador, 'device_id', 0)
         idx_atual = next((i for i, d in enumerate(self.lista_dispositivos) if d['id'] == id_atual), 0)
         novo_id = self.lista_dispositivos[(idx_atual + direcao) % len(self.lista_dispositivos)]['id']
         meu_gravador.device_id = novo_id
         if hasattr(meu_gravador, 'mudar_dispositivo'):
-            try: meu_gravador.mudar_dispositivo(novo_id)
-            except: pass
+            try:
+                meu_gravador.mudar_dispositivo(novo_id)
+            except:
+                pass

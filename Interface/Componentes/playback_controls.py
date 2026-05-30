@@ -1,14 +1,10 @@
-# =============================================================================
-# GUITAR STUDIO IA - Copyright (c) 2026 MATHEUS ABELARDO TREVENZOLI ARAUJO
-# Componente: PlaybackControls
-# =============================================================================
-
 import pygame
 
-def desenhar_controles_playback(tela, estado, meu_metronomo, fonte_ui):
+def desenhar_controles_playback(tela, estado, meu_metronomo, fonte_ui, configs):
     """
-    Renderiza a área de controles de playback (Metrônomo, Play, BPM).
-    Encapsula a chamada do metronomo para manter o padrão de componentes.
+        Como funciona: Utiliza funções de renderização do Pygame para desenhar na tela.
+        Para que serve: Apresenta o elemento visual 'controles playback' na interface gráfica.
+        Onde é usada: Chamado a partir do módulo ou classe base de 'playback_controls'.
     """
     if hasattr(meu_metronomo, 'desenhar_mini_metronomo'):
-        meu_metronomo.desenhar_mini_metronomo(tela, estado, fonte_ui)
+        meu_metronomo.desenhar_mini_metronomo(tela, estado, fonte_ui, configs=configs)

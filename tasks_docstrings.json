@@ -1,0 +1,1437 @@
+{
+  ".\\main.py": [
+    {
+      "type": "function",
+      "name": "main",
+      "snippet": "'\\nComo funciona: Executa a rotina de main configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a main.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo main.\\n'\nu"
+    }
+  ],
+  ".\\AudioEngine\\global_audio.py": [
+    {
+      "type": "class",
+      "name": "GlobalAudioEngine",
+      "snippet": "'\\nComo funciona: Representa a estrutura de GlobalAudioEngine configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a GlobalAudioEngine.\\n    Onde \u00e9 usada: Utiliza"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo gl"
+    },
+    {
+      "type": "function",
+      "name": "_create_filter",
+      "snippet": "'\\nComo funciona: Executa a rotina de  create filter configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  create filter.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "callback_audio",
+      "snippet": "'\\nComo funciona: Executa a rotina de callback audio configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a callback audio.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "iniciar",
+      "snippet": "'\\nComo funciona: Executa a rotina de iniciar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a iniciar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo glob"
+    },
+    {
+      "type": "function",
+      "name": "parar",
+      "snippet": "'\\nComo funciona: Executa a rotina de parar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a parar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo global_a"
+    },
+    {
+      "type": "function",
+      "name": "mudar_dispositivo",
+      "snippet": "'\\nComo funciona: Executa a rotina de mudar dispositivo configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a mudar dispositivo.\\n    Onde \u00e9 usada: Utilizada no "
+    },
+    {
+      "type": "function",
+      "name": "atualizar_analise_ia",
+      "snippet": "'\\nComo funciona: Executa a rotina de atualizar analise ia configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a atualizar analise ia.\\n    Onde \u00e9 usada: Utiliza"
+    },
+    {
+      "type": "function",
+      "name": "obter_lista_entradas",
+      "snippet": "'\\nComo funciona: Executa a rotina de obter lista entradas configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a obter lista entradas.\\n    Onde \u00e9 usada: Utiliza"
+    }
+  ],
+  ".\\BD\\gerenciador_remoto_db.py": [
+    {
+      "type": "class",
+      "name": "GerenciadorDB",
+      "snippet": "'\\n    Classe respons\u00e1vel pela gest\u00e3o da conex\u00e3o remota com o banco de dados PostgreSQL.\\n    Facilita a persist\u00eancia de usu\u00e1rios, perfis e projetos na nuvem com seguran\u00e7a.\\n    '\ndef __init__(self, u"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "self.url = url_conexao\nself.conexao = None"
+    },
+    {
+      "type": "function",
+      "name": "conectar",
+      "snippet": "'Estabelece a conex\u00e3o com o banco de dados.'\nif psycopg is None:\n    print(\"Erro: Biblioteca 'psycopg' ou 'psycopg2' n\u00e3o encontrada.\")\n    return False\ntry:\n    self.conexao = psycopg.connect(self.url"
+    },
+    {
+      "type": "function",
+      "name": "fechar",
+      "snippet": "'Fecha a conex\u00e3o ativa.'\nif self.conexao:\n    self.conexao.close()\n    self.conexao = None"
+    },
+    {
+      "type": "function",
+      "name": "inicializar_estrutura",
+      "snippet": "'Cria as tabelas e \u00edndices necess\u00e1rios caso n\u00e3o existam.'\nif not self.conectar():\n    return\ntry:\n    with self.conexao.cursor() as cursor:\n        cursor.execute('\\n                    CREATE TABLE I"
+    },
+    {
+      "type": "function",
+      "name": "criar_usuario",
+      "snippet": "'Cria um novo usu\u00e1rio com senha criptografada.'\nif not self.conectar():\n    return None\ntry:\n    salt = bcrypt.gensalt()\n    senha_hash = bcrypt.hashpw(senha.encode('utf-8'), salt).decode('utf-8')\n   "
+    },
+    {
+      "type": "function",
+      "name": "verificar_login",
+      "snippet": "'Verifica se as credenciais est\u00e3o corretas.'\nif not self.conectar():\n    return None\ntry:\n    with self.conexao.cursor() as cursor:\n        cursor.execute('SELECT id, senha FROM usuarios WHERE login ="
+    },
+    {
+      "type": "function",
+      "name": "deletar_conta",
+      "snippet": "'Remove permanentemente a conta do usu\u00e1rio e todos os dados associados.'\nif not self.conectar():\n    return False\ntry:\n    with self.conexao.cursor() as cursor:\n        cursor.execute('DELETE FROM usu"
+    },
+    {
+      "type": "function",
+      "name": "salvar_perfil",
+      "snippet": "'Salva ou atualiza configura\u00e7\u00f5es do perfil (Upsert).'\nif not self.conectar():\n    return False\ntry:\n    config_json = json.dumps(configuracoes_dict)\n    with self.conexao.cursor() as cursor:\n        c"
+    },
+    {
+      "type": "function",
+      "name": "obter_favoritos",
+      "snippet": "'Busca todos os favoritos do usu\u00e1rio no banco.'\nif not self.conectar():\n    return []\ntry:\n    with self.conexao.cursor() as cursor:\n        cursor.execute('SELECT song_id, titulo, artista FROM favori"
+    },
+    {
+      "type": "function",
+      "name": "adicionar_favorito",
+      "snippet": "'Adiciona uma m\u00fasica aos favoritos do usu\u00e1rio no banco.'\nif not self.conectar():\n    return False\ntry:\n    with self.conexao.cursor() as cursor:\n        cursor.execute('\\n                    INSERT IN"
+    },
+    {
+      "type": "function",
+      "name": "remover_favorito",
+      "snippet": "'Remove uma m\u00fasica dos favoritos do usu\u00e1rio no banco.'\nif not self.conectar():\n    return False\ntry:\n    with self.conexao.cursor() as cursor:\n        cursor.execute('DELETE FROM favoritos WHERE usuar"
+    }
+  ],
+  ".\\Core\\config.py": [
+    {
+      "type": "class",
+      "name": "Configuracoes",
+      "snippet": "'\\nComo funciona: Representa a estrutura de Configuracoes configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a Configuracoes.\\n    Onde \u00e9 usada: Utilizada no fl"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo co"
+    },
+    {
+      "type": "function",
+      "name": "gerar_superficie_cores",
+      "snippet": "'\\nComo funciona: Executa a rotina de gerar superficie cores configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a gerar superficie cores.\\n    Onde \u00e9 usada: Uti"
+    },
+    {
+      "type": "function",
+      "name": "get_alpha",
+      "snippet": "'\\nComo funciona: Executa a rotina de get alpha configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a get alpha.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo "
+    },
+    {
+      "type": "function",
+      "name": "get_cor_braco",
+      "snippet": "'\\nComo funciona: Executa a rotina de get cor braco configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a get cor braco.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "get_cor_notas",
+      "snippet": "'\\nComo funciona: Executa a rotina de get cor notas configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a get cor notas.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "get_modo_texto",
+      "snippet": "'\\nComo funciona: Executa a rotina de get modo texto configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a get modo texto.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "get_fonte",
+      "snippet": "'\\nComo funciona: Executa a rotina de get fonte configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a get fonte.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo "
+    },
+    {
+      "type": "function",
+      "name": "get_vel_jogo",
+      "snippet": "'\\nComo funciona: Executa a rotina de get vel jogo configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a get vel jogo.\\n    Onde \u00e9 usada: Utilizada no fluxo do m"
+    },
+    {
+      "type": "function",
+      "name": "get_vol_fx",
+      "snippet": "'\\nComo funciona: Executa a rotina de get vol fx configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a get vol fx.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dul"
+    },
+    {
+      "type": "function",
+      "name": "get_particulas",
+      "snippet": "'\\nComo funciona: Executa a rotina de get particulas configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a get particulas.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "get_cor_tema",
+      "snippet": "'\\nComo funciona: Executa a rotina de get cor tema configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a get cor tema.\\n    Onde \u00e9 usada: Utilizada no fluxo do m"
+    },
+    {
+      "type": "function",
+      "name": "get_escala_nota",
+      "snippet": "'\\nComo funciona: Executa a rotina de get escala nota configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a get escala nota.\\n    Onde \u00e9 usada: Utilizada no flux"
+    },
+    {
+      "type": "function",
+      "name": "tratar_clique",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar clique configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar clique.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "processar_logica",
+      "snippet": "'\\nComo funciona: Executa a rotina de processar logica configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a processar logica.\\n    Onde \u00e9 usada: Utilizada no fl"
+    },
+    {
+      "type": "function",
+      "name": "desenhar",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo co"
+    },
+    {
+      "type": "function",
+      "name": "avancar_posicao",
+      "snippet": "'\\nComo funciona: Executa a rotina de avancar posicao configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a avancar posicao.\\n    Onde \u00e9 usada: Utilizada no flux"
+    },
+    {
+      "type": "function",
+      "name": "container",
+      "snippet": "'\\nComo funciona: Executa a rotina de container configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a container.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo "
+    }
+  ],
+  ".\\Core\\controlador_eventos.py": [
+    {
+      "type": "function",
+      "name": "processar",
+      "snippet": "'\\nComo funciona: Executa a rotina de processar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a processar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo "
+    },
+    {
+      "type": "function",
+      "name": "obter_draggers_ativos",
+      "snippet": "'\\nComo funciona: Executa a rotina de obter draggers ativos configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a obter draggers ativos.\\n    Onde \u00e9 usada: Utili"
+    },
+    {
+      "type": "function",
+      "name": "thread_busca",
+      "snippet": "'\\nComo funciona: Executa a rotina de thread busca configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a thread busca.\\n    Onde \u00e9 usada: Utilizada no fluxo do m"
+    },
+    {
+      "type": "function",
+      "name": "thread_busca",
+      "snippet": "'\\nComo funciona: Executa a rotina de thread busca configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a thread busca.\\n    Onde \u00e9 usada: Utilizada no fluxo do m"
+    }
+  ],
+  ".\\Core\\estado_app.py": [
+    {
+      "type": "class",
+      "name": "EstadoGlobal",
+      "snippet": "'\\nComo funciona: Representa a estrutura de EstadoGlobal configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a EstadoGlobal.\\n    Onde \u00e9 usada: Utilizada no flux"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo es"
+    },
+    {
+      "type": "function",
+      "name": "atualizar_medidas",
+      "snippet": "'\\nComo funciona: Executa a rotina de atualizar medidas configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a atualizar medidas.\\n    Onde \u00e9 usada: Utilizada no "
+    }
+  ],
+  ".\\Core\\i18n.py": [
+    {
+      "type": "class",
+      "name": "TradutorDinamico",
+      "snippet": "'\\nComo funciona: Representa a estrutura de TradutorDinamico configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a TradutorDinamico.\\n    Onde \u00e9 usada: Utilizada"
+    },
+    {
+      "type": "function",
+      "name": "_t",
+      "snippet": "'\\nComo funciona: Executa a rotina de  t configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  t.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo i18n.\\n'\nretur"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo i1"
+    },
+    {
+      "type": "function",
+      "name": "_carregar_cache",
+      "snippet": "'\\nComo funciona: Executa a rotina de  carregar cache configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  carregar cache.\\n    Onde \u00e9 usada: Utilizada no flux"
+    },
+    {
+      "type": "function",
+      "name": "_salvar_cache",
+      "snippet": "'\\nComo funciona: Executa a rotina de  salvar cache configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  salvar cache.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "atualizar_configuracao",
+      "snippet": "'\\nComo funciona: Executa a rotina de atualizar configuracao configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a atualizar configuracao.\\n    Onde \u00e9 usada: Uti"
+    },
+    {
+      "type": "function",
+      "name": "traduzir",
+      "snippet": "'\\nComo funciona: Executa a rotina de traduzir configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a traduzir.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo i1"
+    },
+    {
+      "type": "function",
+      "name": "_worker_loop",
+      "snippet": "'\\nComo funciona: Executa a rotina de  worker loop configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  worker loop.\\n    Onde \u00e9 usada: Utilizada no fluxo do m"
+    }
+  ],
+  ".\\DragDrop\\elemento_arrastavel.py": [
+    {
+      "type": "class",
+      "name": "ElementoArrastavel",
+      "snippet": "'\\nComo funciona: Representa a estrutura de ElementoArrastavel configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a ElementoArrastavel.\\n    Onde \u00e9 usada: Utili"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo el"
+    },
+    {
+      "type": "function",
+      "name": "atualizar_dimensoes",
+      "snippet": "'\\nComo funciona: Executa a rotina de atualizar dimensoes configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a atualizar dimensoes.\\n    Onde \u00e9 usada: Utilizada"
+    },
+    {
+      "type": "function",
+      "name": "obter_cantos",
+      "snippet": "'\\nComo funciona: Executa a rotina de obter cantos configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a obter cantos.\\n    Onde \u00e9 usada: Utilizada no fluxo do m"
+    },
+    {
+      "type": "function",
+      "name": "processar_eventos_mouse",
+      "snippet": "'\\nComo funciona: Executa a rotina de processar eventos mouse configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a processar eventos mouse.\\n    Onde \u00e9 usada: U"
+    },
+    {
+      "type": "function",
+      "name": "desenhar_caixa_selecao",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar caixa selecao configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar caixa selecao.\\n    Onde \u00e9 usada: Uti"
+    }
+  ],
+  ".\\Estudos\\estudo_acordes_pratico.py": [
+    {
+      "type": "class",
+      "name": "EstudoAcordesPratico",
+      "snippet": "'\\nComo funciona: Representa a estrutura de EstudoAcordesPratico configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a EstudoAcordesPratico.\\n    Onde \u00e9 usada: U"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo es"
+    },
+    {
+      "type": "function",
+      "name": "inicializar_questao",
+      "snippet": "'\\nComo funciona: Executa a rotina de inicializar questao configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a inicializar questao.\\n    Onde \u00e9 usada: Utilizada"
+    },
+    {
+      "type": "function",
+      "name": "desenhar",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo es"
+    },
+    {
+      "type": "function",
+      "name": "tratar_cliques",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar cliques configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar cliques.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    }
+  ],
+  ".\\Estudos\\estudo_ciclo_quintas.py": [
+    {
+      "type": "class",
+      "name": "EstudoCicloQuintas",
+      "snippet": "'\\nComo funciona: Representa a estrutura de EstudoCicloQuintas configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a EstudoCicloQuintas.\\n    Onde \u00e9 usada: Utili"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo es"
+    },
+    {
+      "type": "function",
+      "name": "inicializar",
+      "snippet": "'\\nComo funciona: Executa a rotina de inicializar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a inicializar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3d"
+    },
+    {
+      "type": "function",
+      "name": "gerar_pergunta",
+      "snippet": "'\\nComo funciona: Executa a rotina de gerar pergunta configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a gerar pergunta.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "desenhar",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo es"
+    },
+    {
+      "type": "function",
+      "name": "_desenhar_painel_escala",
+      "snippet": "'\\nComo funciona: Executa a rotina de  desenhar painel escala configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  desenhar painel escala.\\n    Onde \u00e9 usada: U"
+    },
+    {
+      "type": "function",
+      "name": "_desenhar_painel_campo",
+      "snippet": "'\\nComo funciona: Executa a rotina de  desenhar painel campo configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  desenhar painel campo.\\n    Onde \u00e9 usada: Uti"
+    },
+    {
+      "type": "function",
+      "name": "_desenhar_painel_sequencias",
+      "snippet": "'\\nComo funciona: Executa a rotina de  desenhar painel sequencias configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  desenhar painel sequencias.\\n    Onde \u00e9 "
+    },
+    {
+      "type": "function",
+      "name": "_desenhar_painel_explorar",
+      "snippet": "'\\nComo funciona: Executa a rotina de  desenhar painel explorar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  desenhar painel explorar.\\n    Onde \u00e9 usad"
+    },
+    {
+      "type": "function",
+      "name": "_desenhar_painel_desafio",
+      "snippet": "'\\nComo funciona: Executa a rotina de  desenhar painel desafio configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  desenhar painel desafio.\\n    Onde \u00e9 usada:"
+    },
+    {
+      "type": "function",
+      "name": "_desenhar_braco_mini",
+      "snippet": "'\\nComo funciona: Executa a rotina de  desenhar braco mini configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  desenhar braco mini.\\n    Onde \u00e9 usada: Utiliza"
+    },
+    {
+      "type": "function",
+      "name": "tratar_cliques",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar cliques configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar cliques.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    }
+  ],
+  ".\\Estudos\\estudo_escalas.py": [
+    {
+      "type": "class",
+      "name": "EstudoEscalas",
+      "snippet": "'\\nComo funciona: Representa a estrutura de EstudoEscalas configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a EstudoEscalas.\\n    Onde \u00e9 usada: Utilizada no fl"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo es"
+    },
+    {
+      "type": "function",
+      "name": "inicializar_questao",
+      "snippet": "'\\nComo funciona: Executa a rotina de inicializar questao configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a inicializar questao.\\n    Onde \u00e9 usada: Utilizada"
+    },
+    {
+      "type": "function",
+      "name": "desenhar",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo es"
+    },
+    {
+      "type": "function",
+      "name": "tratar_cliques",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar cliques configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar cliques.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    }
+  ],
+  ".\\Estudos\\estudo_notas.py": [
+    {
+      "type": "class",
+      "name": "AcerteANota",
+      "snippet": "'\\nComo funciona: Representa a estrutura de AcerteANota configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a AcerteANota.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo es"
+    },
+    {
+      "type": "function",
+      "name": "_carregar_sons",
+      "snippet": "'\\nComo funciona: Executa a rotina de  carregar sons configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  carregar sons.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "_gerar_amostra",
+      "snippet": "'\\nComo funciona: Executa a rotina de  gerar amostra configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  gerar amostra.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "inicializar_questao",
+      "snippet": "'\\nComo funciona: Executa a rotina de inicializar questao configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a inicializar questao.\\n    Onde \u00e9 usada: Utilizada"
+    },
+    {
+      "type": "function",
+      "name": "tocar_nota_atual",
+      "snippet": "'\\nComo funciona: Executa a rotina de tocar nota atual configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tocar nota atual.\\n    Onde \u00e9 usada: Utilizada no fl"
+    },
+    {
+      "type": "function",
+      "name": "desenhar",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo es"
+    },
+    {
+      "type": "function",
+      "name": "tratar_cliques",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar cliques configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar cliques.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "verificar_resposta",
+      "snippet": "'\\nComo funciona: Executa a rotina de verificar resposta configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a verificar resposta.\\n    Onde \u00e9 usada: Utilizada n"
+    },
+    {
+      "type": "function",
+      "name": "verificar_clique_mapeamento",
+      "snippet": "'\\nComo funciona: Executa a rotina de verificar clique mapeamento configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a verificar clique mapeamento.\\n    Onde \u00e9 "
+    }
+  ],
+  ".\\Interface\\fabrica_escalas.py": [
+    {
+      "type": "function",
+      "name": "gerar_modulos",
+      "snippet": "'\\nComo funciona: Executa a rotina de gerar modulos configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a gerar modulos.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "carregar",
+      "snippet": "'\\nComo funciona: Executa a rotina de carregar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a carregar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo fa"
+    }
+  ],
+  ".\\Interface\\gerenciador_interface.py": [
+    {
+      "type": "function",
+      "name": "obter_lista_ativa",
+      "snippet": "'\\nComo funciona: Executa a rotina de obter lista ativa configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a obter lista ativa.\\n    Onde \u00e9 usada: Utilizada no "
+    },
+    {
+      "type": "function",
+      "name": "desenhar_escalas_ativas",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar escalas ativas configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar escalas ativas.\\n    Onde \u00e9 usada: U"
+    },
+    {
+      "type": "function",
+      "name": "tratar_cliques_escalas",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar cliques escalas configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar cliques escalas.\\n    Onde \u00e9 usada: Uti"
+    }
+  ],
+  ".\\Interface\\renderizador_ui.py": [
+    {
+      "type": "function",
+      "name": "desenhar_workspace",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar workspace configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar workspace.\\n    Onde \u00e9 usada: Utilizada n"
+    },
+    {
+      "type": "function",
+      "name": "desenhar_ui_fixa",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar ui fixa configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar ui fixa.\\n    Onde \u00e9 usada: Utilizada no fl"
+    },
+    {
+      "type": "function",
+      "name": "_desenhar_tela_cheia_tablatura",
+      "snippet": "'\\nComo funciona: Executa a rotina de  desenhar tela cheia tablatura configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  desenhar tela cheia tablatura.\\n    O"
+    },
+    {
+      "type": "function",
+      "name": "desenhar_tudo",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar tudo configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar tudo.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    }
+  ],
+  ".\\Interface\\tela_login.py": [
+    {
+      "type": "class",
+      "name": "TelaAutenticacao",
+      "snippet": "'\\nComo funciona: Representa a estrutura de TelaAutenticacao configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a TelaAutenticacao.\\n    Onde \u00e9 usada: Utilizada"
+    },
+    {
+      "type": "function",
+      "name": "iniciar_fluxo_autenticacao",
+      "snippet": "'\\nComo funciona: Executa a rotina de iniciar fluxo autenticacao configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a iniciar fluxo autenticacao.\\n    Onde \u00e9 us"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo te"
+    },
+    {
+      "type": "function",
+      "name": "limpar_frame",
+      "snippet": "'\\nComo funciona: Executa a rotina de limpar frame configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a limpar frame.\\n    Onde \u00e9 usada: Utilizada no fluxo do m"
+    },
+    {
+      "type": "function",
+      "name": "mostrar_login",
+      "snippet": "'\\nComo funciona: Executa a rotina de mostrar login configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a mostrar login.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "mostrar_registro",
+      "snippet": "'\\nComo funciona: Executa a rotina de mostrar registro configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a mostrar registro.\\n    Onde \u00e9 usada: Utilizada no fl"
+    },
+    {
+      "type": "function",
+      "name": "toggle_senha",
+      "snippet": "'\\nComo funciona: Executa a rotina de toggle senha configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a toggle senha.\\n    Onde \u00e9 usada: Utilizada no fluxo do m"
+    },
+    {
+      "type": "function",
+      "name": "acao_login",
+      "snippet": "'\\nComo funciona: Executa a rotina de acao login configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a acao login.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dul"
+    },
+    {
+      "type": "function",
+      "name": "acao_registrar",
+      "snippet": "'\\nComo funciona: Executa a rotina de acao registrar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a acao registrar.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    }
+  ],
+  ".\\Interface\\ui_componentes.py": [
+    {
+      "type": "class",
+      "name": "DesenhoEscala",
+      "snippet": "'\\nComo funciona: Representa a estrutura de DesenhoEscala configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a DesenhoEscala.\\n    Onde \u00e9 usada: Utilizada no fl"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo ui"
+    },
+    {
+      "type": "function",
+      "name": "reconstruir_superficies",
+      "snippet": "'\\nComo funciona: Executa a rotina de reconstruir superficies configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a reconstruir superficies.\\n    Onde \u00e9 usada: U"
+    },
+    {
+      "type": "function",
+      "name": "tratar_clique",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar clique configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar clique.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "atualizar_e_desenhar",
+      "snippet": "'\\nComo funciona: Executa a rotina de atualizar e desenhar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a atualizar e desenhar.\\n    Onde \u00e9 usada: Utiliza"
+    }
+  ],
+  ".\\Interface\\Componentes\\audio_sidebar.py": [
+    {
+      "type": "function",
+      "name": "desenhar_painel_cores",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar painel cores configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar painel cores.\\n    Onde \u00e9 usada: Utili"
+    },
+    {
+      "type": "function",
+      "name": "desenhar_bloco_nota_atual",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar bloco nota atual configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar bloco nota atual.\\n    Onde \u00e9 usad"
+    }
+  ],
+  ".\\Interface\\Componentes\\bottom_nav.py": [
+    {
+      "type": "function",
+      "name": "quebrar_texto",
+      "snippet": "'\\nComo funciona: Executa a rotina de quebrar texto configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a quebrar texto.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "_desenhar_aba_ia",
+      "snippet": "'\\nComo funciona: Executa a rotina de  desenhar aba ia configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  desenhar aba ia.\\n    Onde \u00e9 usada: Utilizada no fl"
+    },
+    {
+      "type": "function",
+      "name": "_desenhar_aba_configuracao",
+      "snippet": "'\\nComo funciona: Executa a rotina de  desenhar aba configuracao configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  desenhar aba configuracao.\\n    Onde \u00e9 us"
+    },
+    {
+      "type": "function",
+      "name": "_desenhar_aba_estudos",
+      "snippet": "'\\nComo funciona: Executa a rotina de  desenhar aba estudos configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  desenhar aba estudos.\\n    Onde \u00e9 usada: Utili"
+    },
+    {
+      "type": "function",
+      "name": "_desenhar_aba_musicas",
+      "snippet": "'\\nComo funciona: Executa a rotina de  desenhar aba musicas configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  desenhar aba musicas.\\n    Onde \u00e9 usada: Utili"
+    },
+    {
+      "type": "function",
+      "name": "desenhar_secoes_inferiores_expansiveis",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar secoes inferiores expansiveis configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar secoes inferiores exp"
+    }
+  ],
+  ".\\Interface\\Componentes\\chord_selector.py": [
+    {
+      "type": "function",
+      "name": "desenhar_acordes_arrastaveis",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar acordes arrastaveis configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar acordes arrastaveis.\\n    Onde "
+    }
+  ],
+  ".\\Interface\\Componentes\\guitar_neck.py": [
+    {
+      "type": "function",
+      "name": "desenhar_guitarra",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar guitarra configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar guitarra.\\n    Onde \u00e9 usada: Utilizada no "
+    }
+  ],
+  ".\\Interface\\Componentes\\playback_controls.py": [
+    {
+      "type": "function",
+      "name": "desenhar_controles_playback",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar controles playback configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar controles playback.\\n    Onde \u00e9 "
+    }
+  ],
+  ".\\Interface\\Componentes\\tablatura_view.py": [
+    {
+      "type": "class",
+      "name": "BlocoTablatura",
+      "snippet": "'\\nComo funciona: Representa a estrutura de BlocoTablatura configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a BlocoTablatura.\\n    Onde \u00e9 usada: Utilizada no "
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo ta"
+    },
+    {
+      "type": "function",
+      "name": "carregar_dados_completos",
+      "snippet": "'\\nComo funciona: Executa a rotina de carregar dados completos configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a carregar dados completos.\\n    Onde \u00e9 usada:"
+    },
+    {
+      "type": "function",
+      "name": "desenhar",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo ta"
+    },
+    {
+      "type": "function",
+      "name": "_desenhar_sidebar",
+      "snippet": "'\\nComo funciona: Executa a rotina de  desenhar sidebar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  desenhar sidebar.\\n    Onde \u00e9 usada: Utilizada no "
+    },
+    {
+      "type": "function",
+      "name": "_desenhar_visualizador_tab",
+      "snippet": "'\\nComo funciona: Executa a rotina de  desenhar visualizador tab configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  desenhar visualizador tab.\\n    Onde \u00e9 us"
+    },
+    {
+      "type": "function",
+      "name": "_desenhar_visualizador_vazio",
+      "snippet": "'\\nComo funciona: Executa a rotina de  desenhar visualizador vazio configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  desenhar visualizador vazio.\\n    Onde "
+    },
+    {
+      "type": "function",
+      "name": "_desenhar_scrollbar",
+      "snippet": "'\\nComo funciona: Executa a rotina de  desenhar scrollbar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  desenhar scrollbar.\\n    Onde \u00e9 usada: Utilizada"
+    },
+    {
+      "type": "function",
+      "name": "tratar_clique",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar clique configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar clique.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "tratar_scroll",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar scroll configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar scroll.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "thread_task",
+      "snippet": "'\\nComo funciona: Executa a rotina de thread task configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a thread task.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3d"
+    }
+  ],
+  ".\\Interface\\Componentes\\top_bar.py": [
+    {
+      "type": "function",
+      "name": "desenhar_painel_superior",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar painel superior configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar painel superior.\\n    Onde \u00e9 usada:"
+    }
+  ],
+  ".\\Interface\\Componentes\\utils.py": [
+    {
+      "type": "function",
+      "name": "obter_grau",
+      "snippet": "'\\nComo funciona: Executa a rotina de obter grau configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a obter grau.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dul"
+    }
+  ],
+  ".\\Jogos\\acerte_a_nota.py": [
+    {
+      "type": "class",
+      "name": "AcerteANota",
+      "snippet": "'\\nComo funciona: Representa a estrutura de AcerteANota configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a AcerteANota.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo ac"
+    },
+    {
+      "type": "function",
+      "name": "_gerar_amostra_nota",
+      "snippet": "'\\nComo funciona: Executa a rotina de  gerar amostra nota configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  gerar amostra nota.\\n    Onde \u00e9 usada: Utilizada"
+    },
+    {
+      "type": "function",
+      "name": "equivalencia_notas",
+      "snippet": "'\\nComo funciona: Executa a rotina de equivalencia notas configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a equivalencia notas.\\n    Onde \u00e9 usada: Utilizada n"
+    },
+    {
+      "type": "function",
+      "name": "gerar_faiscas",
+      "snippet": "'\\nComo funciona: Executa a rotina de gerar faiscas configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a gerar faiscas.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "atualizar_audio_centralizado",
+      "snippet": "'\\nComo funciona: Executa a rotina de atualizar audio centralizado configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a atualizar audio centralizado.\\n    Onde "
+    },
+    {
+      "type": "function",
+      "name": "atualizar_fila_voz",
+      "snippet": "'\\nComo funciona: Executa a rotina de atualizar fila voz configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a atualizar fila voz.\\n    Onde \u00e9 usada: Utilizada n"
+    },
+    {
+      "type": "function",
+      "name": "gerar_notas_jogo",
+      "snippet": "'\\nComo funciona: Executa a rotina de gerar notas jogo configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a gerar notas jogo.\\n    Onde \u00e9 usada: Utilizada no fl"
+    },
+    {
+      "type": "function",
+      "name": "desenhar",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo ac"
+    },
+    {
+      "type": "function",
+      "name": "_desenhar_botao_seletor",
+      "snippet": "'\\nComo funciona: Executa a rotina de  desenhar botao seletor configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  desenhar botao seletor.\\n    Onde \u00e9 usada: U"
+    },
+    {
+      "type": "function",
+      "name": "tratar_clique",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar clique configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar clique.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "_alterar_dispositivo",
+      "snippet": "'\\nComo funciona: Executa a rotina de  alterar dispositivo configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  alterar dispositivo.\\n    Onde \u00e9 usada: Utiliza"
+    }
+  ],
+  ".\\Jogos\\jogo2.py": [
+    {
+      "type": "class",
+      "name": "RhythmHero",
+      "snippet": "'\\nComo funciona: Representa a estrutura de RhythmHero configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a RhythmHero.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo jo"
+    },
+    {
+      "type": "function",
+      "name": "inicializar",
+      "snippet": "'\\nComo funciona: Executa a rotina de inicializar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a inicializar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3d"
+    },
+    {
+      "type": "function",
+      "name": "iniciar_jogo",
+      "snippet": "'\\nComo funciona: Executa a rotina de iniciar jogo configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a iniciar jogo.\\n    Onde \u00e9 usada: Utilizada no fluxo do m"
+    },
+    {
+      "type": "function",
+      "name": "atualizar",
+      "snippet": "'\\nComo funciona: Executa a rotina de atualizar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a atualizar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo "
+    },
+    {
+      "type": "function",
+      "name": "mostrar_feedback",
+      "snippet": "'\\nComo funciona: Executa a rotina de mostrar feedback configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a mostrar feedback.\\n    Onde \u00e9 usada: Utilizada no fl"
+    },
+    {
+      "type": "function",
+      "name": "desenhar",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo jo"
+    },
+    {
+      "type": "function",
+      "name": "tratar_clique",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar clique configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar clique.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    }
+  ],
+  ".\\Jogos\\Jogos_interativos.py": [
+    {
+      "type": "class",
+      "name": "GerenciadorJogos",
+      "snippet": "'\\nComo funciona: Representa a estrutura de GerenciadorJogos configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a GerenciadorJogos.\\n    Onde \u00e9 usada: Utilizada"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo Jo"
+    },
+    {
+      "type": "function",
+      "name": "desenhar_aba_jogos",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar aba jogos configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar aba jogos.\\n    Onde \u00e9 usada: Utilizada n"
+    },
+    {
+      "type": "function",
+      "name": "desenhar_tela_jogo",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar tela jogo configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar tela jogo.\\n    Onde \u00e9 usada: Utilizada n"
+    },
+    {
+      "type": "function",
+      "name": "tratar_clique_tela_jogo",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar clique tela jogo configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar clique tela jogo.\\n    Onde \u00e9 usada: U"
+    },
+    {
+      "type": "function",
+      "name": "tratar_clique_aba",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar clique aba configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar clique aba.\\n    Onde \u00e9 usada: Utilizada no "
+    }
+  ],
+  ".\\Modulos\\detector_palhetadas.py": [
+    {
+      "type": "class",
+      "name": "DetectorPalhetadas",
+      "snippet": "'\\nComo funciona: Representa a estrutura de DetectorPalhetadas configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a DetectorPalhetadas.\\n    Onde \u00e9 usada: Utili"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo de"
+    },
+    {
+      "type": "function",
+      "name": "processar_buffer",
+      "snippet": "'\\nComo funciona: Executa a rotina de processar buffer configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a processar buffer.\\n    Onde \u00e9 usada: Utilizada no fl"
+    }
+  ],
+  ".\\Modulos\\escalas.py": [
+    {
+      "type": "function",
+      "name": "obter_nota",
+      "snippet": "'\\nComo funciona: Executa a rotina de obter nota configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a obter nota.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dul"
+    },
+    {
+      "type": "function",
+      "name": "obter_nota_por_intervalo",
+      "snippet": "'\\nComo funciona: Executa a rotina de obter nota por intervalo configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a obter nota por intervalo.\\n    Onde \u00e9 usada:"
+    },
+    {
+      "type": "function",
+      "name": "obter_terca",
+      "snippet": "'\\nComo funciona: Executa a rotina de obter terca configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a obter terca.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3d"
+    },
+    {
+      "type": "function",
+      "name": "obter_quinta",
+      "snippet": "'\\nComo funciona: Executa a rotina de obter quinta configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a obter quinta.\\n    Onde \u00e9 usada: Utilizada no fluxo do m"
+    },
+    {
+      "type": "function",
+      "name": "equivalencia_notas",
+      "snippet": "'\\nComo funciona: Executa a rotina de equivalencia notas configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a equivalencia notas.\\n    Onde \u00e9 usada: Utilizada n"
+    }
+  ],
+  ".\\Modulos\\gerenciador_ritmo.py": [
+    {
+      "type": "class",
+      "name": "MaestroRitmo",
+      "snippet": "'\\nComo funciona: Representa a estrutura de MaestroRitmo configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a MaestroRitmo.\\n    Onde \u00e9 usada: Utilizada no flux"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo ge"
+    },
+    {
+      "type": "function",
+      "name": "iniciar_treino",
+      "snippet": "'\\nComo funciona: Executa a rotina de iniciar treino configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a iniciar treino.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "atualizar",
+      "snippet": "'\\nComo funciona: Executa a rotina de atualizar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a atualizar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo "
+    },
+    {
+      "type": "function",
+      "name": "registrar_palhetada",
+      "snippet": "'\\nComo funciona: Executa a rotina de registrar palhetada configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a registrar palhetada.\\n    Onde \u00e9 usada: Utilizada"
+    },
+    {
+      "type": "function",
+      "name": "avancar_batida",
+      "snippet": "'\\nComo funciona: Executa a rotina de avancar batida configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a avancar batida.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "parar_treino",
+      "snippet": "'\\nComo funciona: Executa a rotina de parar treino configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a parar treino.\\n    Onde \u00e9 usada: Utilizada no fluxo do m"
+    }
+  ],
+  ".\\Modulos\\leitor_midi.py": [
+    {
+      "type": "class",
+      "name": "LeitorMIDI",
+      "snippet": "'\\nComo funciona: Representa a estrutura de LeitorMIDI configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a LeitorMIDI.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo le"
+    },
+    {
+      "type": "function",
+      "name": "ler",
+      "snippet": "'\\nComo funciona: Executa a rotina de ler configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a ler.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo leitor_midi."
+    },
+    {
+      "type": "function",
+      "name": "processar_track",
+      "snippet": "'\\nComo funciona: Executa a rotina de processar track configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a processar track.\\n    Onde \u00e9 usada: Utilizada no flux"
+    },
+    {
+      "type": "function",
+      "name": "read_vlv",
+      "snippet": "'\\nComo funciona: Executa a rotina de read vlv configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a read vlv.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo le"
+    },
+    {
+      "type": "function",
+      "name": "converter_para_tab",
+      "snippet": "'\\nComo funciona: Executa a rotina de converter para tab configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a converter para tab.\\n    Onde \u00e9 usada: Utilizada n"
+    }
+  ],
+  ".\\Modulos\\modulos_estudos.py": [
+    {
+      "type": "class",
+      "name": "EstudoAcordes",
+      "snippet": "'\\nComo funciona: Representa a estrutura de EstudoAcordes configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a EstudoAcordes.\\n    Onde \u00e9 usada: Utilizada no fl"
+    },
+    {
+      "type": "class",
+      "name": "GerenciadorEstudos",
+      "snippet": "'\\nComo funciona: Representa a estrutura de GerenciadorEstudos configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a GerenciadorEstudos.\\n    Onde \u00e9 usada: Utili"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo mo"
+    },
+    {
+      "type": "function",
+      "name": "inicializar_questao",
+      "snippet": "'\\nComo funciona: Executa a rotina de inicializar questao configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a inicializar questao.\\n    Onde \u00e9 usada: Utilizada"
+    },
+    {
+      "type": "function",
+      "name": "desenhar",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo mo"
+    },
+    {
+      "type": "function",
+      "name": "tratar_cliques",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar cliques configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar cliques.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo mo"
+    },
+    {
+      "type": "function",
+      "name": "desenhar_tela_estudo",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar tela estudo configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar tela estudo.\\n    Onde \u00e9 usada: Utiliza"
+    },
+    {
+      "type": "function",
+      "name": "_limpar_modulos",
+      "snippet": "'\\nComo funciona: Executa a rotina de  limpar modulos configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a  limpar modulos.\\n    Onde \u00e9 usada: Utilizada no flux"
+    },
+    {
+      "type": "function",
+      "name": "tratar_eventos",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar eventos configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar eventos.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    }
+  ],
+  ".\\Modulos\\modulo_camera.py": [
+    {
+      "type": "class",
+      "name": "CameraWorkspace",
+      "snippet": "'\\nComo funciona: Representa a estrutura de CameraWorkspace configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a CameraWorkspace.\\n    Onde \u00e9 usada: Utilizada n"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo mo"
+    },
+    {
+      "type": "function",
+      "name": "obter_mouse_virtual",
+      "snippet": "'\\nComo funciona: Executa a rotina de obter mouse virtual configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a obter mouse virtual.\\n    Onde \u00e9 usada: Utilizada"
+    },
+    {
+      "type": "function",
+      "name": "tratar_eventos_camera",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar eventos camera configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar eventos camera.\\n    Onde \u00e9 usada: Utili"
+    },
+    {
+      "type": "function",
+      "name": "renderizar",
+      "snippet": "'\\nComo funciona: Executa a rotina de renderizar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a renderizar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dul"
+    }
+  ],
+  ".\\Modulos\\modulo_campo_harmonico.py": [
+    {
+      "type": "class",
+      "name": "CampoHarmonico",
+      "snippet": "'\\nComo funciona: Representa a estrutura de CampoHarmonico configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a CampoHarmonico.\\n    Onde \u00e9 usada: Utilizada no "
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo mo"
+    },
+    {
+      "type": "function",
+      "name": "calcular_notas_acorde_selecionado",
+      "snippet": "'\\nComo funciona: Executa a rotina de calcular notas acorde selecionado configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a calcular notas acorde selecionado.\\"
+    },
+    {
+      "type": "function",
+      "name": "desenhar",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo mo"
+    },
+    {
+      "type": "function",
+      "name": "tratar_clique",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar clique configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar clique.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    }
+  ],
+  ".\\Modulos\\modulo_menu_contexto.py": [
+    {
+      "type": "class",
+      "name": "MenuContexto",
+      "snippet": "'\\nComo funciona: Representa a estrutura de MenuContexto configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a MenuContexto.\\n    Onde \u00e9 usada: Utilizada no flux"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo mo"
+    },
+    {
+      "type": "function",
+      "name": "abrir",
+      "snippet": "'\\nComo funciona: Executa a rotina de abrir configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a abrir.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo modulo_m"
+    },
+    {
+      "type": "function",
+      "name": "fechar",
+      "snippet": "'\\nComo funciona: Executa a rotina de fechar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a fechar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo modulo"
+    },
+    {
+      "type": "function",
+      "name": "tratar_eventos",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar eventos configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar eventos.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "desenhar",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo mo"
+    }
+  ],
+  ".\\Modulos\\modulo_menu_superior.py": [
+    {
+      "type": "class",
+      "name": "MenuSuperior",
+      "snippet": "'\\nComo funciona: Representa a estrutura de MenuSuperior configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a MenuSuperior.\\n    Onde \u00e9 usada: Utilizada no flux"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo mo"
+    },
+    {
+      "type": "function",
+      "name": "recalcular_posicoes",
+      "snippet": "'\\nComo funciona: Executa a rotina de recalcular posicoes configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a recalcular posicoes.\\n    Onde \u00e9 usada: Utilizada"
+    },
+    {
+      "type": "function",
+      "name": "tratar_eventos",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar eventos configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar eventos.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "executar_acao",
+      "snippet": "'\\nComo funciona: Executa a rotina de executar acao configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a executar acao.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "calcular_centro_camera",
+      "snippet": "'\\nComo funciona: Executa a rotina de calcular centro camera configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a calcular centro camera.\\n    Onde \u00e9 usada: Uti"
+    },
+    {
+      "type": "function",
+      "name": "desenhar_modal_ideias",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar modal ideias configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar modal ideias.\\n    Onde \u00e9 usada: Utili"
+    },
+    {
+      "type": "function",
+      "name": "desenhar_modal_patrocine",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar modal patrocine configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar modal patrocine.\\n    Onde \u00e9 usada:"
+    },
+    {
+      "type": "function",
+      "name": "desenhar_modal_motivacao",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar modal motivacao configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar modal motivacao.\\n    Onde \u00e9 usada:"
+    },
+    {
+      "type": "function",
+      "name": "desenhar",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo mo"
+    }
+  ],
+  ".\\Modulos\\modulo_metronomo.py": [
+    {
+      "type": "class",
+      "name": "Metronomo",
+      "snippet": "'\\nComo funciona: Representa a estrutura de Metronomo configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a Metronomo.\\n    Onde \u00e9 usada: Utilizada no fluxo do m"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo mo"
+    },
+    {
+      "type": "function",
+      "name": "tratar_clique",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar clique configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar clique.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "tratar_teclado",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar teclado configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar teclado.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "processar_logica",
+      "snippet": "'\\nComo funciona: Executa a rotina de processar logica configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a processar logica.\\n    Onde \u00e9 usada: Utilizada no fl"
+    },
+    {
+      "type": "function",
+      "name": "desenhar_config",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar config configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar config.\\n    Onde \u00e9 usada: Utilizada no flux"
+    },
+    {
+      "type": "function",
+      "name": "desenhar_mini_metronomo",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar mini metronomo configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar mini metronomo.\\n    Onde \u00e9 usada: U"
+    }
+  ],
+  ".\\Modulos\\modulo_perfil.py": [
+    {
+      "type": "class",
+      "name": "GerenciadorPerfil",
+      "snippet": "'\\nComo funciona: Representa a estrutura de GerenciadorPerfil configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a GerenciadorPerfil.\\n    Onde \u00e9 usada: Utiliza"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo mo"
+    },
+    {
+      "type": "function",
+      "name": "abrir_modal_novo",
+      "snippet": "'\\nComo funciona: Executa a rotina de abrir modal novo configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a abrir modal novo.\\n    Onde \u00e9 usada: Utilizada no fl"
+    },
+    {
+      "type": "function",
+      "name": "abrir_modal_carregar",
+      "snippet": "'\\nComo funciona: Executa a rotina de abrir modal carregar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a abrir modal carregar.\\n    Onde \u00e9 usada: Utiliza"
+    },
+    {
+      "type": "function",
+      "name": "abrir_modal_conta",
+      "snippet": "'\\nComo funciona: Executa a rotina de abrir modal conta configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a abrir modal conta.\\n    Onde \u00e9 usada: Utilizada no "
+    },
+    {
+      "type": "function",
+      "name": "fechar_modal",
+      "snippet": "'\\nComo funciona: Executa a rotina de fechar modal configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a fechar modal.\\n    Onde \u00e9 usada: Utilizada no fluxo do m"
+    },
+    {
+      "type": "function",
+      "name": "restaurar_padrao",
+      "snippet": "'\\nComo funciona: Executa a rotina de restaurar padrao configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a restaurar padrao.\\n    Onde \u00e9 usada: Utilizada no fl"
+    },
+    {
+      "type": "function",
+      "name": "salvar_perfil",
+      "snippet": "'\\nComo funciona: Executa a rotina de salvar perfil configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a salvar perfil.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "carregar_perfil",
+      "snippet": "'\\nComo funciona: Executa a rotina de carregar perfil configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a carregar perfil.\\n    Onde \u00e9 usada: Utilizada no flux"
+    },
+    {
+      "type": "function",
+      "name": "deletar_perfil_atual",
+      "snippet": "'\\nComo funciona: Executa a rotina de deletar perfil atual configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a deletar perfil atual.\\n    Onde \u00e9 usada: Utiliza"
+    },
+    {
+      "type": "function",
+      "name": "salvar_ultimo_perfil_config",
+      "snippet": "'\\nComo funciona: Executa a rotina de salvar ultimo perfil config configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a salvar ultimo perfil config.\\n    Onde \u00e9 "
+    },
+    {
+      "type": "function",
+      "name": "carregar_ultimo_perfil",
+      "snippet": "'\\nComo funciona: Executa a rotina de carregar ultimo perfil configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a carregar ultimo perfil.\\n    Onde \u00e9 usada: Uti"
+    },
+    {
+      "type": "function",
+      "name": "tratar_eventos",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar eventos configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar eventos.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "desenhar",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo mo"
+    }
+  ],
+  ".\\Modulos\\modulo_processamento.py": [
+    {
+      "type": "class",
+      "name": "ProcessadorAudio",
+      "snippet": "'\\nComo funciona: Representa a estrutura de ProcessadorAudio configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a ProcessadorAudio.\\n    Onde \u00e9 usada: Utilizada"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo mo"
+    },
+    {
+      "type": "function",
+      "name": "atualizar_afinacao",
+      "snippet": "'\\nComo funciona: Executa a rotina de atualizar afinacao configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a atualizar afinacao.\\n    Onde \u00e9 usada: Utilizada n"
+    },
+    {
+      "type": "function",
+      "name": "processar_logica_continua",
+      "snippet": "'\\nComo funciona: Executa a rotina de processar logica continua configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a processar logica continua.\\n    Onde \u00e9 usad"
+    },
+    {
+      "type": "function",
+      "name": "tratar_clique",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar clique configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar clique.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "desenhar_aba_ia",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar aba ia configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar aba ia.\\n    Onde \u00e9 usada: Utilizada no flux"
+    }
+  ],
+  ".\\Modulos\\modulo_songsterr.py": [
+    {
+      "type": "class",
+      "name": "SongsterrAPI",
+      "snippet": "'\\nComo funciona: Representa a estrutura de SongsterrAPI configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a SongsterrAPI.\\n    Onde \u00e9 usada: Utilizada no flux"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo mo"
+    },
+    {
+      "type": "function",
+      "name": "buscar_musicas",
+      "snippet": "'\\nComo funciona: Executa a rotina de buscar musicas configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a buscar musicas.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "obter_detalhes_completos",
+      "snippet": "'\\nComo funciona: Executa a rotina de obter detalhes completos configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a obter detalhes completos.\\n    Onde \u00e9 usada:"
+    },
+    {
+      "type": "function",
+      "name": "baixar_midi",
+      "snippet": "'\\nComo funciona: Executa a rotina de baixar midi configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a baixar midi.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3d"
+    },
+    {
+      "type": "function",
+      "name": "obter_detalhes_revisao",
+      "snippet": "'\\nComo funciona: Executa a rotina de obter detalhes revisao configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a obter detalhes revisao.\\n    Onde \u00e9 usada: Uti"
+    },
+    {
+      "type": "function",
+      "name": "gerar_link_midi",
+      "snippet": "'\\nComo funciona: Executa a rotina de gerar link midi configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a gerar link midi.\\n    Onde \u00e9 usada: Utilizada no flux"
+    }
+  ],
+  ".\\Modulos\\modulo_suporte.py": [
+    {
+      "type": "class",
+      "name": "TutorialSuporte",
+      "snippet": "'\\nComo funciona: Representa a estrutura de TutorialSuporte configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a TutorialSuporte.\\n    Onde \u00e9 usada: Utilizada n"
+    },
+    {
+      "type": "function",
+      "name": "__init__",
+      "snippet": "'\\nComo funciona: Executa a rotina de   init   configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a   init  .\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo mo"
+    },
+    {
+      "type": "function",
+      "name": "quebrar_texto",
+      "snippet": "'\\nComo funciona: Executa a rotina de quebrar texto configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a quebrar texto.\\n    Onde \u00e9 usada: Utilizada no fluxo do"
+    },
+    {
+      "type": "function",
+      "name": "tratar_eventos",
+      "snippet": "'\\nComo funciona: Executa a rotina de tratar eventos configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a tratar eventos.\\n    Onde \u00e9 usada: Utilizada no fluxo "
+    },
+    {
+      "type": "function",
+      "name": "calcular_centro_camera",
+      "snippet": "'\\nComo funciona: Executa a rotina de calcular centro camera configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a calcular centro camera.\\n    Onde \u00e9 usada: Uti"
+    },
+    {
+      "type": "function",
+      "name": "desenhar",
+      "snippet": "'\\nComo funciona: Executa a rotina de desenhar configurando seus atributos e estado.\\n    Para que serve: Gerencia opera\u00e7\u00f5es relacionadas a desenhar.\\n    Onde \u00e9 usada: Utilizada no fluxo do m\u00f3dulo mo"
+    }
+  ],
+  ".\\Tools\\deep_search_tab.py": [
+    {
+      "type": "function",
+      "name": "search",
+      "snippet": "with open('song_page.html', 'r', encoding='utf-8') as f:\n    content = f.read()\nurls = re.findall('https://static\\\\.songsterr\\\\.com/[^\\\\\"\\\\\\'\\\\s]+\\\\.json', content)\nprint(f'JSON URLs: {urls}')\nif 'mea"
+    },
+    {
+      "type": "function",
+      "name": "find_tab_data",
+      "snippet": "if isinstance(obj, dict):\n    if 'f' in obj and 's' in obj and isinstance(obj['f'], (int, float)):\n        return [(path, obj)]\n    results = []\n    for k, v in obj.items():\n        results.extend(fin"
+    }
+  ],
+  ".\\Tools\\find_keys.py": [
+    {
+      "type": "function",
+      "name": "find_keys",
+      "snippet": "if isinstance(obj, dict):\n    for k, v in obj.items():\n        if any((tk in k.lower() for tk in target_keys)):\n            print(f\"Found key '{k}' at path: {path}.{k}\")\n        find_keys(v, target_ke"
+    }
+  ],
+  ".\\Tools\\refatorador_comentarios.py": [
+    {
+      "type": "function",
+      "name": "generate_docstring",
+      "snippet": "if is_class:\n    func_type = 'Classe'\n    action = 'Representa a estrutura de'\nelse:\n    func_type = 'Fun\u00e7\u00e3o/M\u00e9todo'\n    action = 'Executa a rotina de'\nname_clean = name.replace('_', ' ')\ndoc = f'\\n  "
+    },
+    {
+      "type": "function",
+      "name": "process_file",
+      "snippet": "try:\n    with open(filepath, 'r', encoding='utf-8') as f:\n        source = f.read()\n    tree = ast.parse(source)\n    module_name = os.path.basename(filepath).replace('.py', '')\n    for node in ast.wal"
+    },
+    {
+      "type": "function",
+      "name": "main",
+      "snippet": "directories = ['Core', 'Modulos', 'Interface', 'Estudos', 'Jogos', 'DragDrop', 'AudioEngine']\nroot_files = ['main.py']\ntotal_processed = 0\nfor d in directories:\n    for root, dirs, files in os.walk(d)"
+    }
+  ]
+}
