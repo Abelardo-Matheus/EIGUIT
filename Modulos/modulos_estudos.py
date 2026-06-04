@@ -225,30 +225,39 @@ class GerenciadorEstudos:
         cam_y = estado.camera.offset_y if hasattr(estado, 'camera') else 0
         zoom = estado.camera.zoom if hasattr(estado, 'camera') else 1.0
         pos_mouse_virtual = (cam_x + pos_mouse[0] / zoom, cam_y + pos_mouse[1] / zoom)
+        
         if evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
             estado.tela_estudo_ativa = False
             estado.estudo_ativo = ''
             self._limpar_modulos()
             return True
+
+        # Tenta delegar para o método tratar_eventos do módulo específico, se existir
+        modulo_ativo = None
+        if estado.estudo_ativo in ['Notas', 'Acerte a Nota', 'Acerte o Som', 'Acerte a Próxima']:
+            modulo_ativo = self.modulo_notas
+        elif estado.estudo_ativo in ['Escalas', 'Acerte a Escala']:
+            modulo_ativo = self.modulo_escalas
+        elif estado.estudo_ativo in ['Acordes', 'Acerte o Acorde']:
+            modulo_ativo = self.modulo_acordes
+        elif estado.estudo_ativo == 'Prática de Acordes':
+            modulo_ativo = self.modulo_acordes_pratico
+        elif estado.estudo_ativo == 'Ciclo de Quintas':
+            modulo_ativo = self.modulo_ciclo
+
+        if modulo_ativo and hasattr(modulo_ativo, 'tratar_eventos'):
+            if modulo_ativo.tratar_eventos(evento, pos_mouse_virtual, estado):
+                return True
+
+        # Fallback para tratar_cliques legados
         if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
             if self.rect_voltar.collidepoint(pos_mouse_virtual):
                 estado.tela_estudo_ativa = False
                 estado.estudo_ativo = ''
                 self._limpar_modulos()
                 return True
-            if estado.estudo_ativo in ['Notas', 'Acerte a Nota', 'Acerte o Som', 'Acerte a Próxima'] and self.modulo_notas:
-                if self.modulo_notas.tratar_cliques(pos_mouse_virtual, estado):
-                    return True
-            elif estado.estudo_ativo in ['Escalas', 'Acerte a Escala'] and self.modulo_escalas:
-                if self.modulo_escalas.tratar_cliques(pos_mouse_virtual, estado):
-                    return True
-            elif estado.estudo_ativo in ['Acordes', 'Acerte o Acorde'] and self.modulo_acordes:
-                if self.modulo_acordes.tratar_cliques(pos_mouse_virtual, estado):
-                    return True
-            elif estado.estudo_ativo == 'Prática de Acordes' and self.modulo_acordes_pratico:
-                if self.modulo_acordes_pratico.tratar_cliques(pos_mouse_virtual, estado):
-                    return True
-            elif estado.estudo_ativo == 'Ciclo de Quintas' and self.modulo_ciclo:
-                if self.modulo_ciclo.tratar_cliques(pos_mouse_virtual, estado):
+            
+            if modulo_ativo and hasattr(modulo_ativo, 'tratar_cliques'):
+                if modulo_ativo.tratar_cliques(pos_mouse_virtual, estado):
                     return True
         return False

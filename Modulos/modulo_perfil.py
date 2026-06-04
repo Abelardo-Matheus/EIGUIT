@@ -96,8 +96,8 @@ class GerenciadorPerfil:
         largura_topo = 650
         centro_x_global = largura_tela // 2
         largura_toolbar = 1100
-        y_acordes = 120 + altura_braco + 100
-        padroes = {'dragger_controles_topo': {'x': centro_x_global - largura_toolbar // 2, 'y': 40}, 'dragger_guitarra': {'x': centro_x_global - largura_braco // 2, 'y': 120}, 'dragger_acordes': {'x': centro_x_global - largura_braco // 2, 'y': y_acordes}, 'dragger_metronomo': {'x': centro_x_global + largura_braco // 2 - 240, 'y': y_acordes + 10}, 'dragger_painel_inferior': {'x': centro_x_global - largura_toolbar // 2, 'y': altura_tela - 75}, 'dragger_nota_atual': {'x': 30, 'y': altura_tela - 470}, 'dragger_cores': {'x': 30, 'y': altura_tela - 220}}
+        y_acordes = 125 + altura_braco + 100
+        padroes = {'dragger_controles_topo': {'x': centro_x_global - largura_toolbar // 2, 'y': 75}, 'dragger_guitarra': {'x': centro_x_global - largura_braco // 2, 'y': 125}, 'dragger_acordes': {'x': centro_x_global - largura_braco // 2, 'y': y_acordes}, 'dragger_metronomo': {'x': centro_x_global + largura_braco // 2 - 240, 'y': y_acordes + 10}, 'dragger_painel_inferior': {'x': centro_x_global - largura_toolbar // 2, 'y': altura_tela - 75}, 'dragger_nota_atual': {'x': 30, 'y': altura_tela - 470}, 'dragger_cores': {'x': 30, 'y': altura_tela - 220}}
         for nome, coords in padroes.items():
             if hasattr(estado, nome):
                 obj = getattr(estado, nome)

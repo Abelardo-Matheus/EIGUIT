@@ -5,7 +5,16 @@ from Interface import gerenciador_interface
 from Core.constantes_ui import *
 from Jogos.Jogos_interativos import GerenciadorJogos
 import Modulos.modulos_estudos as modulo_estudos
-from Interface.Componentes import desenhar_painel_superior, desenhar_guitarra, desenhar_acordes_arrastaveis, desenhar_controles_playback, desenhar_bloco_nota_atual, desenhar_painel_cores, desenhar_secoes_inferiores_expansiveis
+from Interface.Componentes import (
+    desenhar_painel_superior, 
+    desenhar_controles_instrumento,
+    desenhar_guitarra, 
+    desenhar_acordes_arrastaveis, 
+    desenhar_controles_playback, 
+    desenhar_bloco_nota_atual, 
+    desenhar_painel_cores, 
+    desenhar_secoes_inferiores_expansiveis
+)
 from Interface.Componentes.utils import obter_grau, equivalencia_notas
 
 def desenhar_workspace(tela, estado, configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos):
@@ -19,6 +28,10 @@ def desenhar_workspace(tela, estado, configs, dicionario_escalas, fontes, meu_me
             desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_harmonico, dragger_obj=guit)
     else:
         desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_harmonico)
+    
+    # Novos controles de instrumento (Casas, Afinacao, Instrumento) - Seguem a camera
+    desenhar_controles_instrumento(tela, estado, fontes, configs)
+    
     desenhar_acordes_arrastaveis(tela, estado, meu_campo_harmonico, fontes)
     desenhar_painel_cores(tela, estado, fontes)
     desenhar_bloco_nota_atual(tela, estado, fontes, configs)
@@ -36,21 +49,24 @@ def desenhar_ui_fixa(tela, estado, fontes, meu_gravador, configs, meu_gerenciado
     """
     largura_real = tela.get_width()
     altura_real = tela.get_height()
+    
+    # 2. Telas em destaque (Estudo / Jogo)
     if getattr(estado, 'tab_tela_cheia_ativa', False) and hasattr(estado, 'tab_focada'):
         _desenhar_tela_cheia_tablatura(tela, largura_real, altura_real, estado, fontes)
-        return
-    if getattr(estado, 'tela_estudo_ativa', False):
+    elif getattr(estado, 'tela_estudo_ativa', False):
         if not hasattr(estado, 'gerenciador_estudos'):
             estado.gerenciador_estudos = modulo_estudos.GerenciadorEstudos()
         estado.gerenciador_estudos.desenhar_tela_estudo(tela, largura_real, altura_real, estado, fontes)
-        return
     elif estado.tela_jogo_ativa:
         meu_gerenciador_jogos.desenhar_tela_jogo(tela, largura_real, altura_real, estado, meu_gravador, configs)
-        return
+    
+    # 3. BARRA SUPERIOR E MENUS (SEMPRE NO TOPO)
     desenhar_painel_superior(tela, estado, fontes, configs)
     if hasattr(estado, 'menu_superior'):
         estado.menu_superior.desenhar(tela, fontes['ui'], estado)
-    if hasattr(estado, 'gerenciador_perfil'):
+
+    # 4. Elementos sobrepostos (Perfil / Menus de Contexto)
+    if hasattr(estado, 'gerenciador_perfil') and estado.gerenciador_perfil.ativo:
         estado.gerenciador_perfil.desenhar(tela, fontes['titulo'], fontes['ui'], estado)
     if hasattr(estado, 'menu_contexto'):
         estado.menu_contexto.desenhar(tela, fontes['ui'])

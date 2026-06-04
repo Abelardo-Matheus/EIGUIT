@@ -37,29 +37,23 @@ class MenuSuperior:
         self.rects_dropdown = []
         self.largura_dropdown = 220
 
-    def recalcular_posicoes(self, largura_total):
+    def recalcular_posicoes(self, largura_total=0):
         """
-            Como funciona: Executa o fluxo lógico necessário para a operação 'recalcular posicoes'.
-            Para que serve: Realiza as tarefas fundamentais de 'recalcular posicoes' dentro do contexto do módulo.
-            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'recalcular posicoes'.
+            Como funciona: Define posições fixas e compactas para os menus superiores.
         """
-        num_menus = len(self.ordem_menus)
-        largura_item = largura_total / num_menus
-        x_atual = 0
+        largura_item = 120
+        x_atual = 10
         self.rects_principais.clear()
         for menu in self.ordem_menus:
             self.rects_principais[menu] = pygame.Rect(x_atual, 0, largura_item, self.altura_barra)
             x_atual += largura_item
-        self.largura_total_menu = largura_total
+        self.largura_total_menu = x_atual
 
     def tratar_eventos(self, evento, pos_mouse, estado, configs=None, campo=None, gravador=None):
         """
             Como funciona: Verifica colisões e processa inputs do mouse/teclado.
-            Para que serve: Mapeia ações do usuário para atualizações de estado.
-            Onde é usada: Chamado a partir do módulo ou classe base de 'modulo_menu_superior'.
         """
-        largura_atual = estado.dragger_controles_topo.largura if hasattr(estado, 'dragger_controles_topo') else 620
-        self.recalcular_posicoes(largura_atual)
+        self.recalcular_posicoes()
         if self.gerenciador_suporte.aberto:
             if self.gerenciador_suporte.tratar_eventos([evento], pos_mouse):
                 return True

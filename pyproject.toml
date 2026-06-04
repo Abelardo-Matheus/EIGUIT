@@ -12,5 +12,6 @@ dependencies = [
     "numpy>=2.4.4",
     "psycopg[binary]>=3.2.5",
     "pygame>=2.6.1",
+    "rich>=13.7.0",
     "sounddevice>=0.5.5",
 ]

@@ -7,41 +7,78 @@ import Modulos.modulo_menu_superior as modulo_menu_superior
 from Interface.Componentes.tablatura_view import BlocoTablatura
 from Interface.Componentes.config_componentes import BOTTOM_OFFSET_AREA_DESENHO
 
+def obter_draggers_ativos(estado):
+    """
+        Como funciona: Acessa e formata dados internos ou de configuração.
+        Para que serve: Retorna as informações solicitadas sobre 'draggers ativos'.
+        Onde é usada: Chamado a partir do módulo ou classe base de 'controlador_eventos'.
+    """
+    lista = []
+    simples = ['dragger_controles_topo', 'dragger_cores', 'dragger_metronomo', 'dragger_acordes', 'dragger_painel_inferior', 'dragger_nota_atual']
+    for d in simples:
+        if hasattr(estado, d):
+            lista.append(getattr(estado, d))
+    if hasattr(estado, 'lista_guitarras'):
+        lista.extend(reversed(estado.lista_guitarras))
+    if hasattr(estado, 'lista_tabs'):
+        lista.extend(reversed(estado.lista_tabs))
+    return lista
+
 def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos):
     """
         Como funciona: Itera sobre a fila de eventos do Pygame, tratando entradas de teclado, mouse e gestos de câmera.
-        Para que serve: Despachar comandos do usuário para os módulos corretos (afinador, metrônomo, escalas, etc).
-        Onde é usada: Chamado a cada iteração do loop principal no controlador_eventos.py.
     """
     if not hasattr(estado, 'menu_contexto'):
         estado.menu_contexto = modulo_menu_contexto.MenuContexto()
     if not hasattr(estado, 'menu_superior'):
         estado.menu_superior = modulo_menu_superior.MenuSuperior()
+    
+    pos_mouse = pygame.mouse.get_pos()
+    pos_real = getattr(estado, 'pos_mouse_real', pos_mouse)
+
+    # 1. PRIORIDADE MÁXIMA: BARRA SUPERIOR E MENUS DE SISTEMA
+    # Isso garante que Pin, Arquivo, Perfil, etc funcionem SEMPRE.
+    for evento in eventos:
+        if evento.type == pygame.QUIT:
+            estado.solicitou_saida = True
+            
+        # Tratar Menu Superior
+        if estado.menu_superior.tratar_eventos(evento, pos_real, estado, configs, meu_campo_harmonico, meu_gravador):
+            dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
+            return # Bloqueia propagação
+
+        # Tratar Botão PIN (Edit Mode)
+        if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+            if hasattr(estado, 'rect_btn_pin') and estado.rect_btn_pin.collidepoint(pos_real):
+                estado.drag_ativado = not estado.drag_ativado
+                if not estado.drag_ativado:
+                    for dragger in obter_draggers_ativos(estado):
+                        dragger.arrastando = False
+                return # Bloqueia propagação
+
+    # 2. TELAS EM DESTAQUE (Estudo / Jogo)
     if hasattr(estado, 'gerenciador_perfil') and estado.gerenciador_perfil.ativo:
         if estado.gerenciador_perfil.tratar_eventos(eventos, estado, configs, meu_campo_harmonico, meu_gravador):
             dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
             return
+            
     if getattr(estado, 'tela_jogo_ativa', False):
         for evento in eventos:
-            if evento.type == pygame.QUIT:
-                estado.solicitou_saida = True
             if evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
                 estado.tela_jogo_ativa = False
                 meu_gerenciador_jogos.jogo_instancia = None
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                 meu_gerenciador_jogos.tratar_clique_tela_jogo(evento.pos, estado, meu_gravador)
         return
+
     if getattr(estado, 'tela_estudo_ativa', False):
         for evento in eventos:
-            if evento.type == pygame.QUIT:
-                estado.solicitou_saida = True
             if hasattr(estado, 'gerenciador_estudos'):
                 estado.gerenciador_estudos.tratar_eventos(evento, pygame.mouse.get_pos(), estado)
         return
+
     if getattr(estado, 'tab_tela_cheia_ativa', False):
         for evento in eventos:
-            if evento.type == pygame.QUIT:
-                estado.solicitou_saida = True
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                 if hasattr(estado, 'rect_voltar_tab') and estado.rect_voltar_tab.collidepoint(evento.pos):
                     estado.tab_tela_cheia_ativa = False
@@ -50,8 +87,8 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             if evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
                 estado.tab_tela_cheia_ativa = False
         return
-    pos_mouse = pygame.mouse.get_pos()
-    pos_real = getattr(estado, 'pos_mouse_real', pos_mouse)
+
+    # 3. WORKSPACE (Mesa de Trabalho)
     bloqueio_z_index = False
     dx_inf = estado.dragger_painel_inferior.x if hasattr(estado, 'dragger_painel_inferior') else 100
     dy_inf = estado.dragger_painel_inferior.y if hasattr(estado, 'dragger_painel_inferior') else estado.ALTURA_TELA - 50
@@ -65,22 +102,6 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                 bloqueio_z_index = True
             break
 
-    def obter_draggers_ativos(estado):
-        """
-            Como funciona: Acessa e formata dados internos ou de configuração.
-            Para que serve: Retorna as informações solicitadas sobre 'draggers ativos'.
-            Onde é usada: Chamado a partir do módulo ou classe base de 'controlador_eventos'.
-        """
-        lista = []
-        simples = ['dragger_controles_topo', 'dragger_cores', 'dragger_metronomo', 'dragger_acordes', 'dragger_painel_inferior', 'dragger_nota_atual']
-        for d in simples:
-            if hasattr(estado, d):
-                lista.append(getattr(estado, d))
-        if hasattr(estado, 'lista_guitarras'):
-            lista.extend(reversed(estado.lista_guitarras))
-        if hasattr(estado, 'lista_tabs'):
-            lista.extend(reversed(estado.lista_tabs))
-        return lista
     for evento in eventos:
         if evento.type == pygame.QUIT:
             estado.solicitou_saida = True
@@ -190,25 +211,48 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                     print(f'[DROP] MIDI Adicionado: {nome_arquivo}')
                 except Exception as e:
                     print(f'[DROP] Erro ao copiar MIDI: {e}')
-        if evento.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP):
-            for dragger in obter_draggers_ativos(estado):
-                is_fixo = dragger == getattr(estado, 'dragger_controles_topo', None)
-                if is_fixo:
+        if evento.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
+            # Prioridade para drag and drop global
+            draggers = obter_draggers_ativos(estado)
+            clicou_em_dragger = False
+            
+            # Processar eventos de mouse para todos os draggers
+            for dragger in draggers:
+                is_fixo = dragger in [getattr(estado, 'dragger_painel_inferior', None)]
+                
+                # Se for fixo, usa pos_real, senão usa pos_mouse (virtual)
+                pos_ref = pos_real if is_fixo else evento.pos
+                pode_interagir = estado.drag_ativado or isinstance(dragger, BlocoTablatura)
+                
+                if pode_interagir:
                     evt_dict = evento.dict.copy()
-                    evt_dict['pos'] = pos_real
+                    evt_dict['pos'] = pos_ref
                     evento_dragger = pygame.event.Event(evento.type, evt_dict)
-                    dragger.processar_eventos_mouse(evento_dragger)
-                else:
-                    pode_arrastar = estado.drag_ativado or isinstance(dragger, BlocoTablatura)
-                    if pode_arrastar:
-                        dragger.processar_eventos_mouse(evento)
+                    
+                    margem = 20 if (hasattr(dragger, 'num_cordas') or dragger == getattr(estado, 'dragger_guitarra', None)) else 5
+                    if dragger.processar_eventos_mouse(evento_dragger, margem_clique=margem):
+                        clicou_em_dragger = True
+                        
+                        # Atualizar lógica de redimensionamento específica para guitarra
                         is_guitarra = hasattr(dragger, 'num_cordas') or dragger == getattr(estado, 'dragger_guitarra', None)
-                        if is_guitarra and hasattr(dragger, 'redimensionando') and (evento.type == pygame.MOUSEMOTION) and dragger.redimensionando:
+                        if is_guitarra and hasattr(dragger, 'redimensionando') and dragger.redimensionando:
                             estado.LARGURA_BRACO = dragger.largura
                             estado.ALTURA_BRACO = dragger.altura
                             estado.atualizar_medidas()
-        if evento.type == pygame.MOUSEBUTTONUP and evento.button == 1 and estado.drag_ativado:
-            dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
+                        break
+            
+            if clicou_em_dragger:
+                continue
+
+        if evento.type == pygame.MOUSEBUTTONUP:
+            # Garantir limpeza de estados de drag
+            for dragger in obter_draggers_ativos(estado):
+                dragger.arrastando = False
+                dragger.redimensionando = False
+            
+            if evento.button == 1 and estado.drag_ativado:
+                 dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
+
         if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
             if hasattr(estado, 'rect_btn_pin') and estado.rect_btn_pin.collidepoint(pos_real):
                 estado.drag_ativado = not estado.drag_ativado
@@ -216,17 +260,27 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                     for dragger in obter_draggers_ativos(estado):
                         dragger.arrastando = False
                 continue
-            if hasattr(estado, 'btn_guit') and estado.btn_guit.collidepoint(pos_real):
+            
+            # Cliques nos novos botões de controle de instrumento (usam evento.pos virtual)
+            if hasattr(estado, 'btn_guit') and estado.btn_guit.collidepoint(evento.pos):
                 estado.instrumento = 'guitarra'
                 continue
-            if hasattr(estado, 'btn_baixo') and estado.btn_baixo.collidepoint(pos_real):
+            if hasattr(estado, 'btn_baixo') and estado.btn_baixo.collidepoint(evento.pos):
                 estado.instrumento = 'baixo'
                 continue
-            if hasattr(estado, 'btn_menos_afinacao') and estado.btn_menos_afinacao.collidepoint(pos_real):
+            if hasattr(estado, 'btn_menos_casa') and estado.btn_menos_casa.collidepoint(evento.pos):
+                estado.NUM_CASAS = max(1, estado.NUM_CASAS - 1)
+                estado.atualizar_medidas()
+                continue
+            if hasattr(estado, 'btn_mais_casa') and estado.btn_mais_casa.collidepoint(evento.pos):
+                estado.NUM_CASAS = min(36, estado.NUM_CASAS + 1)
+                estado.atualizar_medidas()
+                continue
+            if hasattr(estado, 'btn_menos_afinacao') and estado.btn_menos_afinacao.collidepoint(evento.pos):
                 estado.indice_afinacao = (estado.indice_afinacao - 1) % len(lista_afinacoes)
                 dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
                 continue
-            if hasattr(estado, 'btn_mais_afinacao') and estado.btn_mais_afinacao.collidepoint(pos_real):
+            if hasattr(estado, 'btn_mais_afinacao') and estado.btn_mais_afinacao.collidepoint(evento.pos):
                 estado.indice_afinacao = (estado.indice_afinacao + 1) % len(lista_afinacoes)
                 dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
                 continue
