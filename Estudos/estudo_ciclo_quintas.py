@@ -70,7 +70,6 @@ class EstudoCicloQuintas:
         self.pos_braco = [0.0, 320.0]
         self.pos_header = [0.0, 0.0] 
         self.pos_favoritas = [500.0, -35.0] # Offset relativo ao centro (meio_x - offset) 
-        self.pos_favoritas = [500.0, -35.0] # Offset relativo ao centro (meio_x - offset) 
         
         self.drag_item = None 
         self.drag_pos = (0, 0)
@@ -228,9 +227,34 @@ class EstudoCicloQuintas:
             if self.sub_modo_explorar == 'geral': self._desenhar_painel_explorar(tela, xi, yi, fontes, estado)
             elif self.sub_modo_explorar == 'escala': self._desenhar_painel_escala(tela, xi, yi, fontes)
             elif self.sub_modo_explorar == 'campo': self._desenhar_painel_campo(tela, xi, yi, fontes)
-            elif self.sub_modo_explorar == 'sequencias': self._desenhar_painel_sequencias(tela, xi, yi, fontes, centro, re, estado)
+            elif self.sub_modo_explorar == 'sequencias': 
+                self._desenhar_painel_sequencias(tela, xi, yi, fontes, centro, re, estado)
+                self._desenhar_favoritas(tela, fontes, meio_x, meio_y, estado)
         else: self._desenhar_painel_desafio(tela, xi, yi, fontes)
         self._desenhar_braco_mini(tela, meio_x + self.pos_braco[0], meio_y + self.pos_braco[1], fontes, estado)
+
+    def _desenhar_favoritas(self, tela, fontes, meio_x, meio_y, estado):
+        xq, yq = meio_x - self.pos_favoritas[0], meio_y + self.pos_favoritas[1]
+        self.rect_drag_layout_favoritas = pygame.Rect(xq - 10, yq - 30, 160, 260)
+        
+        # Background do painel
+        pygame.draw.rect(tela, (30, 30, 40), self.rect_drag_layout_favoritas, border_radius=12)
+        pygame.draw.rect(tela, (60, 60, 70), self.rect_drag_layout_favoritas, width=1, border_radius=12)
+
+        if estado.drag_ativado:
+            pygame.draw.rect(tela, (0, 160, 255), self.rect_drag_layout_favoritas, width=2, border_radius=12)
+            tela.blit(fontes['pequena'].render('MOVER FAVORITAS', True, (0, 160, 255)), (self.rect_drag_layout_favoritas.x, self.rect_drag_layout_favoritas.y - 20))
+
+        tela.blit(fontes['pequena'].render('Favoritas', True, (150, 150, 160)), (xq, yq - 20))
+        self.rects_quick_list = []
+        for iq in range(min(4, len(self.biblioteca_geral))):
+            sq = self.biblioteca_geral[iq]
+            rq = pygame.Rect(xq, yq + 10 + iq * 50, 140, 40)
+            pygame.draw.rect(tela, (40, 40, 50), rq, border_radius=8)
+            pygame.draw.rect(tela, (0, 160, 255), rq, width=1, border_radius=8)
+            tsq = fontes['pequena'].render(sq['nome'], True, BRANCO)
+            tela.blit(tsq, (rq.centerx - tsq.get_width() // 2, rq.centery - tsq.get_height() // 2))
+            self.rects_quick_list.append({'rect': rq, 'data': sq})
 
     def _desenhar_painel_escala(self, tela, x, y, fontes):
         idx = self.nota_selecionada_idx
@@ -310,17 +334,7 @@ class EstudoCicloQuintas:
                 yi += 70
         self.max_scroll_biblioteca = min(0, aza - (yi - y - self.scroll_y_biblioteca))
         tela.set_clip(clip)
-        xq, yq = centro[0] - re - 180, centro[1] - 100
-        tela.blit(fontes['pequena'].render('Favoritas', True, (150, 150, 160)), (xq, yq - 25))
-        self.rects_quick_list = []
-        for iq in range(min(4, len(self.biblioteca_geral))):
-            sq = self.biblioteca_geral[iq]
-            rq = pygame.Rect(xq, yq + iq * 50, 140, 40)
-            pygame.draw.rect(tela, (40, 40, 50), rq, border_radius=8)
-            pygame.draw.rect(tela, (0, 160, 255), rq, width=1, border_radius=8)
-            tsq = fontes['pequena'].render(sq['nome'], True, BRANCO)
-            tela.blit(tsq, (rq.centerx - tsq.get_width() // 2, rq.centery - tsq.get_height() // 2))
-            self.rects_quick_list.append({'rect': rq, 'data': sq})
+        
         if self.max_scroll_biblioteca < 0:
             por = self.scroll_y_biblioteca / self.max_scroll_biblioteca
             pygame.draw.rect(tela, (60, 60, 65), (x + lp - 8, y + (aza - 40) * por, 4, 40), border_radius=2)
@@ -434,13 +448,16 @@ class EstudoCicloQuintas:
                 elif hasattr(self, 'rect_drag_layout_roda') and self.rect_drag_layout_roda.collidepoint(pos): self.bloco_arrastando = 'roda'
                 elif hasattr(self, 'rect_drag_layout_braco') and self.rect_drag_layout_braco.collidepoint(pos): self.bloco_arrastando = 'braco'
                 elif hasattr(self, 'rect_drag_layout_header') and self.rect_drag_layout_header.collidepoint(pos): self.bloco_arrastando = 'header'
-                if self.bloco_arrastando: self.drag_offset_x, self.drag_offset_y = pos; return True
+                elif hasattr(self, 'rect_drag_layout_favoritas') and self.rect_drag_layout_favoritas.collidepoint(pos): self.bloco_arrastando = 'favoritas'
+                if self.bloco_arrastando:
+                    self.drag_offset_x, self.drag_offset_y = pos; return True
             if evento.type == pygame.MOUSEMOTION and self.bloco_arrastando:
                 dx, dy = pos[0] - self.drag_offset_x, pos[1] - self.drag_offset_y
                 if self.bloco_arrastando == 'info': self.pos_info[0] += dx; self.pos_info[1] += dy
                 elif self.bloco_arrastando == 'roda': self.pos_roda[0] -= dx; self.pos_roda[1] += dy
                 elif self.bloco_arrastando == 'braco': self.pos_braco[0] += dx; self.pos_braco[1] += dy
                 elif self.bloco_arrastando == 'header': self.pos_header[0] += dx; self.pos_header[1] += dy
+                elif self.bloco_arrastando == 'favoritas': self.pos_favoritas[0] -= dx; self.pos_favoritas[1] += dy
                 self.drag_offset_x, self.drag_offset_y = pos; return True
             if evento.type == pygame.MOUSEBUTTONUP: self.bloco_arrastando = None
         if evento.type == pygame.MOUSEWHEEL and self.sub_modo_explorar == 'sequencias' and hasattr(self, 'rect_zona_a') and self.rect_zona_a.collidepoint(pos):
