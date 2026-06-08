@@ -252,6 +252,20 @@ def _desenhar_aba_musicas(tela, dx, y_start, largura_conteudo, estado, fontes, m
     elif memoria_sub_aba == 1:
         txt = fontes['titulo'].render(_t('Minhas Músicas (Em Breve)'), True, (180, 180, 180))
         tela.blit(txt, (dx + largura_conteudo // 2 - txt.get_width() // 2, y_start + 100))
+    elif memoria_sub_aba == 2:
+        # Título da área
+        txt_area = fontes['titulo'].render(_t('Área de Música'), True, (255, 255, 255))
+        tela.blit(txt_area, (dx + largura_conteudo // 2 - txt_area.get_width() // 2, y_start + 40))
+        # Subtítulo solicitado
+        txt_sub = fontes['pequena'].render(_t('Criação Musical'), True, (180, 180, 180))
+        tela.blit(txt_sub, (dx + largura_conteudo // 2 - txt_sub.get_width() // 2, y_start + 70))
+        
+        # Botão Criar Tablatura
+        rect_btn = pygame.Rect(dx + largura_conteudo // 2 - 100, y_start + 110, 200, 40)
+        pygame.draw.rect(tela, cor_tema, rect_btn, border_radius=8)
+        txt_btn = fontes['ui'].render(_t('Criar Tablatura'), True, (255, 255, 255))
+        tela.blit(txt_btn, (rect_btn.centerx - txt_btn.get_width() // 2, rect_btn.centery - txt_btn.get_height() // 2))
+        estado.rect_btn_criar_tablatura = rect_btn
 
 def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador, meu_gerenciador_jogos):
     """

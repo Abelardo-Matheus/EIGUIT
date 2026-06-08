@@ -220,6 +220,29 @@ class GerenciadorDB:
             return False
         finally:
             self.fechar()
+
+    def salvar_projeto(self, usuario_id, nome, tipo, dados_json):
+        """
+        Salva ou atualiza um projeto (ex: tablatura) no banco de dados.
+        """
+        if not self.conectar():
+            return False
+        try:
+            with self.conexao.cursor() as cursor:
+                # Simplificado: verifica se já existe um projeto com esse nome para o usuário
+                cursor.execute('SELECT id FROM projetos WHERE usuario_id = %s AND nome_projeto = %s;', (usuario_id, nome))
+                resultado = cursor.fetchone()
+                if resultado:
+                    cursor.execute('UPDATE projetos SET dados_projeto = %s WHERE id = %s;', (dados_json, resultado[0]))
+                else:
+                    cursor.execute('INSERT INTO projetos (usuario_id, nome_projeto, dados_projeto) VALUES (%s, %s, %s);', (usuario_id, nome, dados_json))
+                self.conexao.commit()
+                return True
+        except Exception as e:
+            print(f'Erro ao salvar projeto: {e}')
+            return False
+        finally:
+            self.fechar()
 if __name__ == '__main__':
     db = GerenciadorDB()
     db.inicializar_estrutura()

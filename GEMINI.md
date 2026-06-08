@@ -1,57 +1,28 @@
-# Contexto do Projeto: Guitar Studio IA
-Você é o assistente de desenvolvimento sênior deste projeto. Este é um software educacional focado no ensino e prática de guitarra e baixo, desenvolvido em Python utilizando a biblioteca Pygame para renderização visual e manipulação de áudio.
+Você é o desenvolvedor principal do Guitar Studio. Nossa missão agora é criar uma nova aba no aplicativo: O Criador de Tablaturas. O usuário poderá escrever tablaturas do zero, usar técnicas (bend, slide) e dar "Play" ouvindo um sintetizador básico.
 
-## Regras de Segurança (Arquivos a Ignorar)
-Para economizar tokens e evitar travamentos, **NUNCA** leia, vasculhe ou referencie o conteúdo das seguintes pastas e arquivos, a menos que eu peça explicitamente:
-- `venv_novo/` (Ambiente virtual)
-- `.venv/` ou `__pycache__/`
-- Arquivos `.exe`, `.dll`, `.ogg`, `.wav`, `.png`
-- Pastas `build/` e `dist/`
+Por favor, implemente o sistema seguindo rigorosamente a arquitetura modular abaixo:
 
-## Arquitetura do Sistema (Mapeamento de Pastas)
-O projeto segue uma estrutura modular baseada em estados e gerenciadores. Se eu pedir para você criar ou alterar algo, consulte a arquitetura abaixo para saber onde o código deve ficar:
+## TAREFA 1: O Motor de Áudio (Sintetizador Numpy)
+1. Crie um arquivo `@modulo_synth.py`.
+2. Use `pygame.sndarray` e `numpy` para criar uma classe `SintetizadorTablatura`.
+3. Essa classe deve ter uma função que recebe uma "Corda" (1 a 6) e uma "Casa" (0 a 24). Ela deve calcular a frequência em Hertz (baseado na afinação padrão EADGBE) e gerar um som curto.
+4. Adicione suporte básico para interpretar técnicas: se a nota tiver 'b' (bend), a frequência deve subir meio tom durante a reprodução; se tiver '/' (slide), a frequência desliza.
 
-### 1. Raiz do Projeto (Core)
-- `main.py`: Ponto de entrada, loop principal do Pygame e inicialização.
-- `config_eiguit.json`: Gerenciamento de preferências do usuário (cores, opacidade).
+## TAREFA 2: Estrutura de Dados e Lógica
+1. No arquivo central do estado, crie a estrutura de dados da tablatura. Ela deve ser uma lista de "colunas" (tempos), onde cada coluna tem 6 espaços (um para cada corda).
+2. O valor de cada espaço pode ser vazio (`-`), um número (casa), ou número + técnica (ex: `12b`, `5/7`, `7h9`).
+3. Crie a lógica do botão "Play": um loop não-bloqueante que avança coluna por coluna baseado em um BPM (ex: 120 batidas por minuto) e dispara o `SintetizadorTablatura`.
 
-### 2. /Core/ (Gestão e Lógica Central)
-- `estado_app.py`: Classe central que guarda todas as variáveis globais, draggers e estado atual da interface.
-- `config.py`: Persistência de preferências do usuário / Flexbox UI config.
-- `constantes_ui.py`: Dicionários estáticos (afinações, códigos de cores, medidas).
-- `controlador_eventos.py`: Cérebro de interações. Lê teclado e mouse e despacha para os módulos corretos.
+## TAREFA 3: Interface Gráfica (Grid e Scroll) no Pygame
+1. Crie um arquivo `@renderizador_tablatura.py` (ou adicione ao renderizador existente).
+2. Desenhe 6 linhas horizontais ocupando a maior parte da tela.
+3. Desenhe as colunas verticais indicando a divisão do tempo.
+4. Implemente controle de Scroll (usando a roda do mouse ou barra inferior) para mover a grade para a esquerda/direita.
+5. Implemente um "Cursor" de edição: ao clicar em um cruzamento (Corda x Tempo), o bloco fica ativo. Se o usuário digitar um número ou letra (b, s, h, p), isso é gravado na estrutura de dados.
 
-### 3. /Interface/ (Renderização e UI)
-- `renderizador_ui.py`: Cérebro visual. Chama os métodos de desenho de todos os outros painéis.
-- `gerenciador_interface.py` e `ui_componentes.py`: Lógica de botões, sliders e elementos base da UI.
-- `fabrica_escalas.py`: Construtor dinâmico dos blocos do braço da guitarra.
+## TAREFA 4: Salvar e Carregar (Banco de Dados)
+1. Conecte essa aba ao nosso `@gerenciador_db.py` (ou `gerenciador_remoto_db.py`).
+2. Crie campos de texto no topo da tela para: "Nome da Música" e "BPM".
+3. Adicione um botão "Salvar no Perfil". Ele deve pegar a estrutura de dados da tablatura, converter para JSON, e dar um INSERT/UPDATE na tabela `projetos`, vinculando ao ID do usuário atual.
 
-### 4. /Assets/ e /Audios/
-- `Imagens/`: Recursos visuais estáticos.
-- `Audios/`: Banco de timbres sintetizados e gravações do projeto.
-
-### 5. /Modulos/ (Motor e Lógica)
-Contém os sistemas independentes que rodam por trás da UI:
-- **Áudio/Hardware:** `modulo_gravador.py`, `modulo_processamento.py`, `modulo_metronomo.py`, `gerenciador_ritmo.py`, `detector_palhetadas.py`.
-- **Integração:** `modulo_songsterr.py` (Busca e metadados do Songsterr).
-- **Teoria Musical:** `escalas.py`, `modulo_campo_harmonico.py`, `modulos_acordes.py`, `modulos_escala_maior.py`, `modulos_escala_menor.py`, `modulos_penta.py`, `modulos_teoria_avancada.py`.
-- **UI Flutuante:** `modulo_menu_superior.py`, `modulo_menu_contexto.py`, `modulo_perfil.py`.
-- **Módulo de Estudos Base:** `modulos_estudos.py` (Roteador da tela cheia de estudos).
-
-### 3. /Estudos/ (Telas de Estudo Prático)
-Submódulos de treino que assumem a tela inteira quando ativados:
-- `estudo_notas.py`: Treino de encontrar notas no braço.
-- `estudo_escalas.py`: Treino de desenhar e adivinhar shapes (Maior, Menor, Pentas).
-
-### 4. /Jogos/ (Gamificação)
-Experiências interativas de aprendizado:
-- `Jogos_interativos.py`: Gerenciador principal das abas de jogo.
-- `acerte_a_nota.py`, `jogo2.py`, `jogo3.py`, `jogo4.py`: Mini-games específicos.
-
-### 5. /DragDrop/ (Mecânicas da Interface)
-- `elemento_arrastavel.py`: Classe base para os painéis que se movem no Workspace (braço da guitarra, campo harmônico, etc).
-
-## Diretrizes de Resposta
-1. Ao me entregar código, mande apenas a função ou a classe alterada, a menos que eu peça o arquivo inteiro.
-2. Mantenha os cabeçalhos de Copyright intactos.
-3. Considere que o projeto foca muito em desempenho, pois lida com áudio em tempo real e Pygame.
+Entregue os códigos focando em manter a performance do Pygame (renderize apenas as colunas que estão visíveis na tela no momento do scroll).
