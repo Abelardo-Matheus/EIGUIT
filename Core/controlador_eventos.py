@@ -79,130 +79,14 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
 
     if getattr(estado, 'tela_criacao_tab_ativa', False):
         import Interface.renderizador_ui as render_ui
-        from Interface.renderizador_tablatura import RenderizadorTablatura
-        if render_ui.render_tab is None:
-            render_ui.render_tab = RenderizadorTablatura()
-        render_tab = render_ui.render_tab
-        
-        import re
         for evento in eventos:
-            if evento.type == pygame.MOUSEBUTTONDOWN:
-                if evento.button == 1: # Clique Esquerdo
-                    if hasattr(estado, 'rect_voltar_criacao') and estado.rect_voltar_criacao.collidepoint(evento.pos):
-                        estado.tela_criacao_tab_ativa = False
-                    elif hasattr(estado, 'rect_tab_play') and estado.rect_tab_play.collidepoint(evento.pos):
-                        estado.tab_reproduzindo = not estado.tab_reproduzindo
-                        if estado.tab_reproduzindo:
-                            estado.tempo_ultimo_tick = pygame.time.get_ticks()
-                    elif hasattr(estado, 'rect_bpm_mais') and estado.rect_bpm_mais.collidepoint(evento.pos):
-                        estado.tab_bpm = min(300, estado.tab_bpm + 5)
-                    elif hasattr(estado, 'rect_bpm_menos') and estado.rect_bpm_menos.collidepoint(evento.pos):
-                        estado.tab_bpm = max(10, estado.tab_bpm - 5)
-                    elif hasattr(estado, 'rect_tab_salvar') and estado.rect_tab_salvar.collidepoint(evento.pos):
-                        from BD.gerenciador_remoto_db import GerenciadorDB
-                        import json
-                        db = GerenciadorDB()
-                        dados_json = json.dumps({'dados': estado.tab_dados, 'duracoes': getattr(estado, 'tab_duracoes', [])})
-                        if estado.usuario_id_logado:
-                            success = db.salvar_projeto(estado.usuario_id_logado, estado.tab_nome, 'tablatura', dados_json)
-                            print(f"[TAB] Salvo no banco de dados: {success}")
-                    
-                    # Clicar em técnicas na barra de ferramentas
-                    clicou_ferramenta = False
-                    if render_tab and hasattr(render_tab, 'rects_tecnicas'):
-                        for rect, cmd in render_tab.rects_tecnicas:
-                            if rect.collidepoint(evento.pos):
-                                col, corda = estado.tab_cursor_col, estado.tab_cursor_corda
-                                nota_atual = str(estado.tab_dados[col][corda])
-                                
-                                if cmd == 'del':
-                                    estado.tab_dados[col][corda] = '-'
-                                elif cmd == '+':
-                                    estado.tab_duracoes[col] = min(16, estado.tab_duracoes[col] + 1)
-                                elif cmd == '-':
-                                    estado.tab_duracoes[col] = max(1, estado.tab_duracoes[col] - 1)
-                                elif nota_atual != '-':
-                                    # Aplicar técnica (b, /, h, p)
-                                    match = re.match(r"(\d+)(.*)", nota_atual)
-                                    if match:
-                                        estado.tab_dados[col][corda] = match.group(1) + cmd
-                                
-                                clicou_ferramenta = True
-                                break
-
-                    if not clicou_ferramenta:
-                        # Clicar em acordes do campo harmônico
-                        clicou_acorde = False
-                        if render_tab and hasattr(render_tab, 'rects_campo_harmonico'):
-                            for rect, nome_acorde in render_tab.rects_campo_harmonico:
-                                if rect.collidepoint(evento.pos):
-                                    # Simplificação: Insere as notas da tríade na vertical
-                                    print(f"[TAB] Inserindo acorde: {nome_acorde}")
-                                    # Para o exemplo, vamos colocar uma tríade de C (Power chord placeholder)
-                                    # Em uma implementação real, mapearíamos o nome_acorde para casas reais
-                                    estado.tab_dados[estado.tab_cursor_col] = ['-', '-', '-', '5', '5', '3']
-                                    clicou_acorde = True
-                                    break
-                        
-                        if not clicou_acorde:
-                            for (col, corda), rect in render_tab.rects_clique.items():
-                                if rect.collidepoint(evento.pos):
-                                    estado.tab_cursor_col = col
-                                    estado.tab_cursor_corda = corda
-                                    break
-                elif evento.button == 3: # Clique Direito: Move o Play
-                    for (col, corda), rect in render_tab.rects_clique.items():
-                        if rect.collidepoint(evento.pos):
-                            estado.tab_coluna_atual = col
-                            estado.tab_cursor_col = col # Move o cursor também para clareza
-                            estado.tab_cursor_corda = corda
-                            break
+            if render_ui.render_tab_maker is not None:
+                render_ui.render_tab_maker.tratar_evento(evento, estado)
             
-            if evento.type == pygame.MOUSEWHEEL:
-                # Scroll Vertical no novo layout wrap
-                estado.tab_scroll_y = max(0, getattr(estado, 'tab_scroll_y', 0) - evento.y * 50)
-
-            if evento.type == pygame.KEYDOWN:
-                if not hasattr(estado, 'tab_duracoes'):
-                    estado.tab_duracoes = [1 for _ in range(len(estado.tab_dados))]
-                    
-                if evento.key == pygame.K_ESCAPE:
+            # Tratamento especial para o botão de sair que está no renderizador_ui
+            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+                if hasattr(estado, 'rect_voltar_criacao') and estado.rect_voltar_criacao.collidepoint(evento.pos):
                     estado.tela_criacao_tab_ativa = False
-                elif evento.key in [pygame.K_PLUS, pygame.K_KP_PLUS, pygame.K_EQUALS]:
-                    estado.tab_duracoes[estado.tab_cursor_col] = min(16, estado.tab_duracoes[estado.tab_cursor_col] + 1)
-                elif evento.key in [pygame.K_MINUS, pygame.K_KP_MINUS]:
-                    estado.tab_duracoes[estado.tab_cursor_col] = max(1, estado.tab_duracoes[estado.tab_cursor_col] - 1)
-                elif evento.key == pygame.K_SPACE:
-                    estado.tab_reproduzindo = not estado.tab_reproduzindo
-                    if estado.tab_reproduzindo:
-                        estado.tempo_ultimo_tick = pygame.time.get_ticks()
-                elif evento.key == pygame.K_RIGHT:
-                    estado.tab_cursor_col += 1
-                elif evento.key == pygame.K_LEFT:
-                    estado.tab_cursor_col = max(0, estado.tab_cursor_col - 1)
-                elif evento.key == pygame.K_UP:
-                    estado.tab_cursor_corda = max(0, estado.tab_cursor_corda - 1)
-                elif evento.key == pygame.K_DOWN:
-                    estado.tab_cursor_corda = min(5, estado.tab_cursor_corda + 1)
-                elif pygame.K_0 <= evento.key <= pygame.K_9:
-                    num = str(evento.key - pygame.K_0)
-                    atual = estado.tab_dados[estado.tab_cursor_col][estado.tab_cursor_corda]
-                    if atual == '-':
-                        estado.tab_dados[estado.tab_cursor_col][estado.tab_cursor_corda] = num
-                    else:
-                        match = re.match(r"(\d+)(.*)", str(atual))
-                        if match:
-                            nova_casa = match.group(1) + num
-                            if int(nova_casa) <= 24:
-                                estado.tab_dados[estado.tab_cursor_col][estado.tab_cursor_corda] = nova_casa + match.group(2)
-                elif evento.key == pygame.K_BACKSPACE:
-                    estado.tab_dados[estado.tab_cursor_col][estado.tab_cursor_corda] = '-'
-                elif evento.unicode.lower() in ['b', '/', 'h', 'p']:
-                    atual = estado.tab_dados[estado.tab_cursor_col][estado.tab_cursor_corda]
-                    if atual != '-':
-                        match = re.match(r"(\d+)(.*)", str(atual))
-                        if match:
-                            estado.tab_dados[estado.tab_cursor_col][estado.tab_cursor_corda] = match.group(1) + evento.unicode.lower()
         return
 
     if getattr(estado, 'tab_tela_cheia_ativa', False):
@@ -290,7 +174,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                             break
             if not consumiu_scroll:
                 for i, secao in enumerate(estado.secoes_inferiores):
-                    if secao.get('expandido') and secao['conteudo'] in ['escalas', 'acordes', 'configuracao', 'estudos', 'musicas']:
+                    if secao.get('expandido') and secao['conteudo'] in ['escalas', 'acordes', 'configuracao', 'estudos', 'musicas', 'analise_ia']:
                         y_topo = dy_inf - altura_caixa_total - 10
                         rect_area = pygame.Rect(dx_inf, y_topo, largura_conteudo, altura_caixa_total)
                         if rect_area.collidepoint(pos_mouse):
@@ -459,7 +343,13 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                     estado_anterior = secao['expandido']
                     for s in estado.secoes_inferiores:
                         s['expandido'] = False
+                    
                     secao['expandido'] = not estado_anterior
+                    
+                    # RESET DE SCROLL: Ao abrir a aba, volta para o topo
+                    if secao['expandido']:
+                        estado.scroll_y[i] = 0
+                        
                     clicou_interface = True
                     break
                 if secao['expandido']:
@@ -472,7 +362,11 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
 
                         chave_rect = f'rect_sub_{j}'
                         if secao.get(chave_rect) and secao[chave_rect].collidepoint(evento.pos):
-                            secao['memoria_sub_aba'] = j
+                            if secao['memoria_sub_aba'] != j:
+                                secao['memoria_sub_aba'] = j
+                                # RESET DE SCROLL: Ao trocar de sub-aba, volta para o topo
+                                estado.scroll_y[i] = 0
+                                
                             clicou_interface = True
                             break
                     if clicou_interface:

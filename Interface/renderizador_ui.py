@@ -6,6 +6,7 @@ from Core.constantes_ui import *
 from Jogos.Jogos_interativos import GerenciadorJogos
 import Modulos.modulos_estudos as modulo_estudos
 from Interface.renderizador_tablatura import RenderizadorTablatura
+from Interface.renderizador_criador_tab import RenderizadorCriadorTablatura
 from Interface.Componentes import (
     desenhar_painel_superior, 
     desenhar_controles_instrumento,
@@ -18,8 +19,9 @@ from Interface.Componentes import (
 )
 from Interface.Componentes.utils import obter_grau, equivalencia_notas
 
-# Instância global do renderizador de tablatura (será inicializada no _desenhar_tela_criacao_tablatura)
-render_tab = None
+# Instâncias globais de renderizadores
+render_tab_viewer = None
+render_tab_maker = None
 
 def desenhar_workspace(tela, estado, configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos):
     """
@@ -90,19 +92,16 @@ def _desenhar_tela_cheia_tablatura(tela, largura, altura, estado, fontes):
     tab._desenhar_visualizador_tab(tela, margem_x, 120, largura_folha, altura - 150, fontes)
     tab.COR_FUNDO = original_fundo
     tab.COR_LINHA = original_linha
-    
-    if hasattr(estado, 'menu_superior'):
-        estado.menu_superior.desenhar(tela, fontes['ui'], estado)
 
 def _desenhar_tela_criacao_tablatura(tela, largura, altura, estado, fontes, configs, meu_campo_harmonico=None):
     """
     Renderiza a interface do Criador de Tablaturas.
     """
-    global render_tab
-    if render_tab is None:
-        render_tab = RenderizadorTablatura()
+    global render_tab_maker
+    if render_tab_maker is None:
+        render_tab_maker = RenderizadorCriadorTablatura(tela, largura, altura)
         
-    render_tab.desenhar_interface_tab(tela, estado, fontes, largura, altura, configs, meu_campo_harmonico)
+    render_tab_maker.renderizar()
     
     # Botão voltar (sobreposto para garantir saída)
     estado.rect_voltar_criacao = pygame.Rect(largura - 180, 20, 140, 40)
