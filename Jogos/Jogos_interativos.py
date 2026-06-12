@@ -61,9 +61,8 @@ class GerenciadorJogos:
             if 'configs' in params:
                 kwargs['configs'] = configs
             self.jogo_instancia.desenhar(tela, largura_tela, altura_tela, estado, **kwargs)
-        pygame.draw.rect(tela, (200, 50, 50), self.btn_voltar, border_radius=5)
-        cx, cy = self.btn_voltar.center
-        pygame.draw.polygon(tela, (255, 255, 255), [(cx - 10, cy), (cx + 5, cy - 10), (cx + 5, cy + 10)])
+        
+        # Botão voltar agora é global na Top Bar.
 
     def tratar_clique_tela_jogo(self, pos_mouse, estado, meu_gravador=None):
         """
@@ -71,10 +70,6 @@ class GerenciadorJogos:
             Para que serve: Mapeia ações do usuário para atualizações de estado.
             Onde é usada: Chamado a partir do módulo ou classe base de 'Jogos_interativos'.
         """
-        if self.btn_voltar.collidepoint(pos_mouse):
-            estado.tela_jogo_ativa = False
-            self.jogo_instancia = None
-            return True
         if self.jogo_instancia and hasattr(self.jogo_instancia, 'tratar_clique'):
             return self.jogo_instancia.tratar_clique(pos_mouse, meu_gravador)
         return False

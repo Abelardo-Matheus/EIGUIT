@@ -55,35 +55,37 @@ class EstadoGlobal:
         self.dropdown_tom_aberto = False
         self.NUM_CASAS = 18
         self.NUM_CORDAS = 7
-        self.LARGURA_BRACO = max(800, largura_tela - 400)
+        self.LARGURA_BRACO = 1000 # Fixado para bater com o padrão de 18 casas visual
         self.ALTURA_BRACO = GUITAR_ALTURA_BRACO
         self.scroll_y = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}
         self.max_scroll = {0: 1000, 1: 800, 2: 400, 3: 500, 4: 500}
-        self.atualizar_medidas()
-        centro_x_global = largura_tela // 2
-        LARGURA_TOOLBAR = LARGURA_TOOLBAR_PADRAO
-        self.dragger_controles_topo = ElementoArrastavel(centro_x_global - LARGURA_TOOLBAR // 2, TOPBAR_Y_INICIAL, LARGURA_TOOLBAR, TOPBAR_ALTURA)
-        self.dragger_guitarra = ElementoArrastavel(centro_x_global - self.LARGURA_BRACO // 2, GUITAR_Y_INICIAL, self.LARGURA_BRACO, self.ALTURA_BRACO)
-        self.LARGURA_ACORDES = LARGURA_TOOLBAR
+        
+        # --- Novos padrões centralizados e organizados (Sincronizados com modulo_perfil) ---
+        gap_horizontal = 50
+        largura_total_pequenos = 240 + 180 + 280 + (gap_horizontal * 2)
+        x_inicio_pequenos = (largura_tela - largura_total_pequenos) // 2
+        
+        # Medidas de referência
+        self.LARGURA_ACORDES = 620
         self.ALTURA_ACORDES = CHORD_ALTURA
-        self.dragger_acordes = ElementoArrastavel(centro_x_global - self.LARGURA_ACORDES // 2, self.dragger_guitarra.y + self.ALTURA_BRACO + CHORD_OFFSET_Y_BRACO, self.LARGURA_ACORDES, self.ALTURA_ACORDES)
         self.LARGURA_BLOCO_NOTA = SIDEBAR_NOTA_LARGURA
         self.ALTURA_BLOCO_NOTA = SIDEBAR_NOTA_ALTURA
-        y_nota_atual = altura_tela - SIDEBAR_NOTA_OFFSET_Y_BOTTOM
-        self.dragger_nota_atual = ElementoArrastavel(SIDEBAR_NOTA_OFFSET_X, y_nota_atual, self.LARGURA_BLOCO_NOTA, self.ALTURA_BLOCO_NOTA)
         self.LARGURA_METRONOMO = METRO_LARGURA
         self.ALTURA_METRONOMO = METRO_ALTURA
-        x_metronomo = self.dragger_acordes.x + self.LARGURA_ACORDES + METRO_OFFSET_X
-        if x_metronomo + self.LARGURA_METRONOMO > largura_tela:
-            x_metronomo = centro_x_global - self.LARGURA_METRONOMO // 2
-            y_metronomo = self.dragger_acordes.y + self.ALTURA_ACORDES + METRO_OFFSET_Y_ESTUDO
-        else:
-            y_metronomo = self.dragger_acordes.y + self.ALTURA_ACORDES // 2 - self.ALTURA_METRONOMO // 2
-        self.dragger_metronomo = ElementoArrastavel(x_metronomo, y_metronomo, self.LARGURA_METRONOMO, self.ALTURA_METRONOMO)
-        self.dragger_cores = ElementoArrastavel(CORES_OFFSET_X, altura_tela - CORES_OFFSET_Y_BOTTOM, CORES_LARGURA, CORES_ALTURA)
-        y_inferior_inicial = altura_tela - BOTTOM_Y_OFFSET_TELA
-        LARGURA_INFERIOR = LARGURA_INFERIOR_PADRAO
-        self.dragger_painel_inferior = ElementoArrastavel(centro_x_global - LARGURA_INFERIOR // 2, y_inferior_inicial, LARGURA_INFERIOR, 45)
+        
+        # Grandes
+        self.dragger_controles_topo = ElementoArrastavel((largura_tela - 700) // 2, 20, 700, TOPBAR_ALTURA)
+        self.dragger_guitarra = ElementoArrastavel((largura_tela - 1000) // 2, 80, self.LARGURA_BRACO, self.ALTURA_BRACO)
+        self.dragger_acordes = ElementoArrastavel((largura_tela - 620) // 2, 380, self.LARGURA_ACORDES, self.ALTURA_ACORDES)
+        self.dragger_painel_inferior = ElementoArrastavel((largura_tela - 1200) // 2, altura_tela - 85, 1200, 45)
+        
+        # Pequenos
+        self.dragger_metronomo = ElementoArrastavel(x_inicio_pequenos, 520, self.LARGURA_METRONOMO, self.ALTURA_METRONOMO)
+        self.dragger_cores = ElementoArrastavel(x_inicio_pequenos + 240 + gap_horizontal, 520, 180, 150)
+        self.dragger_nota_atual = ElementoArrastavel(x_inicio_pequenos + 240 + 180 + (gap_horizontal * 2), 520, self.LARGURA_BLOCO_NOTA, self.ALTURA_BLOCO_NOTA)
+
+        self.atualizar_medidas()
+
         self.Y_AREA_DESENHO = self.dragger_painel_inferior.y - BOTTOM_Y_AREA_DESENHO_OFFSET
         self.nota_atual_detectada = '--'
         self.nota_selecionada_bloco = 'C'
@@ -102,6 +104,8 @@ class EstadoGlobal:
         self.tab_cursor_corda = 0
         self.tab_scroll_x = 0
         self.tempo_ultimo_tick = 0
+        self.guias_x = []
+        self.guias_y = []
 
     def atualizar_medidas(self):
         """

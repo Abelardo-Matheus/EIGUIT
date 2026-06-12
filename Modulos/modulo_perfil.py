@@ -81,38 +81,49 @@ class GerenciadorPerfil:
         """
         import pygame
         import json
-        tela = pygame.display.get_surface()
-        if tela:
-            largura_tela = tela.get_width()
-            altura_tela = tela.get_height()
-        else:
-            largura_tela = getattr(estado, 'LARGURA_BRACO', 1000) + 350
-            altura_tela = getattr(estado, 'ALTURA_TELA', 768)
-        largura_braco = getattr(estado, 'LARGURA_BRACO', largura_tela - 350)
-        altura_braco = getattr(estado, 'ALTURA_BRACO', 300)
-        largura_acordes = getattr(estado, 'LARGURA_ACORDES', 620)
-        altura_acordes = getattr(estado, 'ALTURA_ACORDES', 110)
-        largura_metronomo = getattr(estado, 'LARGURA_METRONOMO', 250)
-        largura_topo = 650
-        centro_x_global = largura_tela // 2
-        largura_toolbar = 1100
-        y_acordes = 125 + altura_braco + 100
-        padroes = {'dragger_controles_topo': {'x': centro_x_global - largura_toolbar // 2, 'y': 75}, 'dragger_guitarra': {'x': centro_x_global - largura_braco // 2, 'y': 125}, 'dragger_acordes': {'x': centro_x_global - largura_braco // 2, 'y': y_acordes}, 'dragger_metronomo': {'x': centro_x_global + largura_braco // 2 - 240, 'y': y_acordes + 10}, 'dragger_painel_inferior': {'x': centro_x_global - largura_toolbar // 2, 'y': altura_tela - 75}, 'dragger_nota_atual': {'x': 30, 'y': altura_tela - 470}, 'dragger_cores': {'x': 30, 'y': altura_tela - 220}}
+        
+        # Prioridade para as dimensões salvas no estado global
+        largura_tela = getattr(estado, 'LARGURA_TELA', 1350)
+        altura_tela = getattr(estado, 'ALTURA_TELA', 768)
+            
+        # Novos padrões centralizados e organizados
+        gap_horizontal = 50
+        # Larguras padrão: Metronomo (240), Cores (180), Nota Atual (280)
+        largura_total_pequenos = 240 + 180 + 280 + (gap_horizontal * 2)
+        x_inicio_pequenos = (largura_tela - largura_total_pequenos) // 2
+        
+        # Definição de posições e TAMANHOS padrão
+        padroes = {
+            # Grandes (Empilhados Verticalmente)
+            'dragger_controles_topo': {'x': (largura_tela - 700) // 2, 'y': 20, 'w': 700, 'h': 40},
+            'dragger_guitarra': {'x': (largura_tela - 1000) // 2, 'y': 80, 'w': 1000, 'h': 280},
+            'dragger_acordes': {'x': (largura_tela - 620) // 2, 'y': 380, 'w': 620, 'h': 120},
+            'dragger_painel_inferior': {'x': (largura_tela - 1200) // 2, 'y': altura_tela - 85, 'w': 1200, 'h': 45},
+            
+            # Pequenos (Lado a Lado)
+            'dragger_metronomo': {'x': x_inicio_pequenos, 'y': 520, 'w': 240, 'h': 100},
+            'dragger_cores': {'x': x_inicio_pequenos + 240 + gap_horizontal, 'y': 520, 'w': 180, 'h': 150},
+            'dragger_nota_atual': {'x': x_inicio_pequenos + 240 + 180 + (gap_horizontal * 2), 'y': 520, 'w': 280, 'h': 220}
+        }
         for nome, coords in padroes.items():
             if hasattr(estado, nome):
                 obj = getattr(estado, nome)
                 obj.x = coords['x']
                 obj.y = coords['y']
+                # Restaura largura e altura caso tenham sido redimensionados
+                if 'w' in coords and 'h' in coords:
+                    obj.largura = coords['w']
+                    obj.altura = coords['h']
                 if hasattr(obj, 'rect_caixa'):
-                    obj.rect_caixa.x = coords['x']
-                    obj.rect_caixa.y = coords['y']
-        if configs:
-            configs.transparencia = 100
-            configs.cor_braco = (80, 40, 15)
-            configs.cor_notas = (255, 255, 255)
-            configs.indice_modo = 0
-            configs.indice_fonte = 0
+                    obj.rect_caixa.x = obj.x
+                    obj.rect_caixa.y = obj.y
+                    obj.rect_caixa.width = obj.largura
+                    obj.rect_caixa.height = obj.altura
+        
+        # Resetar variáveis de escala do braço no estado
         if estado:
+            estado.LARGURA_BRACO = 1000
+            estado.ALTURA_BRACO = 280
             estado.instrumento = 'guitarra'
             estado.NUM_CASAS = 18
             estado.tom_atual = 'C'
@@ -135,7 +146,7 @@ class GerenciadorPerfil:
                 json.dump({'ultimo_perfil': ''}, f)
         except:
             pass
-        print('[PERFIL] Layout restaurado para o centro e as cores padrão!')
+        print('[PERFIL] Layout restaurado para o padrão centralizado!')
 
     def salvar_perfil(self, estado, configs, campo, gravador):
         """
@@ -150,7 +161,7 @@ class GerenciadorPerfil:
             nome_arquivo += '.json'
         caminho = os.path.join(self.pasta_padrao, nome_arquivo)
         dados = {'posicoes_draggers': {}, 'estado': {'instrumento': getattr(estado, 'instrumento', 'guitarra'), 'NUM_CASAS': getattr(estado, 'NUM_CASAS', 18), 'tom_atual': getattr(estado, 'tom_atual', 'C'), 'indice_afinacao': getattr(estado, 'indice_afinacao', 0), 'indice_cor_tonica': getattr(estado, 'indice_cor_tonica', 0), 'indice_cor_terca': getattr(estado, 'indice_cor_terca', 0), 'indice_cor_quinta': getattr(estado, 'indice_cor_quinta', 0), 'afinador_suavizacao': getattr(estado, 'afinador_suavizacao', 5), 'afinador_sensibilidade': getattr(estado, 'afinador_sensibilidade', 0.5)}, 'configs': {'transparencia': getattr(configs, 'transparencia', 100), 'cor_braco': getattr(configs, 'cor_braco', (80, 40, 15)), 'cor_notas': getattr(configs, 'cor_notas', (255, 255, 255)), 'indice_modo': getattr(configs, 'indice_modo', 0), 'indice_fonte': getattr(configs, 'indice_fonte', 0), 'indice_idioma': getattr(configs, 'indice_idioma', 0)}, 'campo_harmonico': {'tonica_campo': getattr(campo, 'tonica_campo', 'C'), 'indice_escala_campo': getattr(campo, 'indice_escala_campo', 0)}, 'gravador': {'device_id': getattr(gravador, 'device_id', None)}}
-        lista_draggers = ['dragger_guitarra', 'dragger_acordes', 'dragger_controles_topo', 'dragger_painel_inferior', 'dragger_metronomo', 'dragger_cores']
+        lista_draggers = ['dragger_guitarra', 'dragger_acordes', 'dragger_controles_topo', 'dragger_painel_inferior', 'dragger_metronomo', 'dragger_cores', 'dragger_nota_atual']
         for nome in lista_draggers:
             if hasattr(estado, nome):
                 obj = getattr(estado, nome)
@@ -221,7 +232,8 @@ class GerenciadorPerfil:
                 campo.tonica_campo = d_ch.get('tonica_campo', 'C')
                 campo.indice_escala_campo = d_ch.get('indice_escala_campo', 0)
                 campo.tonica = campo.tonica_campo
-                campo.tipo_escala = campo.escalas_campo[campo.indice_escala_campo]['nome']
+                if hasattr(campo, 'escalas_campo') and 0 <= campo.indice_escala_campo < len(campo.escalas_campo):
+                    campo.tipo_escala = campo.escalas_campo[campo.indice_escala_campo]['nome']
                 campo.indice_acorde_selecionado = -1
             if 'gravador' in dados and gravador:
                 novo_id = dados['gravador'].get('device_id', None)

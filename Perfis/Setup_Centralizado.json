@@ -1,28 +1,32 @@
 {
     "posicoes_draggers": {
         "dragger_guitarra": {
-            "x": 200,
-            "y": 120
+            "x": 468,
+            "y": 103
         },
         "dragger_acordes": {
-            "x": 610,
-            "y": 500
+            "x": 635,
+            "y": 451
         },
         "dragger_controles_topo": {
             "x": 610,
-            "y": 40
+            "y": 20
         },
         "dragger_painel_inferior": {
             "x": 360,
-            "y": 1015
+            "y": 995
         },
         "dragger_metronomo": {
-            "x": 1340,
-            "y": 510
+            "x": 272,
+            "y": 448
         },
         "dragger_cores": {
-            "x": 30,
-            "y": 860
+            "x": 1391,
+            "y": 445
+        },
+        "dragger_nota_atual": {
+            "x": 813,
+            "y": 633
         }
     },
     "estado": {
@@ -58,27 +62,5 @@
     },
     "gravador": {
         "device_id": 1
-    },
-    "favoritos": [
-        {
-            "songId": 444,
-            "title": "One",
-            "artist": "Metallica",
-            "tracks": [
-                {
-                    "instrumentId": 66,
-                    "instrument": "Tenor Sax",
-                    "views": 4080,
-                    "name": "James Hetfield | Lead Vocals",
-                    "tuning": [
-                        64,
-                        59,
-                        55,
-                        50,
-                        45,
-                        40
-                    ],
-                    "hash": "vocals_ms0nkTF8",
-                    "isVocalTrack": true,
-                    "isEmpty": false,
-                    "rect_clique": 
+    }
+}

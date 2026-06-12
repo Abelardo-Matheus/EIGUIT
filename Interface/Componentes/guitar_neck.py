@@ -25,14 +25,18 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_
     largura_braco_atual = alvo.largura
     altura_braco_atual = alvo.altura - 2 * estado.ESPACO_CORDAS if instrumento == 'baixo' else alvo.altura
     offset_y_atual = pos_y_base + estado.ESPACO_CORDAS if instrumento == 'baixo' else pos_y_base
+    
+    # Cálculo dinâmico do espaço entre casas para garantir precisão visual
+    espaco_casas_dinamico = largura_braco_atual / estado.NUM_CASAS
+    
     pygame.draw.rect(tela, (10, 10, 10), (pos_x_base + 3, offset_y_atual + 3, largura_braco_atual, altura_braco_atual), border_radius=4)
     pygame.draw.rect(tela, cor_madeira, (pos_x_base, offset_y_atual, largura_braco_atual, altura_braco_atual), border_radius=4)
     for casa in range(estado.NUM_CASAS + 1):
-        x = pos_x_base + casa * estado.ESPACO_CASAS
+        x = pos_x_base + casa * espaco_casas_dinamico
         largura_traste = 4 if casa == 0 else 2
         pygame.draw.line(tela, COR_TRASTE, (x, offset_y_atual), (x, offset_y_atual + altura_braco_atual), largura_traste)
         if casa > 0:
-            x_centro_casa = x - estado.ESPACO_CASAS / 2
+            x_centro_casa = x - espaco_casas_dinamico / 2
             txt_casa = fontes['pequena'].render(str(casa), True, (130, 130, 130))
             tela.blit(txt_casa, (x_centro_casa - txt_casa.get_width() // 2, offset_y_atual + altura_braco_atual + 12))
     modo_texto = configs.get_modo_texto() if configs else 'letras'
@@ -57,7 +61,7 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_
                 if nota_calculada not in meu_campo_harmonico.notas_acorde_selecionado:
                     esta_no_acorde = False
                     alpha_nota, raio_atual = (GUITAR_ALPHA_INATIVO, 12)
-            x_nota = pos_x_base - 35 if casa == 0 else pos_x_base + casa * estado.ESPACO_CASAS - estado.ESPACO_CASAS / 2
+            x_nota = pos_x_base - 35 if casa == 0 else pos_x_base + casa * espaco_casas_dinamico - espaco_casas_dinamico / 2
             cor_fundo = cor_base_escala
             if esta_no_acorde:
                 if nota_calculada == (meu_campo_harmonico.notas_acorde_selecionado[0] if meu_campo_harmonico.indice_acorde_selecionado != -1 else tom_global):

@@ -168,10 +168,9 @@ class GerenciadorEstudos:
         zoom = estado.camera.zoom if hasattr(estado, 'camera') else 1.0
         meio_x = cam_x + w_monitor / 2 / zoom
         meio_y = cam_y + h_monitor / 2 / zoom
-        self.rect_voltar = pygame.Rect(cam_x + 20, cam_y + 20, 150, 40)
-        pygame.draw.rect(tela, (200, 50, 50), self.rect_voltar, border_radius=5)
-        txt_voltar = fontes['ui'].render(_t('<< Sair (ESC)'), True, (255, 255, 255))
-        tela.blit(txt_voltar, (self.rect_voltar.centerx - txt_voltar.get_width() // 2, self.rect_voltar.centery - txt_voltar.get_height() // 2))
+        
+        # Botão voltar agora é gerido globalmente pela Top Bar
+        
         titulo = f"{_t('Estudo')}: {_t(estado.estudo_ativo)}"
         txt_titulo = fontes['titulo'].render(titulo, True, (0, 160, 255))
         tela.blit(txt_titulo, (meio_x - txt_titulo.get_width() // 2, cam_y + 40))

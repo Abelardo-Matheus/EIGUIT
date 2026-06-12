@@ -24,6 +24,8 @@ def obter_draggers_ativos(estado):
         lista.extend(reversed(estado.lista_tabs))
     return lista
 
+from DragDrop.gerenciador_snap import calcular_snap_e_guias
+
 def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos):
     """
         Como funciona: Itera sobre a fila de eventos do Pygame, tratando entradas de teclado, mouse e gestos de câmera.
@@ -36,6 +38,10 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
     pos_mouse = pygame.mouse.get_pos()
     pos_real = getattr(estado, 'pos_mouse_real', pos_mouse)
 
+    # Limpar guias por padrão
+    estado.guias_x = []
+    estado.guias_y = []
+
     # 1. PRIORIDADE MÁXIMA: BARRA SUPERIOR E MENUS DE SISTEMA
     # Isso garante que Pin, Arquivo, Perfil, etc funcionem SEMPRE.
     for evento in eventos:
@@ -47,13 +53,25 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
             return # Bloqueia propagação
 
-        # Tratar Botão PIN (Edit Mode)
         if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+            # Tratar Botão PIN (Edit Mode)
             if hasattr(estado, 'rect_btn_pin') and estado.rect_btn_pin.collidepoint(pos_real):
                 estado.drag_ativado = not estado.drag_ativado
                 if not estado.drag_ativado:
                     for dragger in obter_draggers_ativos(estado):
                         dragger.arrastando = False
+                return # Bloqueia propagação
+
+            # Tratar Botão SAIR Global
+            if hasattr(estado, 'rect_btn_voltar_global') and estado.rect_btn_voltar_global.collidepoint(pos_real):
+                estado.tela_criacao_tab_ativa = False
+                estado.tab_tela_cheia_ativa = False
+                estado.tela_estudo_ativa = False
+                estado.tela_jogo_ativa = False
+                if meu_gerenciador_jogos:
+                    meu_gerenciador_jogos.jogo_instancia = None
+                if hasattr(estado, 'gerenciador_estudos'):
+                    estado.gerenciador_estudos._limpar_modulos()
                 return # Bloqueia propagação
 
     # 2. TELAS EM DESTAQUE (Estudo / Jogo)
@@ -82,18 +100,10 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
         for evento in eventos:
             if render_ui.render_tab_maker is not None:
                 render_ui.render_tab_maker.tratar_evento(evento, estado)
-            
-            # Tratamento especial para o botão de sair que está no renderizador_ui
-            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-                if hasattr(estado, 'rect_voltar_criacao') and estado.rect_voltar_criacao.collidepoint(evento.pos):
-                    estado.tela_criacao_tab_ativa = False
         return
 
     if getattr(estado, 'tab_tela_cheia_ativa', False):
         for evento in eventos:
-            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-                if hasattr(estado, 'rect_voltar_tab') and estado.rect_voltar_tab.collidepoint(evento.pos):
-                    estado.tab_tela_cheia_ativa = False
             if evento.type == pygame.MOUSEWHEEL and hasattr(estado, 'tab_focada'):
                 estado.tab_focada.tratar_scroll(evento.y)
             if evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
@@ -244,6 +254,23 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                     margem = 20 if (hasattr(dragger, 'num_cordas') or dragger == getattr(estado, 'dragger_guitarra', None)) else 5
                     if dragger.processar_eventos_mouse(evento_dragger, margem_clique=margem):
                         clicou_em_dragger = True
+                        
+                        # --- Lógica de Snap Magnético ---
+                        if evento.type == pygame.MOUSEMOTION and dragger.arrastando:
+                            outros = [d for d in draggers if d != dragger]
+                            # Limitar outros apenas aos visíveis para performance
+                            # (Como estamos num workspace plano, pegamos todos, mas filtramos o alvo)
+                            sx, sy, gx, gy = calcular_snap_e_guias(dragger, outros, estado.LARGURA_TELA, estado.ALTURA_TELA)
+                            
+                            if sx is not None: 
+                                dragger.x = sx
+                                dragger.rect_caixa.x = sx
+                            if sy is not None: 
+                                dragger.y = sy
+                                dragger.rect_caixa.y = sy
+                                
+                            estado.guias_x = gx
+                            estado.guias_y = gy
                         
                         # Atualizar lógica de redimensionamento específica para guitarra
                         is_guitarra = hasattr(dragger, 'num_cordas') or dragger == getattr(estado, 'dragger_guitarra', None)

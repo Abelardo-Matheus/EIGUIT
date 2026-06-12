@@ -23,10 +23,16 @@ from Interface.Componentes.utils import obter_grau, equivalencia_notas
 render_tab_viewer = None
 render_tab_maker = None
 
+from DragDrop.gerenciador_snap import desenhar_guias_inteligentes
+
 def desenhar_workspace(tela, estado, configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos):
     """
         Como funciona: Calcula a posição e renderiza os componentes dinâmicos (braço da guitarra, controles, campo harmônico) no espaço virtual.
     """
+    # Desenhar Guias Inteligentes (abaixo de tudo no workspace)
+    if hasattr(estado, 'guias_x') and (estado.guias_x or estado.guias_y):
+        desenhar_guias_inteligentes(tela, estado.guias_x, estado.guias_y, tela.get_width(), tela.get_height())
+
     if hasattr(estado, 'lista_guitarras'):
         for guit in estado.lista_guitarras:
             desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_harmonico, dragger_obj=guit)
@@ -78,10 +84,6 @@ def _desenhar_tela_cheia_tablatura(tela, largura, altura, estado, fontes):
     tela.blit(txt_t, (40, 20))
     txt_a = fontes['ui'].render(f'Artista: {tab.artista}', True, (160, 160, 160))
     tela.blit(txt_a, (40, 50))
-    estado.rect_voltar_tab = pygame.Rect(largura - 180, 20, 140, 40)
-    pygame.draw.rect(tela, (0, 120, 215), estado.rect_voltar_tab, border_radius=8)
-    txt_v = fontes['ui'].render('<< VOLTAR', True, (255, 255, 255))
-    tela.blit(txt_v, (estado.rect_voltar_tab.centerx - txt_v.get_width() // 2, estado.rect_voltar_tab.centery - txt_v.get_height() // 2))
     
     original_fundo = tab.COR_FUNDO
     original_linha = tab.COR_LINHA
@@ -102,12 +104,6 @@ def _desenhar_tela_criacao_tablatura(tela, largura, altura, estado, fontes, conf
         render_tab_maker = RenderizadorCriadorTablatura(tela, largura, altura)
         
     render_tab_maker.renderizar()
-    
-    # Botão voltar (sobreposto para garantir saída)
-    estado.rect_voltar_criacao = pygame.Rect(largura - 180, 20, 140, 40)
-    pygame.draw.rect(tela, (231, 76, 60), estado.rect_voltar_criacao, border_radius=8)
-    txt_v = fontes['ui'].render('<< SAIR', True, BRANCO)
-    tela.blit(txt_v, (estado.rect_voltar_criacao.centerx - txt_v.get_width() // 2, estado.rect_voltar_criacao.centery - txt_v.get_height() // 2))
 
 def desenhar_tudo(tela, estado, configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos):
     tela.fill(FUNDO_ESCURO)
