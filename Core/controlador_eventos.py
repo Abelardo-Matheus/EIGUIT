@@ -98,9 +98,17 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
     if getattr(estado, 'tela_criacao_tab_ativa', False):
         import Interface.renderizador_ui as render_ui
         for evento in eventos:
+            # Primeiro tenta tratar no criador de tablatura
             if render_ui.render_tab_maker is not None:
-                render_ui.render_tab_maker.tratar_evento(evento, estado)
-        return
+                if render_ui.render_tab_maker.tratar_evento(evento, estado):
+                    continue # Se o criador consumiu o evento, para aqui
+                    
+            # Se não consumiu, permite tratar cliques globais (ex: Botão Sair, Bottom Nav)
+            if evento.type == pygame.MOUSEBUTTONDOWN:
+                if hasattr(estado, 'rect_btn_voltar_global') and estado.rect_btn_voltar_global.collidepoint(evento.pos):
+                    estado.tela_criacao_tab_ativa = False
+                    return
+        # Não damos 'return' imediato para permitir que a lógica de detecção de abas (bottom nav) lá embaixo funcione
 
     if getattr(estado, 'tab_tela_cheia_ativa', False):
         for evento in eventos:
@@ -114,7 +122,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
     bloqueio_z_index = False
     dx_inf = estado.dragger_painel_inferior.x if hasattr(estado, 'dragger_painel_inferior') else 100
     dy_inf = estado.dragger_painel_inferior.y if hasattr(estado, 'dragger_painel_inferior') else estado.ALTURA_TELA - 50
-    altura_caixa_total = 350
+    altura_caixa_total = 280 # Tamanho fixo independente
     largura_conteudo = estado.dragger_painel_inferior.largura if hasattr(estado, 'dragger_painel_inferior') else estado.LARGURA_BRACO
     for secao in estado.secoes_inferiores:
         if secao['expandido']:

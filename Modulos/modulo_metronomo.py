@@ -201,33 +201,57 @@ class Metronomo:
         if not self.ativado:
             return
         cor_tema = configs.get_cor_tema() if configs else (0, 163, 255)
-        dx, dy = (estado.dragger_metronomo.x, estado.dragger_metronomo.y)
-        largura = estado.dragger_metronomo.largura
-        espacamento = 35
-        x_inicio = dx + largura // 2 - (self.compasso - 1) * espacamento // 2
+        dragger = estado.dragger_metronomo
+        dx, dy = (dragger.x, dragger.y)
+        largura = dragger.largura
+        altura = dragger.altura
+
+        # Espaçamento dinâmico para as bolinhas de tempo
+        espacamento_bolas = min(35, (largura - 40) // self.compasso)
+        x_inicio_bolas = dx + largura // 2 - (self.compasso - 1) * espacamento_bolas // 2
+
         tempo_decorrido = pygame.time.get_ticks() - self.ultimo_tick
         for i in range(self.compasso):
             cor = self.paleta_cores[self.indices_cores[i]]
-            cx, cy = (x_inicio + i * espacamento, dy + 15)
+            cx, cy = (x_inicio_bolas + i * espacamento_bolas, dy + 15 + (altura - 100) // 4)
             raio = 10 + (max(0, 6 - tempo_decorrido / 30) if i == self.tempo_atual and self.tocando else 0)
             if not (i == self.tempo_atual and self.tocando):
                 cor = (max(0, cor[0] - 150), max(0, cor[1] - 150), max(0, cor[2] - 150))
             pygame.draw.circle(tela, cor, (int(cx), int(cy)), int(raio))
             pygame.draw.circle(tela, (200, 200, 200), (int(cx), int(cy)), int(raio), 2)
-        largura_total_ui = 55 + 10 + self.slider_largura + 10 + 50
+
+        # Controles (Play, Slider, Input)
+        # Largura adaptável para o slider
+        btn_w = 55
+        in_w = 50
+        gap = 10
+        self.slider_largura = max(40, largura - btn_w - in_w - (gap * 4))
+
+        largura_total_ui = btn_w + gap + self.slider_largura + gap + in_w
         x_start = dx + (largura - largura_total_ui) // 2
-        y_ctrl = dy + 45
-        pygame.draw.rect(tela, (200, 50, 50) if self.tocando else cor_tema, (x_start, y_ctrl, 55, 30), border_radius=5)
+        y_ctrl = dy + 45 + (altura - 100) // 2
+
+        # Botão Play/Stop
+        self.btn_play = pygame.Rect(x_start, y_ctrl, btn_w, 30)
+        pygame.draw.rect(tela, (200, 50, 50) if self.tocando else cor_tema, self.btn_play, border_radius=5)
         txt = fonte_ui.render('STOP' if self.tocando else 'PLAY', True, self.BRANCO)
-        tela.blit(txt, (x_start + 27 - txt.get_width() // 2, y_ctrl + 15 - txt.get_height() // 2))
-        bar_rect = (x_start + 65, y_ctrl + 10, self.slider_largura, 10)
-        pygame.draw.rect(tela, self.CINZA, bar_rect, border_radius=5)
-        cursor_x = bar_rect[0] + (self.bpm - 40) / (300 - 40) * self.slider_largura
+        tela.blit(txt, (self.btn_play.centerx - txt.get_width() // 2, self.btn_play.centery - txt.get_height() // 2))
+
+        # Barra do Slider
+        self.rect_slider_barra = pygame.Rect(x_start + btn_w + gap, y_ctrl + 10, self.slider_largura, 10)
+        pygame.draw.rect(tela, self.CINZA, self.rect_slider_barra, border_radius=5)
+
+        # Cursor do Slider
+        cursor_x = self.rect_slider_barra.x + (self.bpm - 40) / (300 - 40) * self.slider_largura
         pygame.draw.rect(tela, self.BRANCO, (cursor_x - 7, y_ctrl + 5, 15, 20), border_radius=3)
-        in_rect = (x_start + 65 + self.slider_largura + 10, y_ctrl, 50, 30)
-        pygame.draw.rect(tela, self.FUNDO_INPUT, in_rect, border_radius=5)
-        pygame.draw.rect(tela, cor_tema if self.foco_input else self.CINZA, in_rect, 2, border_radius=5)
+
+        # Input de BPM
+        self.rect_input = pygame.Rect(x_start + btn_w + gap + self.slider_largura + gap, y_ctrl, in_w, 30)
+        pygame.draw.rect(tela, self.FUNDO_INPUT, self.rect_input, border_radius=5)
+        pygame.draw.rect(tela, cor_tema if self.foco_input else self.CINZA, self.rect_input, 2, border_radius=5)
+
         txt_bpm = fonte_ui.render(self.bpm_texto, True, self.BRANCO)
-        tela.blit(txt_bpm, (in_rect[0] + 5, in_rect[1] + 5))
+        tela.blit(txt_bpm, (self.rect_input.x + (in_w - txt_bpm.get_width()) // 2, self.rect_input.y + 5))
+
         if estado.drag_ativado:
-            estado.dragger_metronomo.desenhar_caixa_selecao(tela, margem=5)
+            dragger.desenhar_caixa_selecao(tela, margem=5)

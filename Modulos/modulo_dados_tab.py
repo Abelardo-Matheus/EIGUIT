@@ -7,24 +7,92 @@ class GerenciadorDadosTablatura:
     def __init__(self, bpm=120):
         self.bpm = bpm
         self.nome_musica = "Nova Música"
-        # Matriz: 6 cordas x N tempos. Cada célula é uma string (ex: "12", "5b", "-")
-        # Começamos com 64 tempos (4 compassos em 4/4 com semicolcheias)
+        # Matriz: 6 cordas x N tempos.
         self.grade = [["-" for _ in range(64)] for _ in range(6)]
         self.playing = False
         self.cursor_tempo = 0
         self.playback_thread = None
-        self.on_note_trigger = None # Callback para o sintetizador
+        self.on_note_trigger = None
+        
+        # Sistema de Seleção
+        self.selecao_inicio = None # (corda, tempo)
+        self.selecao_fim = None
+        self.copia_buffer = None
 
     def adicionar_nota(self, corda, tempo, valor):
-        if 0 <= corda < 6 and 0 <= tempo < len(self.grade[0]):
+        self._garantir_capacidade(tempo)
+        if 0 <= corda < 6:
             self.grade[corda][tempo] = str(valor)
+
+    def _garantir_capacidade(self, tempo):
+        """Aumenta a grade automaticamente se o tempo solicitado estiver fora do limite."""
+        while tempo >= len(self.grade[0]):
+            for c in range(6):
+                self.grade[c].extend(["-" for _ in range(32)])
 
     def remover_nota(self, corda, tempo):
         if 0 <= corda < 6 and 0 <= tempo < len(self.grade[0]):
             self.grade[corda][tempo] = "-"
 
+    def copiar_selecao(self, corda_ini, tempo_ini, corda_fim, tempo_fim):
+        c1, c2 = min(corda_ini, corda_fim), max(corda_ini, corda_fim)
+        t1, t2 = min(tempo_ini, tempo_fim), max(tempo_ini, tempo_fim)
+        
+        self.copia_buffer = []
+        for c in range(c1, c2 + 1):
+            linha = []
+            for t in range(t1, t2 + 1):
+                linha.append(self.grade[c][t])
+            self.copia_buffer.append(linha)
+
+    def colar_em(self, corda_alvo, tempo_alvo):
+        if not self.copia_buffer: return
+        
+        for r_idx, linha in enumerate(self.copia_buffer):
+            c_real = corda_alvo + r_idx
+            if c_real >= 6: break
+            for t_idx, valor in enumerate(linha):
+                t_real = tempo_alvo + t_idx
+                self.adicionar_nota(c_real, t_real, valor)
+
     def limpar_tablatura(self):
         self.grade = [["-" for _ in range(len(self.grade[0]))] for _ in range(6)]
+
+    def preencher_da_ia(self, notas_ia):
+        """Converte a lista de notas da IA para a grade da tablatura."""
+        self.limpar_tablatura()
+        
+        # Midi notes das cordas (Standard Tuning)
+        # e(64), B(59), G(55), D(50), A(45), E(40)
+        pitch_cordas = [64, 59, 55, 50, 45, 40]
+        
+        for nota in notas_ia:
+            p = round(nota['pitch'])
+            # offset está em beats. 1 beat = 4 colunas (semicolcheias)
+            tempo = int(nota['offset'] * 4)
+            
+            # Garantir que a grade tenha espaço
+            self._garantir_capacidade(tempo)
+            
+            # Encontrar a melhor corda (procurar da mais aguda para a mais grave ou vice-versa?)
+            # Geralmente prefere-se cordas mais graves para notas graves
+            corda_escolhida = -1
+            casa_escolhida = -1
+            
+            # Tentar encontrar a nota em qualquer corda (0 a 24)
+            # Priorizamos a corda que resultar na menor casa >= 0
+            melhor_casa = 99
+            
+            for idx, base_p in enumerate(pitch_cordas):
+                casa = p - base_p
+                if 0 <= casa <= 24:
+                    if casa < melhor_casa:
+                        melhor_casa = casa
+                        corda_escolhida = idx
+                        casa_escolhida = casa
+            
+            if corda_escolhida != -1:
+                self.adicionar_nota(corda_escolhida, tempo, str(casa_escolhida))
 
     def set_bpm(self, bpm):
         self.bpm = bpm

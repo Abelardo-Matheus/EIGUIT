@@ -56,31 +56,32 @@ def _desenhar_aba_configuracao(tela, dx, y_start, largura_conteudo, estado, font
         meu_metronomo.desenhar_config(tela, fontes['ui'], 0)
 
 def _desenhar_aba_estudos(tela, dx, y_start, largura_conteudo, estado, fontes, memoria_sub_aba, configs):
-    """
-        Como funciona: Executa o fluxo lógico necessário para a operação ' desenhar aba estudos'.
-        Para que serve: Realiza as tarefas fundamentais de ' desenhar aba estudos' dentro do contexto do módulo.
-        Onde é usada: Utilizado internamente para gerenciar comportamentos de ' desenhar aba estudos'.
-    """
     cor_tema = configs.get_cor_tema()
     BRANCO = (255, 255, 255)
     estado.botoes_estudo.clear()
     largura_texto_max = largura_conteudo - 240
+    
+    # Espaçamento vertical aumentado para Estudos
+    altura_item = 55
+    offset_y_entre_itens = 25
+    
     if memoria_sub_aba == 0:
         textos = [(_t('Acerte a Nota'), _t('Treine seu mapeamento visual: Descubra qual nota está escondida em uma casa específica do braço.')), (_t('Acerte o Som'), _t('Treinamento de percepção absoluta: Escute a frequência gerada e identifique a nota pelo som.')), (_t('Acerte a Próxima'), _t('Domine os intervalos calculando saltos de distância (Uníssono, 2ª, 3ª, 4ª, 5ª, 6ª e 7ª).'))]
-        y_btn = y_start + ESTUDOS_OFFSET_Y_INTERNO
+        y_btn = y_start + ESTUDOS_OFFSET_Y_INTERNO + 10
         for titulo_btn, descricao in textos:
-            rect_btn = pygame.Rect(dx + BOTTOM_MARGIN_X, y_btn, 170, 45)
+            rect_btn = pygame.Rect(dx + BOTTOM_MARGIN_X, y_btn, 170, altura_item)
             pygame.draw.rect(tela, cor_tema, rect_btn, border_radius=6)
             txt_btn = fontes['ui'].render(titulo_btn, True, BRANCO)
             tela.blit(txt_btn, (rect_btn.centerx - txt_btn.get_width() // 2, rect_btn.centery - txt_btn.get_height() // 2))
             estado.botoes_estudo[titulo_btn] = rect_btn
             linhas = quebrar_texto(descricao, fontes['pequena'], largura_texto_max)
-            y_linha = rect_btn.y + 2
+            y_linha = rect_btn.y + 5
             for linha in linhas:
                 txt_l = fontes['pequena'].render(linha, True, (200, 200, 200))
                 tela.blit(txt_l, (dx + ESTUDOS_DESC_OFFSET_X, y_linha))
                 y_linha += 18
-            y_btn += 65
+            y_btn += altura_item + offset_y_entre_itens
+    # ... (repetir lógica similar para outras sub-abas de estudo se necessário)
     elif memoria_sub_aba == 1:
         textos_escalas = [(_t('Acerte a Escala'), _t('Pratique shapes e digitações: Encontre todas as notas que pertencem à escala solicitada.'))]
         y_btn = y_start + ESTUDOS_OFFSET_Y_INTERNO
@@ -273,21 +274,26 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
         Para que serve: Apresenta o elemento visual 'secoes inferiores expansiveis' na interface gráfica.
         Onde é usada: Chamado a partir do módulo ou classe base de 'bottom_nav'.
     """
+    if not hasattr(estado, 'dragger_painel_inferior'):
+        return
+
     alpha_atual = configs.get_alpha() if configs else 255
     cor_tema = configs.get_cor_tema()
-    dx = estado.dragger_painel_inferior.x if hasattr(estado, 'dragger_painel_inferior') else 100
-    dy = estado.dragger_painel_inferior.y if hasattr(estado, 'dragger_painel_inferior') else estado.ALTURA_TELA - 50
-    altura_caixa_total = BOTTOM_ALTURA_CAIXA
-    largura_conteudo = estado.dragger_painel_inferior.largura if hasattr(estado, 'dragger_painel_inferior') else estado.LARGURA_BRACO
-    espacamento = 8
-    num_secoes = len(estado.secoes_inferiores)
-    largura_botao = (largura_conteudo - espacamento * (num_secoes - 1)) / num_secoes
+    dragger = estado.dragger_painel_inferior
+    dx, dy = dragger.x, dragger.y
+    largura_conteudo = dragger.largura
+    altura_dragger = dragger.altura # Agora o botão tem altura variável
+
+    # A altura da caixa expandida agora é fixa e independente do tamanho dos botões
+    altura_caixa_total = 280
+
     pos_x_guit = estado.dragger_guitarra.x if hasattr(estado, 'dragger_guitarra') else 100
     pos_y_guit = estado.dragger_guitarra.y if hasattr(estado, 'dragger_guitarra') else 90
     instrumento = getattr(estado, 'instrumento', 'guitarra')
     offset_y_guit = pos_y_guit + estado.ESPACO_CORDAS if instrumento == 'baixo' else pos_y_guit
     altura_guit_atual = estado.ALTURA_BRACO - 2 * estado.ESPACO_CORDAS if instrumento == 'baixo' else estado.ALTURA_BRACO
     rect_braco_real = pygame.Rect(pos_x_guit, offset_y_guit, estado.LARGURA_BRACO, altura_guit_atual)
+
     tela.set_clip(None)
     for chave_escala, lista_modulos_gerais in dicionario_escalas.items():
         for modulo in lista_modulos_gerais:
@@ -295,100 +301,121 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
                 modulo.x_braco = pos_x_guit
                 modulo.y_braco = offset_y_guit
                 modulo.atualizar_e_desenhar(tela, pygame.mouse.get_pos(), rect_braco_real, fontes['pequena'], alpha_atual)
+
     num_secoes = len(estado.secoes_inferiores)
     espacamento_entre_botoes = 8
     largura_total_util = largura_conteudo - espacamento_entre_botoes * (num_secoes - 1)
     largura_botao_fluida = largura_total_util / num_secoes
+
     for i, secao in enumerate(estado.secoes_inferiores):
         x_botao = dx + i * (largura_botao_fluida + espacamento_entre_botoes)
-        rect_cabecalho = pygame.Rect(x_botao, dy, largura_botao_fluida, 45)
+        rect_cabecalho = pygame.Rect(x_botao, dy, largura_botao_fluida, altura_dragger)
         secao['rect_cabecalho'] = rect_cabecalho
+
         cor_fundo = cor_tema if secao['expandido'] else (40, 40, 40)
         pygame.draw.rect(tela, cor_fundo, rect_cabecalho, border_radius=RADIUS_PADRAO)
         if not secao['expandido']:
             pygame.draw.rect(tela, COR_BORDA, rect_cabecalho, width=1, border_radius=RADIUS_PADRAO)
+
         txt_traduzido = _t(secao['titulo'])
-        txt = fontes['pequena'].render(txt_traduzido, True, BRANCO)
+        fonte_btn = fontes['pequena']
+        txt = fonte_btn.render(txt_traduzido, True, BRANCO)
+        if txt.get_width() > largura_botao_fluida - 10:
+             txt = pygame.font.SysFont(None, 14).render(txt_traduzido, True, BRANCO)
+
         tela.blit(txt, (rect_cabecalho.centerx - txt.get_width() // 2, rect_cabecalho.centery - txt.get_height() // 2))
+
         if secao['expandido']:
-            y_conteudo = dy - altura_caixa_total - 15
+            y_conteudo = dy - altura_caixa_total - 10
             rect_fundo_conteudo = pygame.Rect(dx, y_conteudo, largura_conteudo, altura_caixa_total)
             pygame.draw.rect(tela, (25, 25, 25), rect_fundo_conteudo, border_radius=RADIUS_PADRAO)
             pygame.draw.rect(tela, COR_BORDA, rect_fundo_conteudo, width=2, border_radius=RADIUS_PADRAO)
-            y_sub_abas = y_conteudo + BOTTOM_SUBABA_Y_OFFSET
-            altura_sub = BOTTOM_SUBABA_ALTURA
+
+            # Sub-abas responsivas
+            y_sub_abas = y_conteudo + 10
+            altura_sub = 30
             if secao['sub_abas']:
-                largura_sub = (largura_conteudo - BOTTOM_SUBABA_MARGIN_X) / len(secao['sub_abas'])
+                num_sub = len(secao['sub_abas'])
+                espaco_total_sub = largura_conteudo - 40
+                largura_sub = (espaco_total_sub - (num_sub - 1) * 5) / num_sub
                 for j, nome_sub in enumerate(secao['sub_abas']):
-                    rect_sub = pygame.Rect(dx + BOTTOM_MARGIN_X + j * largura_sub, y_sub_abas, largura_sub - 5, altura_sub)
+                    rect_sub = pygame.Rect(dx + 20 + j * (largura_sub + 5), y_sub_abas, largura_sub, altura_sub)
                     secao[f'rect_sub_{j}'] = rect_sub
                     cor_sub = cor_tema if secao['memoria_sub_aba'] == j else (40, 40, 40)
                     pygame.draw.rect(tela, cor_sub, rect_sub, border_radius=6)
+
                     txt_sub_trad = _t(nome_sub)
                     txt_sub = fontes['pequena'].render(txt_sub_trad, True, BRANCO)
-                    tela.blit(txt_sub, (rect_sub.centerx - txt_sub.get_width() // 2, rect_sub.centery - txt_sub.get_height() // 2))
-            y_area_desenho = y_conteudo + BOTTOM_OFFSET_AREA_DESENHO
-            altura_util = altura_caixa_total - BOTTOM_ALTURA_UTIL_DIFF
-            rect_clipping = pygame.Rect(dx + 5, y_area_desenho + BOTTOM_OFFSET_CLIPPING_Y, largura_conteudo - 10, altura_util - BOTTOM_OFFSET_CLIPPING_Y)
+                    if txt_sub.get_width() > rect_sub.width - 4:
+                        txt_sub = pygame.font.SysFont(None, 13).render(txt_sub_trad, True, BRANCO)
+                    
+                    if txt_sub.get_width() < rect_sub.width:
+                        tela.blit(txt_sub, (rect_sub.centerx - txt_sub.get_width() // 2, rect_sub.centery - txt_sub.get_height() // 2))
+
+            # Área de conteúdo com clipping responsivo
+            y_area_desenho = y_sub_abas + altura_sub + 10
+            altura_util = altura_caixa_total - (y_area_desenho - y_conteudo) - 10
+            rect_clipping = pygame.Rect(dx + 5, y_area_desenho, largura_conteudo - 10, altura_util)
+
             tela.set_clip(rect_clipping)
             scroll_atual = estado.scroll_y.get(i, 0)
             y_start = y_area_desenho - scroll_atual
+
             if secao['conteudo'] in ['escalas', 'acordes']:
-                chaves = []
-                if secao['conteudo'] == 'escalas':
-                    chaves = ['maior', 'menor', 'penta_maior', 'penta_menor', 'blues', 'modos', 'harmonica', 'melodica', 'exoticas']
-                elif secao['conteudo'] == 'acordes':
-                    chaves = ['caged', 'triades_maior', 'triades_menor', 'setimas', 'power']
+                chaves = ['maior', 'menor', 'penta_maior', 'penta_menor', 'blues', 'modos', 'harmonica', 'melodica', 'exoticas'] if secao['conteudo'] == 'escalas' else ['caged', 'triades_maior', 'triades_menor', 'setimas', 'power']
                 if secao['memoria_sub_aba'] < len(chaves):
                     chave_atual = chaves[secao['memoria_sub_aba']]
                     lista_ativa = dicionario_escalas.get(chave_atual, [])
                     altura_total_conteudo = 0
-                    for modulo in lista_ativa:
+                    
+                    # Desenho ultra-compacto com espaçamento máximo
+                    escala_compacta = 0.28
+                    largura_bloco = 150 
+                    altura_bloco = 90   
+                    espacamento_x = 50  # Espaçamento horizontal generoso
+                    espacamento_y = 80  # Espaçamento vertical generoso para isolar bem cada shape
+                    
+                    colunas = max(1, int((largura_conteudo - 40) // (largura_bloco + espacamento_x)))
+                    largura_grade_total = colunas * largura_bloco + (colunas - 1) * espacamento_x
+                    offset_x_central = (largura_conteudo - largura_grade_total) // 2
+                    
+                    for idx_mod, modulo in enumerate(lista_ativa):
                         if modulo.estado == 'painel':
-                            y_rel = getattr(modulo, 'y_relativo', 0)
-                            altura_total_conteudo = max(altura_total_conteudo, y_rel + 150)
-                    estado.max_scroll[i] = max(0, altura_total_conteudo - altura_util + 50)
-                    for modulo in lista_ativa:
-                        if modulo.estado == 'painel':
-                            x_rel = getattr(modulo, 'x_original_relativo', 0)
-                            if not hasattr(modulo, 'x_original_relativo'):
-                                modulo.x_original_relativo = modulo.rect_painel.x - (estado.dragger_painel_inferior.x if hasattr(estado, 'dragger_painel_inferior') else 100)
-                                x_rel = modulo.x_original_relativo
-                            modulo.rect_painel.x = dx + x_rel
-                            y_rel = getattr(modulo, 'y_relativo', 0)
-                            modulo.rect_painel.y = y_start + 10 + y_rel
-                            modulo.scroll_offset = 0
+                            if not hasattr(modulo, 'escala_atual_painel') or modulo.escala_atual_painel != escala_compacta:
+                                surf_orig = getattr(modulo, 'imagem_braco', modulo.imagem_painel)
+                                w_novo = int(surf_orig.get_width() * (escala_compacta / 0.6))
+                                h_novo = int(surf_orig.get_height() * (escala_compacta / 0.6))
+                                modulo.imagem_painel = pygame.transform.scale(surf_orig, (w_novo, h_novo))
+                                modulo.escala_atual_painel = escala_compacta
+                                modulo.rect_painel = modulo.imagem_painel.get_rect()
+
+                            x_idx = idx_mod % colunas
+                            y_idx = idx_mod // colunas
+                            
+                            modulo.rect_painel.x = dx + offset_x_central + x_idx * (largura_bloco + espacamento_x)
+                            modulo.rect_painel.y = y_start + 30 + y_idx * (altura_bloco + espacamento_y)
+                            
+                            altura_total_conteudo = max(altura_total_conteudo, (y_idx + 1) * (altura_bloco + espacamento_y) + 80)
                             modulo.atualizar_e_desenhar(tela, pygame.mouse.get_pos(), rect_braco_real, fontes['pequena'], alpha_atual)
-                    tela.set_clip(rect_clipping)
+                            
+                    estado.max_scroll[i] = max(0, altura_total_conteudo - altura_util + 50)
             elif secao['conteudo'] == 'analise_ia':
-                estado.max_scroll[i] = 200 if secao['memoria_sub_aba'] == 0 else 0
                 _desenhar_aba_ia(tela, dx, y_start, estado, fontes, meu_processador, meu_gravador, meu_gerenciador_jogos, secao['memoria_sub_aba'], configs)
             elif secao['conteudo'] == 'configuracao':
-                num_blocos = 7 if secao['memoria_sub_aba'] == 0 else 1
-                esp = 15
-                altura_bloco = 185
-                largura_util_nav = largura_conteudo - 40
-                largura_bloco = (largura_util_nav - 3 * esp) // 4
-                num_linhas = (num_blocos + 3) // 4
-                altura_total_config = num_linhas * (altura_bloco + esp) + 20
-                estado.max_scroll[i] = max(0, altura_total_config - altura_util + 20)
                 _desenhar_aba_configuracao(tela, dx, y_start, largura_conteudo, estado, fontes, configs, meu_metronomo, secao['memoria_sub_aba'], scroll_atual)
             elif secao['conteudo'] == 'estudos':
-                num_itens = 3 if secao['memoria_sub_aba'] == 0 else 1
-                altura_total_estudos = num_itens * 65 + 40
-                estado.max_scroll[i] = max(0, altura_total_estudos - altura_util)
                 _desenhar_aba_estudos(tela, dx, y_start, largura_conteudo, estado, fontes, secao['memoria_sub_aba'], configs)
             elif secao['conteudo'] == 'musicas':
-                num_musicas = len(estado.resultados_songsterr) if secao['memoria_sub_aba'] == 0 else len(estado.musicas_locais)
-                altura_total_musicas = num_musicas * 45 + 150
-                estado.max_scroll[i] = max(0, altura_total_musicas - altura_util)
                 _desenhar_aba_musicas(tela, dx, y_start, largura_conteudo, estado, fontes, secao['memoria_sub_aba'], configs)
+
             tela.set_clip(None)
+            # Scrollbar responsiva
             if estado.max_scroll.get(i, 0) > 0:
                 x_scroll = dx + largura_conteudo - 12
                 tamanho_alca = max(30, altura_util * (altura_util / (altura_util + estado.max_scroll[i])))
                 y_alca = y_area_desenho + scroll_atual / estado.max_scroll[i] * (altura_util - tamanho_alca)
                 pygame.draw.rect(tela, (45, 45, 45), (x_scroll, y_area_desenho, 8, altura_util), border_radius=4)
                 pygame.draw.rect(tela, (120, 120, 120), (x_scroll, y_alca, 8, tamanho_alca), border_radius=4)
-    if estado.drag_ativado and hasattr(estado, 'dragger_painel_inferior'):
-        estado.dragger_painel_inferior.desenhar_caixa_selecao(tela, margem=8)
+
+    if estado.drag_ativado:
+        dragger.desenhar_caixa_selecao(tela, margem=8)

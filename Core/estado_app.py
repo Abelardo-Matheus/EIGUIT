@@ -55,34 +55,29 @@ class EstadoGlobal:
         self.dropdown_tom_aberto = False
         self.NUM_CASAS = 18
         self.NUM_CORDAS = 7
-        self.LARGURA_BRACO = 1000 # Fixado para bater com o padrão de 18 casas visual
-        self.ALTURA_BRACO = GUITAR_ALTURA_BRACO
+        self.LARGURA_BRACO = 1713 
+        self.ALTURA_BRACO = 393
         self.scroll_y = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}
         self.max_scroll = {0: 1000, 1: 800, 2: 400, 3: 500, 4: 500}
         
-        # --- Novos padrões centralizados e organizados (Sincronizados com modulo_perfil) ---
-        gap_horizontal = 50
-        largura_total_pequenos = 240 + 180 + 280 + (gap_horizontal * 2)
-        x_inicio_pequenos = (largura_tela - largura_total_pequenos) // 2
-        
-        # Medidas de referência
+        # Medidas de referência (Extraídas do Setup_Centralizado)
         self.LARGURA_ACORDES = 620
-        self.ALTURA_ACORDES = CHORD_ALTURA
-        self.LARGURA_BLOCO_NOTA = SIDEBAR_NOTA_LARGURA
-        self.ALTURA_BLOCO_NOTA = SIDEBAR_NOTA_ALTURA
-        self.LARGURA_METRONOMO = METRO_LARGURA
-        self.ALTURA_METRONOMO = METRO_ALTURA
+        self.ALTURA_ACORDES = 120
+        self.LARGURA_BLOCO_NOTA = 280
+        self.ALTURA_BLOCO_NOTA = 220
+        self.LARGURA_METRONOMO = 276
+        self.ALTURA_METRONOMO = 104
         
         # Grandes
-        self.dragger_controles_topo = ElementoArrastavel((largura_tela - 700) // 2, 20, 700, TOPBAR_ALTURA)
-        self.dragger_guitarra = ElementoArrastavel((largura_tela - 1000) // 2, 80, self.LARGURA_BRACO, self.ALTURA_BRACO)
-        self.dragger_acordes = ElementoArrastavel((largura_tela - 620) // 2, 380, self.LARGURA_ACORDES, self.ALTURA_ACORDES)
-        self.dragger_painel_inferior = ElementoArrastavel((largura_tela - 1200) // 2, altura_tela - 85, 1200, 45)
+        self.dragger_controles_topo = ElementoArrastavel(610, 20, 700, 40)
+        self.dragger_guitarra = ElementoArrastavel(141, 105, self.LARGURA_BRACO, self.ALTURA_BRACO)
+        self.dragger_acordes = ElementoArrastavel(650, 556, self.LARGURA_ACORDES, self.ALTURA_ACORDES)
+        self.dragger_painel_inferior = ElementoArrastavel(197, 977, 1526, 80)
         
         # Pequenos
-        self.dragger_metronomo = ElementoArrastavel(x_inicio_pequenos, 520, self.LARGURA_METRONOMO, self.ALTURA_METRONOMO)
-        self.dragger_cores = ElementoArrastavel(x_inicio_pequenos + 240 + gap_horizontal, 520, 180, 150)
-        self.dragger_nota_atual = ElementoArrastavel(x_inicio_pequenos + 240 + 180 + (gap_horizontal * 2), 520, self.LARGURA_BLOCO_NOTA, self.ALTURA_BLOCO_NOTA)
+        self.dragger_metronomo = ElementoArrastavel(822, 721, self.LARGURA_METRONOMO, self.ALTURA_METRONOMO)
+        self.dragger_cores = ElementoArrastavel(610, 721, 180, 150)
+        self.dragger_nota_atual = ElementoArrastavel(1130, 721, self.LARGURA_BLOCO_NOTA, self.ALTURA_BLOCO_NOTA)
 
         self.atualizar_medidas()
 

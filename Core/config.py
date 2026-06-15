@@ -271,31 +271,36 @@ class Configuracoes:
         x_start, y_start = (self.x, self.y - scroll_y + 15)
         esp = 15
         altura_bloco = 185
-        largura_bloco = (largura_util - 3 * esp) // 4
+        
+        # Cálculo dinâmico de colunas baseado na largura
+        min_largura_bloco = 220
+        num_colunas = max(1, largura_util // (min_largura_bloco + esp))
+        largura_bloco = (largura_util - (num_colunas - 1) * esp) // num_colunas
+        
         x_atual, y_atual = (x_start, y_start)
 
         def avancar_posicao(x, y):
             """
                 Como funciona: Executa o fluxo lógico necessário para a operação 'avancar posicao'.
-                Para que serve: Realiza as tarefas fundamentais de 'avancar posicao' dentro do contexto do módulo.
-                Onde é usada: Utilizado internamente para gerenciar comportamentos de 'avancar posicao'.
             """
             x += largura_bloco + esp
-            if x + largura_bloco > x_start + largura_util:
+            if x + largura_bloco > x_start + largura_util + 5:
                 x = x_start
                 y += altura_bloco + esp
             return (x, y)
 
         def container(x, y, titulo):
             """
-                Como funciona: Executa o fluxo lógico necessário para a operação 'container'.
-                Para que serve: Realiza as tarefas fundamentais de 'container' dentro do contexto do módulo.
-                Onde é usada: Utilizado internamente para gerenciar comportamentos de 'container'.
+                Como funciona: Desenha o fundo de cada bloco de configuração.
             """
             rect = pygame.Rect(x, y, largura_bloco, altura_bloco)
             pygame.draw.rect(tela, (35, 35, 45), rect, border_radius=12)
             pygame.draw.rect(tela, (80, 80, 100), rect, width=2, border_radius=12)
-            tela.blit(fonte_ui.render(_t(titulo), True, self.AZUL_DESTAQUE), (x + 15, y + 10))
+            
+            txt_t = fonte_ui.render(_t(titulo), True, self.AZUL_DESTAQUE)
+            if txt_t.get_width() > largura_bloco - 20:
+                 txt_t = fontes['pequena'].render(_t(titulo), True, self.AZUL_DESTAQUE)
+            tela.blit(txt_t, (x + 15, y + 10))
             return y + 45
         y_int = container(x_atual, y_atual, 'Ajustes de Áudio')
         tela.blit(fonte_ui.render(f"{_t('Transparência')}: {self.transparencia}%", True, self.BRANCO), (x_atual + 15, y_int))

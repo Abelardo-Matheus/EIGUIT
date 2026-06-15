@@ -78,34 +78,35 @@ class ElementoArrastavel:
             if self.redimensionando:
                 dx = pos_mouse[0] - self.mouse_inicio_x
                 dy = pos_mouse[1] - self.mouse_inicio_y
-                nova_largura = self.largura
-                nova_altura = self.altura
-                novo_x = self.x
-                novo_y = self.y
-                if self.canto_ativo == 'TL':
-                    nova_largura -= dx
-                    nova_altura -= dy
-                    novo_x += dx
-                    novo_y += dy
-                elif self.canto_ativo == 'TR':
-                    nova_largura += dx
-                    nova_altura -= dy
-                    novo_y += dy
-                elif self.canto_ativo == 'BL':
-                    nova_largura -= dx
-                    nova_altura += dy
-                    novo_x += dx
-                elif self.canto_ativo == 'BR':
-                    nova_largura += dx
-                    nova_altura += dy
-                if nova_largura >= self.tamanho_minimo:
-                    self.largura = nova_largura
-                    self.x = novo_x
+                
+                # Armazenar estado anterior para rollback se necessário
+                antigo_x, antigo_y = self.x, self.y
+                antiga_w, antiga_h = self.largura, self.altura
+                
+                if 'T' in self.canto_ativo:
+                    self.altura -= dy
+                    self.y += dy
+                if 'B' in self.canto_ativo:
+                    self.altura += dy
+                if 'L' in self.canto_ativo:
+                    self.largura -= dx
+                    self.x += dx
+                if 'R' in self.canto_ativo:
+                    self.largura += dx
+                
+                # Validar tamanho mínimo e limites de tela (opcional)
+                if self.largura < self.tamanho_minimo:
+                    self.largura = antiga_w
+                    self.x = antigo_x
+                else:
                     self.mouse_inicio_x = pos_mouse[0]
-                if nova_altura >= self.tamanho_minimo:
-                    self.altura = nova_altura
-                    self.y = novo_y
+                    
+                if self.altura < 30: # Altura mínima para botões
+                    self.altura = antiga_h
+                    self.y = antigo_y
+                else:
                     self.mouse_inicio_y = pos_mouse[1]
+                
                 self.rect_caixa = pygame.Rect(self.x, self.y, self.largura, self.altura)
                 return True
             elif self.arrastando:

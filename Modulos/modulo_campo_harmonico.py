@@ -62,11 +62,14 @@ class CampoHarmonico:
         AZUL_BOTAO = (0, 120, 215)
         escala_atual = self.escalas_campo[self.indice_escala_campo]
         idx_tonica = self.notas_base.index(self.tonica_campo)
-        largura_bloco = 70
+        
+        # Proporcionalidade baseada na largura
+        largura_bloco = min(80, (largura_dragger - 100) // 7)
         altura_bloco = 60
-        espacamento = 15
+        espacamento = max(5, (largura_dragger - (7 * largura_bloco)) // 8)
         largura_total = 7 * largura_bloco + 6 * espacamento
         x_inicial = x_centro - largura_total // 2
+        
         self.rects_acordes_campo.clear()
         for i in range(7):
             x_bloco = x_inicial + i * (largura_bloco + espacamento)
@@ -74,35 +77,52 @@ class CampoHarmonico:
             nota_acorde = self.notas_base[idx_nota]
             nome_acorde = nota_acorde + escala_atual['qualidades'][i]
             romano = escala_atual['romanos'][i]
+            
             txt_romano = fonte_pequena.render(romano, True, COR_BORDA)
-            tela.blit(txt_romano, (x_bloco + largura_bloco // 2 - txt_romano.get_width() // 2, y_base - 25))
+            tela.blit(txt_romano, (x_bloco + largura_bloco // 2 - txt_romano.get_width() // 2, y_base - 20))
+            
             rect_bloco = pygame.Rect(x_bloco, y_base, largura_bloco, altura_bloco)
             self.rects_acordes_campo.append(rect_bloco)
+            
             if self.indice_acorde_selecionado == i:
                 pygame.draw.rect(tela, AZUL_BOTAO, rect_bloco, border_radius=8)
                 pygame.draw.rect(tela, COR_TEXTO, rect_bloco, width=2, border_radius=8)
             else:
                 pygame.draw.rect(tela, COR_FUNDO, rect_bloco, border_radius=8)
                 pygame.draw.rect(tela, COR_BORDA, rect_bloco, width=2, border_radius=8)
+            
             txt_acorde = fonte_titulo.render(nome_acorde, True, COR_TEXTO)
-            tela.blit(txt_acorde, (x_bloco + largura_bloco // 2 - txt_acorde.get_width() // 2, y_base + 15))
-        y_controles = y_base + altura_bloco + 20
-        self.rect_tonica_esq = pygame.Rect(x_centro - 200, y_controles, 30, 30)
-        self.rect_tonica_dir = pygame.Rect(x_centro - 100, y_controles, 30, 30)
+            if txt_acorde.get_width() > largura_bloco - 10:
+                txt_acorde = fonte_ui.render(nome_acorde, True, COR_TEXTO)
+            tela.blit(txt_acorde, (x_bloco + largura_bloco // 2 - txt_acorde.get_width() // 2, y_base + (altura_bloco - txt_acorde.get_height()) // 2))
+
+        # Controles Inferiores (Tonica e Escala)
+        y_controles = y_base + altura_bloco + 15
+        espaco_controles = largura_dragger // 2
+        
+        # Bloco Tonica (Esquerda)
+        x_tonica_centro = x_base + espaco_controles // 2
+        self.rect_tonica_esq = pygame.Rect(x_tonica_centro - 60, y_controles, 30, 30)
+        self.rect_tonica_dir = pygame.Rect(x_tonica_centro + 30, y_controles, 30, 30)
         pygame.draw.rect(tela, AZUL_BOTAO, self.rect_tonica_esq, border_radius=5)
         pygame.draw.rect(tela, AZUL_BOTAO, self.rect_tonica_dir, border_radius=5)
         tela.blit(fonte_titulo.render('<', True, COR_TEXTO), (self.rect_tonica_esq.x + 8, self.rect_tonica_esq.y + 2))
         tela.blit(fonte_titulo.render('>', True, COR_TEXTO), (self.rect_tonica_dir.x + 8, self.rect_tonica_dir.y + 2))
         txt_tonica = fonte_titulo.render(self.tonica_campo, True, COR_TEXTO)
-        tela.blit(txt_tonica, (x_centro - 150 - txt_tonica.get_width() // 2, y_controles + 5))
-        self.rect_escala_esq = pygame.Rect(x_centro + 10, y_controles, 30, 30)
-        self.rect_escala_dir = pygame.Rect(x_centro + 240, y_controles, 30, 30)
+        tela.blit(txt_tonica, (x_tonica_centro - txt_tonica.get_width() // 2, y_controles + 5))
+        
+        # Bloco Escala (Direita)
+        x_escala_centro = x_base + espaco_controles + espaco_controles // 2
+        self.rect_escala_esq = pygame.Rect(x_escala_centro - 100, y_controles, 30, 30)
+        self.rect_escala_dir = pygame.Rect(x_escala_centro + 70, y_controles, 30, 30)
         pygame.draw.rect(tela, AZUL_BOTAO, self.rect_escala_esq, border_radius=5)
         pygame.draw.rect(tela, AZUL_BOTAO, self.rect_escala_dir, border_radius=5)
         tela.blit(fonte_titulo.render('<', True, COR_TEXTO), (self.rect_escala_esq.x + 8, self.rect_escala_esq.y + 2))
         tela.blit(fonte_titulo.render('>', True, COR_TEXTO), (self.rect_escala_dir.x + 8, self.rect_escala_dir.y + 2))
         txt_escala = fonte_ui.render(escala_atual['nome'], True, COR_TEXTO)
-        tela.blit(txt_escala, (x_centro + 140 - txt_escala.get_width() // 2, y_controles + 5))
+        if txt_escala.get_width() > 130:
+             txt_escala = fonte_pequena.render(escala_atual['nome'], True, COR_TEXTO)
+        tela.blit(txt_escala, (x_escala_centro - txt_escala.get_width() // 2, y_controles + 7))
 
     def tratar_clique(self, pos_mouse):
         """

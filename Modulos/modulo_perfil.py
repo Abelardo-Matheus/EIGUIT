@@ -82,28 +82,15 @@ class GerenciadorPerfil:
         import pygame
         import json
         
-        # Prioridade para as dimensões salvas no estado global
-        largura_tela = getattr(estado, 'LARGURA_TELA', 1350)
-        altura_tela = getattr(estado, 'ALTURA_TELA', 768)
-            
-        # Novos padrões centralizados e organizados
-        gap_horizontal = 50
-        # Larguras padrão: Metronomo (240), Cores (180), Nota Atual (280)
-        largura_total_pequenos = 240 + 180 + 280 + (gap_horizontal * 2)
-        x_inicio_pequenos = (largura_tela - largura_total_pequenos) // 2
-        
-        # Definição de posições e TAMANHOS padrão
+        # Definição de posições e TAMANHOS padrão extraídos do Setup_Centralizado.json
         padroes = {
-            # Grandes (Empilhados Verticalmente)
-            'dragger_controles_topo': {'x': (largura_tela - 700) // 2, 'y': 20, 'w': 700, 'h': 40},
-            'dragger_guitarra': {'x': (largura_tela - 1000) // 2, 'y': 80, 'w': 1000, 'h': 280},
-            'dragger_acordes': {'x': (largura_tela - 620) // 2, 'y': 380, 'w': 620, 'h': 120},
-            'dragger_painel_inferior': {'x': (largura_tela - 1200) // 2, 'y': altura_tela - 85, 'w': 1200, 'h': 45},
-            
-            # Pequenos (Lado a Lado)
-            'dragger_metronomo': {'x': x_inicio_pequenos, 'y': 520, 'w': 240, 'h': 100},
-            'dragger_cores': {'x': x_inicio_pequenos + 240 + gap_horizontal, 'y': 520, 'w': 180, 'h': 150},
-            'dragger_nota_atual': {'x': x_inicio_pequenos + 240 + 180 + (gap_horizontal * 2), 'y': 520, 'w': 280, 'h': 220}
+            'dragger_controles_topo': {'x': 610, 'y': 20, 'w': 700, 'h': 40},
+            'dragger_guitarra': {'x': 141, 'y': 105, 'w': 1713, 'h': 393},
+            'dragger_acordes': {'x': 650, 'y': 556, 'w': 620, 'h': 120},
+            'dragger_painel_inferior': {'x': 197, 'y': 977, 'w': 1526, 'h': 80},
+            'dragger_metronomo': {'x': 822, 'y': 721, 'w': 276, 'h': 104},
+            'dragger_cores': {'x': 610, 'y': 721, 'w': 180, 'h': 150},
+            'dragger_nota_atual': {'x': 1130, 'y': 721, 'w': 280, 'h': 220}
         }
         for nome, coords in padroes.items():
             if hasattr(estado, nome):
@@ -122,8 +109,8 @@ class GerenciadorPerfil:
         
         # Resetar variáveis de escala do braço no estado
         if estado:
-            estado.LARGURA_BRACO = 1000
-            estado.ALTURA_BRACO = 280
+            estado.LARGURA_BRACO = 1713
+            estado.ALTURA_BRACO = 393
             estado.instrumento = 'guitarra'
             estado.NUM_CASAS = 18
             estado.tom_atual = 'C'
@@ -165,7 +152,7 @@ class GerenciadorPerfil:
         for nome in lista_draggers:
             if hasattr(estado, nome):
                 obj = getattr(estado, nome)
-                dados['posicoes_draggers'][nome] = {'x': obj.x, 'y': obj.y}
+                dados['posicoes_draggers'][nome] = {'x': obj.x, 'y': obj.y, 'w': obj.largura, 'h': obj.altura}
         with open(caminho, 'w', encoding='utf-8') as f:
             json.dump(dados, f, indent=4)
         if hasattr(estado, 'usuario_id_logado') and estado.usuario_id_logado:
@@ -200,9 +187,18 @@ class GerenciadorPerfil:
                         obj = getattr(estado, nome)
                         obj.x = coords['x']
                         obj.y = coords['y']
+                        if 'w' in coords: obj.largura = coords['w']
+                        if 'h' in coords: obj.altura = coords['h']
                         if hasattr(obj, 'rect_caixa'):
-                            obj.rect_caixa.x = coords['x']
-                            obj.rect_caixa.y = coords['y']
+                            obj.rect_caixa.x = obj.x
+                            obj.rect_caixa.y = obj.y
+                            obj.rect_caixa.width = obj.largura
+                            obj.rect_caixa.height = obj.altura
+                        
+                        # Sincronizar braço da guitarra especificamente
+                        if nome == 'dragger_guitarra':
+                            estado.LARGURA_BRACO = obj.largura
+                            estado.ALTURA_BRACO = obj.altura
             if 'estado' in dados:
                 d_est = dados['estado']
                 estado.instrumento = d_est.get('instrumento', 'guitarra')
