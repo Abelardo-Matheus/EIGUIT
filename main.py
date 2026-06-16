@@ -1,18 +1,18 @@
 import pygame
 import sys
-from Core import config, i18n
-import Modulos.modulo_metronomo as modulo_metronomo
-import Modulos.modulo_processamento as modulo_processamento
-from Modulos.modulo_campo_harmonico import CampoHarmonico
-from Core import estado_app
-from Interface import fabrica_escalas
-from Interface import renderizador_ui
-from Core import controlador_eventos
+from core import config, i18n
+import core.modulos.modulo_metronomo as modulo_metronomo
+import core.modulos.modulo_processamento as modulo_processamento
+from core.modulos.modulo_campo_harmonico import CampoHarmonico
+from core import estado_app
+from ui import fabrica_escalas
+from ui import renderizador_ui
+from core import controlador_eventos
 from Jogos.Jogos_interativos import GerenciadorJogos
-from Modulos.modulo_perfil import GerenciadorPerfil
-import Modulos.modulo_camera as modulo_camera
-from AudioEngine.global_audio import GlobalAudioEngine
-from Interface import tela_login
+from core.modulos.modulo_perfil import GerenciadorPerfil
+import core.modulos.modulo_camera as modulo_camera
+from audio.global_audio import GlobalAudioEngine
+from ui import tela_login
 
 def main():
     """
@@ -20,6 +20,9 @@ def main():
         Para que serve: Ponto de entrada do sistema que orquestra a inicialização e o ciclo de vida da aplicação.
         Onde é usada: Executado diretamente ao iniciar o software via main.py.
     """
+    from core.modulos.gerenciador_servicos_ia import iniciar_servicos_ia
+    iniciar_servicos_ia()
+    
     usuario_logado = tela_login.iniciar_fluxo_autenticacao()
     if not usuario_logado:
         print('Autenticação cancelada. Saindo...')
@@ -33,7 +36,7 @@ def main():
     tela = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
     pygame.display.set_caption('Guitar Studio IA')
     meu_gerenciador_jogos = GerenciadorJogos()
-    import Modulos.modulo_camera as modulo_camera
+    import core.modulos.modulo_camera as modulo_camera
     minha_camera = modulo_camera.CameraWorkspace(tela.get_width(), tela.get_height())
     estado = estado_app.EstadoGlobal(tela.get_width(), tela.get_height())
     estado.usuario_id_logado = usuario_logado['id']
@@ -50,7 +53,7 @@ def main():
     minhas_configs = config.Configuracoes(x_base + 20, y_virtual_caixa + 60)
     meu_metronomo = modulo_metronomo.Metronomo(x_base + 50, y_virtual_caixa + 80)
     meu_campo_harmonico = CampoHarmonico()
-    from AudioEngine.global_audio import GlobalAudioEngine
+    from audio.global_audio import GlobalAudioEngine
     motor_audio = GlobalAudioEngine()
     meu_gravador = motor_audio
     meu_processador = modulo_processamento.ProcessadorAudio()
@@ -115,8 +118,23 @@ def main():
         minha_camera.tela_virtual.fill((20, 20, 20))
         renderizador_ui.desenhar_workspace(minha_camera.tela_virtual, estado, minhas_configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos)
         tela.fill((0, 0, 0))
-        minha_camera.renderizar(tela)
-        renderizador_ui.desenhar_ui_fixa(tela, estado, fontes, meu_gravador, minhas_configs, meu_gerenciador_jogos)
+        
+        from config.ui_metrics import ALTURA_TOPBAR
+        from ui.components import desenhar_painel_superior
+        
+        altura_conteudo = max(1, tela.get_height() - ALTURA_TOPBAR)
+        rect_viewport = pygame.Rect(0, ALTURA_TOPBAR, tela.get_width(), altura_conteudo)
+        
+        try:
+            viewport = tela.subsurface(rect_viewport)
+            minha_camera.renderizar(viewport)
+            renderizador_ui.desenhar_ui_fixa(viewport, estado, fontes, meu_gravador, minhas_configs, meu_gerenciador_jogos)
+        except Exception:
+            minha_camera.renderizar(tela)
+            renderizador_ui.desenhar_ui_fixa(tela, estado, fontes, meu_gravador, minhas_configs, meu_gerenciador_jogos)
+            
+        desenhar_painel_superior(tela, estado, fontes, minhas_configs)
+        
         pygame.display.flip()
     pygame.mouse.get_pos = original_get_pos
     pygame.quit()

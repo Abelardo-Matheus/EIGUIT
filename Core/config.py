@@ -1,5 +1,5 @@
 import pygame
-from Core.i18n import _t
+from core.i18n import _t
 
 class Configuracoes:
     """
@@ -221,13 +221,13 @@ class Configuracoes:
         if self.rect_btn_idioma_esq.collidepoint(pos_mouse):
             self.indice_idioma = (self.indice_idioma - 1) % len(self.idiomas)
             codigo = self.idiomas[self.indice_idioma]['code']
-            from Core.i18n import sistema_traducao
+            from core.i18n import sistema_traducao
             sistema_traducao.atualizar_configuracao(codigo)
             return True
         if self.rect_btn_idioma_dir.collidepoint(pos_mouse):
             self.indice_idioma = (self.indice_idioma + 1) % len(self.idiomas)
             codigo = self.idiomas[self.indice_idioma]['code']
-            from Core.i18n import sistema_traducao
+            from core.i18n import sistema_traducao
             sistema_traducao.atualizar_configuracao(codigo)
             return True
         for i, r in enumerate(self.rects_modos):

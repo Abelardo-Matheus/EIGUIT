@@ -1,9 +1,11 @@
 import pygame
 import math
 import random
-import Modulos.escalas as escalas
-from Core.constantes_ui import *
-from Core.i18n import _t
+import core.modulos.escalas as escalas
+from config.theme import *
+from config.ui_metrics import *
+from config.app_settings import *
+from core.i18n import _t
 
 class EstudoCicloQuintas:
     """

@@ -1,0 +1,6 @@
+from .top_bar import desenhar_painel_superior
+from .instrument_controls import desenhar_controles_instrumento
+from .chord_selector import desenhar_acordes_arrastaveis
+from .playback_controls import desenhar_controles_playback
+from .audio_sidebar import desenhar_painel_cores, desenhar_bloco_nota_atual
+from .bottom_nav import desenhar_secoes_inferiores_expansiveis

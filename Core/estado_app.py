@@ -1,7 +1,7 @@
 import pygame
 from DragDrop.elemento_arrastavel import ElementoArrastavel
-from Interface.Componentes.config_componentes import LARGURA_TOOLBAR_PADRAO, LARGURA_INFERIOR_PADRAO, TOPBAR_Y_INICIAL, TOPBAR_ALTURA, GUITAR_Y_INICIAL, GUITAR_ALTURA_BRACO, CHORD_ALTURA, CHORD_OFFSET_Y_BRACO, SIDEBAR_NOTA_LARGURA, SIDEBAR_NOTA_ALTURA, SIDEBAR_NOTA_OFFSET_X, SIDEBAR_NOTA_OFFSET_Y_BOTTOM, METRO_LARGURA, METRO_ALTURA, METRO_OFFSET_X, METRO_OFFSET_Y_ESTUDO, CORES_LARGURA, CORES_ALTURA, CORES_OFFSET_X, CORES_OFFSET_Y_BOTTOM, BOTTOM_Y_OFFSET_TELA, BOTTOM_Y_AREA_DESENHO_OFFSET
-from Modulos.modulo_songsterr import SongsterrAPI
+from ui.components.config_componentes import LARGURA_TOOLBAR_PADRAO, LARGURA_INFERIOR_PADRAO, TOPBAR_Y_INICIAL, TOPBAR_ALTURA, GUITAR_Y_INICIAL, GUITAR_ALTURA_BRACO, CHORD_ALTURA, CHORD_OFFSET_Y_BRACO, SIDEBAR_NOTA_LARGURA, SIDEBAR_NOTA_ALTURA, SIDEBAR_NOTA_OFFSET_X, SIDEBAR_NOTA_OFFSET_Y_BOTTOM, METRO_LARGURA, METRO_ALTURA, METRO_OFFSET_X, METRO_OFFSET_Y_ESTUDO, CORES_LARGURA, CORES_ALTURA, CORES_OFFSET_X, CORES_OFFSET_Y_BOTTOM, BOTTOM_Y_OFFSET_TELA, BOTTOM_Y_AREA_DESENHO_OFFSET
+from core.modulos.modulo_songsterr import SongsterrAPI
 
 class EstadoGlobal:
     """
@@ -68,16 +68,27 @@ class EstadoGlobal:
         self.LARGURA_METRONOMO = 276
         self.ALTURA_METRONOMO = 104
         
+        from config.ui_metrics import ALTURA_TOPBAR
+        alt_viewport = max(600, self.ALTURA_TELA - ALTURA_TOPBAR)
+        centro_x = self.LARGURA_TELA // 2
+
+        # Posições adaptativas para não saírem da tela
         # Grandes
-        self.dragger_controles_topo = ElementoArrastavel(610, 20, 700, 40)
-        self.dragger_guitarra = ElementoArrastavel(141, 105, self.LARGURA_BRACO, self.ALTURA_BRACO)
-        self.dragger_acordes = ElementoArrastavel(650, 556, self.LARGURA_ACORDES, self.ALTURA_ACORDES)
-        self.dragger_painel_inferior = ElementoArrastavel(197, 977, 1526, 80)
+        self.dragger_controles_topo = ElementoArrastavel(centro_x - 350, 10, 700, 40)
+        self.dragger_guitarra = ElementoArrastavel(max(10, centro_x - self.LARGURA_BRACO // 2), 60, self.LARGURA_BRACO, self.ALTURA_BRACO)
         
-        # Pequenos
-        self.dragger_metronomo = ElementoArrastavel(822, 721, self.LARGURA_METRONOMO, self.ALTURA_METRONOMO)
-        self.dragger_cores = ElementoArrastavel(610, 721, 180, 150)
-        self.dragger_nota_atual = ElementoArrastavel(1130, 721, self.LARGURA_BLOCO_NOTA, self.ALTURA_BLOCO_NOTA)
+        # Painel inferior no limite inferior do viewport
+        y_inf = alt_viewport - 80 - 10 # 10px de margem
+        self.dragger_painel_inferior = ElementoArrastavel(max(10, centro_x - 1526 // 2), y_inf, 1526, 80)
+        
+        # Linha de blocos secundários logo acima do painel inferior
+        y_sec = y_inf - self.ALTURA_ACORDES - 15
+        self.dragger_acordes = ElementoArrastavel(centro_x - self.LARGURA_ACORDES // 2, y_sec, self.LARGURA_ACORDES, self.ALTURA_ACORDES)
+        
+        y_terc = y_sec - self.ALTURA_BLOCO_NOTA - 15
+        self.dragger_metronomo = ElementoArrastavel(centro_x - 138, y_terc, self.LARGURA_METRONOMO, self.ALTURA_METRONOMO)
+        self.dragger_cores = ElementoArrastavel(centro_x - 350, y_terc, 180, 150)
+        self.dragger_nota_atual = ElementoArrastavel(centro_x + 200, y_terc, self.LARGURA_BLOCO_NOTA, self.ALTURA_BLOCO_NOTA)
 
         self.atualizar_medidas()
 
@@ -101,6 +112,21 @@ class EstadoGlobal:
         self.tempo_ultimo_tick = 0
         self.guias_x = []
         self.guias_y = []
+        
+        # --- IA de Transcrição ---
+        from core.modulos.modulo_ia_transcricao import ClienteTranscricaoIA
+        self.cliente_ia = ClienteTranscricaoIA()
+
+    def adicionar_coluna_ia(self, coluna):
+        """Adiciona uma nova coluna de notas vinda da IA na tablatura."""
+        # Encontra a primeira coluna vazia ou apenas anexa
+        vazia = ['-' for _ in range(6)]
+        for i, col in enumerate(self.tab_dados):
+            if col == vazia:
+                self.tab_dados[i] = [c if c is not None else '-' for c in coluna]
+                return
+        # Se não houver espaço, expande a tablatura
+        self.tab_dados.append([c if c is not None else '-' for c in coluna])
 
     def atualizar_medidas(self):
         """

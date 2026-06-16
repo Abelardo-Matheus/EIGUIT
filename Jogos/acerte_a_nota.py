@@ -5,8 +5,8 @@ import random
 import math
 import time
 import array
-from Modulos.escalas import equivalencia_notas
-from Modulos.detector_palhetadas import DetectorPalhetadas
+from core.modulos.escalas import equivalencia_notas
+from core.modulos.detector_palhetadas import DetectorPalhetadas
 
 class AcerteANota:
     """
@@ -83,7 +83,7 @@ class AcerteANota:
             else:
                 pasta_raiz = os.path.dirname(os.path.abspath(__file__))
                 pasta_raiz = os.path.dirname(pasta_raiz)
-            self.pasta_audios = os.path.join(pasta_raiz, 'Audios')
+            self.pasta_audios = os.path.join(pasta_raiz, 'assets', 'audio')
             caminho_fundo = os.path.join(pasta_raiz, 'Imagens', 'fundo_jogo.png')
             if os.path.exists(caminho_fundo):
                 self.fundo = pygame.image.load(caminho_fundo).convert_alpha()

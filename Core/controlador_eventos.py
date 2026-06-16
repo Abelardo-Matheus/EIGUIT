@@ -1,11 +1,13 @@
 import pygame
-from Interface import fabrica_escalas
-from Interface import gerenciador_interface
-from Core.constantes_ui import *
-import Modulos.modulo_menu_contexto as modulo_menu_contexto
-import Modulos.modulo_menu_superior as modulo_menu_superior
-from Interface.Componentes.tablatura_view import BlocoTablatura
-from Interface.Componentes.config_componentes import BOTTOM_OFFSET_AREA_DESENHO
+from ui import fabrica_escalas
+from ui import gerenciador_interface
+from config.theme import *
+from config.ui_metrics import *
+from config.app_settings import *
+import core.modulos.modulo_menu_contexto as modulo_menu_contexto
+import core.modulos.modulo_menu_superior as modulo_menu_superior
+from ui.blocks.tablatura_view import BlocoTablatura
+from ui.components.config_componentes import BOTTOM_OFFSET_AREA_DESENHO
 
 def obter_draggers_ativos(estado):
     """
@@ -38,12 +40,16 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
     pos_mouse = pygame.mouse.get_pos()
     pos_real = getattr(estado, 'pos_mouse_real', pos_mouse)
 
+    # --- NOVO: Lógica de Viewport (Layout Base) ---
+    # Tudo abaixo de ALTURA_TOPBAR é considerado "Conteúdo Dinâmico"
+    pos_viewport = (pos_mouse[0], pos_mouse[1] - ALTURA_TOPBAR)
+
     # Limpar guias por padrão
     estado.guias_x = []
     estado.guias_y = []
 
-    # 1. PRIORIDADE MÁXIMA: BARRA SUPERIOR E MENUS DE SISTEMA
-    # Isso garante que Pin, Arquivo, Perfil, etc funcionem SEMPRE.
+    # 1. PRIORIDADE MÁXIMA: BARRA SUPERIOR E MENUS DE SISTEMA (Usam pos_real)
+    # Isso garante que Pin, Arquivo, Perfil, etc funcionem SEMPRE no topo fixo.
     for evento in eventos:
         if evento.type == pygame.QUIT:
             estado.solicitou_saida = True
@@ -74,14 +80,25 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                     estado.gerenciador_estudos._limpar_modulos()
                 return # Bloqueia propagação
 
-    # 2. TELAS EM DESTAQUE (Estudo / Jogo)
+    # Criar uma lista de eventos com posições ajustadas para o Viewport de Conteúdo
+    # Isso faz com que todo o resto do programa pense que (0,0) é logo abaixo da Top Bar
+    eventos_viewport = []
+    for ev in eventos:
+        if hasattr(ev, 'pos'):
+            new_pos = (ev.pos[0], ev.pos[1] - ALTURA_TOPBAR)
+            new_ev = pygame.event.Event(ev.type, {**ev.dict, 'pos': new_pos})
+            eventos_viewport.append(new_ev)
+        else:
+            eventos_viewport.append(ev)
+
+    # 2. TELAS EM DESTAQUE (Usam eventos_viewport)
     if hasattr(estado, 'gerenciador_perfil') and estado.gerenciador_perfil.ativo:
-        if estado.gerenciador_perfil.tratar_eventos(eventos, estado, configs, meu_campo_harmonico, meu_gravador):
+        if estado.gerenciador_perfil.tratar_eventos(eventos_viewport, estado, configs, meu_campo_harmonico, meu_gravador):
             dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
             return
             
     if getattr(estado, 'tela_jogo_ativa', False):
-        for evento in eventos:
+        for evento in eventos_viewport:
             if evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
                 estado.tela_jogo_ativa = False
                 meu_gerenciador_jogos.jogo_instancia = None
@@ -90,14 +107,14 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
         return
 
     if getattr(estado, 'tela_estudo_ativa', False):
-        for evento in eventos:
+        for evento in eventos_viewport:
             if hasattr(estado, 'gerenciador_estudos'):
-                estado.gerenciador_estudos.tratar_eventos(evento, pygame.mouse.get_pos(), estado)
+                estado.gerenciador_estudos.tratar_eventos(evento, pos_viewport, estado)
         return
 
     if getattr(estado, 'tela_criacao_tab_ativa', False):
-        import Interface.renderizador_ui as render_ui
-        for evento in eventos:
+        import ui.renderizador_ui as render_ui
+        for evento in eventos_viewport:
             # Primeiro tenta tratar no criador de tablatura
             if render_ui.render_tab_maker is not None:
                 if render_ui.render_tab_maker.tratar_evento(evento, estado):
@@ -128,11 +145,11 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
         if secao['expandido']:
             y_conteudo = dy_inf - altura_caixa_total - 10
             rect_fundo_conteudo = pygame.Rect(dx_inf, y_conteudo, largura_conteudo, altura_caixa_total)
-            if rect_fundo_conteudo.collidepoint(pos_mouse):
+            if rect_fundo_conteudo.collidepoint(pos_viewport):
                 bloqueio_z_index = True
             break
 
-    for evento in eventos:
+    for evento in eventos_viewport:
         if evento.type == pygame.QUIT:
             estado.solicitou_saida = True
         if estado.menu_superior.tratar_eventos(evento, pos_real, estado, configs, meu_campo_harmonico, meu_gravador):
@@ -140,7 +157,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             continue
         if not hasattr(estado, 'lista_guitarras'):
             estado.lista_guitarras = [estado.dragger_guitarra] if hasattr(estado, 'dragger_guitarra') else []
-        acao_contexto = estado.menu_contexto.tratar_eventos(evento, pos_mouse, estado)
+        acao_contexto = estado.menu_contexto.tratar_eventos(evento, pos_viewport, estado)
         if acao_contexto == 'CONSUMIU_EVENTO' or acao_contexto == 'FECHOU_MENU':
             continue
         elif isinstance(acao_contexto, tuple):
@@ -162,9 +179,9 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             if hasattr(estado, 'lista_guitarras'):
                 for guit in reversed(estado.lista_guitarras):
                     rect_guit = pygame.Rect(guit.x, guit.y, guit.largura, guit.altura)
-                    if rect_guit.collidepoint(pos_mouse):
+                    if rect_guit.collidepoint(pos_viewport):
                         if estado.drag_ativado:
-                            estado.menu_contexto.abrir(pos_mouse, 'guitarra', guit)
+                            estado.menu_contexto.abrir(pos_viewport, 'guitarra', guit)
                             abriu_menu = True
                         else:
                             for lista_modulos in dicionario_escalas.values():
@@ -174,11 +191,11 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                         break
             if not abriu_menu and hasattr(estado, 'dragger_acordes'):
                 rect_acordes = pygame.Rect(estado.dragger_acordes.x, estado.dragger_acordes.y, estado.dragger_acordes.largura, estado.dragger_acordes.altura)
-                if rect_acordes.collidepoint(pos_mouse) and estado.drag_ativado:
-                    estado.menu_contexto.abrir(pos_mouse, 'acordes', estado.dragger_acordes)
+                if rect_acordes.collidepoint(pos_viewport) and estado.drag_ativado:
+                    estado.menu_contexto.abrir(pos_viewport, 'acordes', estado.dragger_acordes)
                     abriu_menu = True
             if not abriu_menu:
-                estado.menu_contexto.abrir(pos_mouse, 'fundo_mesa')
+                estado.menu_contexto.abrir(pos_viewport, 'fundo_mesa')
             continue
         if evento.type == pygame.MOUSEWHEEL:
             velocidade_scroll = 40
@@ -186,7 +203,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             if hasattr(estado, 'lista_tabs'):
                 for tab in reversed(estado.lista_tabs):
                     rect_tab = pygame.Rect(tab.x, tab.y, tab.largura, tab.altura)
-                    if rect_tab.collidepoint(pos_mouse):
+                    if rect_tab.collidepoint(pos_viewport):
                         if tab.tratar_scroll(evento.y):
                             consumiu_scroll = True
                             break
@@ -195,7 +212,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                     if secao.get('expandido') and secao['conteudo'] in ['escalas', 'acordes', 'configuracao', 'estudos', 'musicas', 'analise_ia']:
                         y_topo = dy_inf - altura_caixa_total - 10
                         rect_area = pygame.Rect(dx_inf, y_topo, largura_conteudo, altura_caixa_total)
-                        if rect_area.collidepoint(pos_mouse):
+                        if rect_area.collidepoint(pos_viewport):
                             estado.scroll_y.setdefault(i, 0)
                             max_val = estado.max_scroll.get(i, 0)
                             estado.scroll_y[i] -= evento.y * velocidade_scroll
@@ -228,7 +245,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                 import shutil
                 import os
                 nome_arquivo = os.path.basename(caminho_arquivo)
-                destino = os.path.join('Audios/Midis', nome_arquivo)
+                destino = os.path.join('assets/audio/Midis', nome_arquivo)
                 try:
                     shutil.copy(caminho_arquivo, destino)
                     nova_musica = {'songId': f'local_{nome_arquivo}', 'title': nome_arquivo.replace('.mid', '').replace('.midi', ''), 'artist': 'Arquivo Local', 'local_path': destino}
@@ -248,10 +265,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             
             # Processar eventos de mouse para todos os draggers
             for dragger in draggers:
-                is_fixo = dragger in [getattr(estado, 'dragger_painel_inferior', None)]
-                
-                # Se for fixo, usa pos_real, senão usa pos_mouse (virtual)
-                pos_ref = pos_real if is_fixo else evento.pos
+                pos_ref = evento.pos
                 pode_interagir = estado.drag_ativado or isinstance(dragger, BlocoTablatura)
                 
                 if pode_interagir:
@@ -502,10 +516,10 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                                     import shutil
                                     import os
                                     nome_arquivo = os.path.basename(caminho)
-                                    destino = os.path.join('Audios/Midis', nome_arquivo)
+                                    destino = os.path.join('assets/audio/Midis', nome_arquivo)
                                     try:
-                                        if not os.path.exists('Audios/Midis'):
-                                            os.makedirs('Audios/Midis')
+                                        if not os.path.exists('assets/audio/Midis'):
+                                            os.makedirs('assets/audio/Midis')
                                         shutil.copy(caminho, destino)
                                         nova_musica = {'songId': f'local_{nome_arquivo}', 'title': nome_arquivo.replace('.mid', '').replace('.midi', ''), 'artist': 'Arquivo Local', 'local_path': destino}
                                         if not any((m['local_path'] == destino for m in estado.musicas_locais)):
@@ -573,7 +587,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                     break
             if bloqueio_z_index:
                 continue
-            from Core.constantes_ui import CORES_TONICA
+            from config.theme import CORES_TONICA
             if hasattr(estado, 'rect_cor_tonica') and estado.rect_cor_tonica.collidepoint(evento.pos):
                 estado.indice_cor_tonica = (estado.indice_cor_tonica + 1) % len(CORES_TONICA)
                 continue

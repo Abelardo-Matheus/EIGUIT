@@ -1,11 +1,11 @@
 import pygame
 import random
-import Modulos.escalas as escalas
-from Core.constantes_ui import lista_afinacoes
-import Modulos.modulos_escala_maior as esc_maior
-import Modulos.modulos_penta as esc_penta
-import Modulos.modulos_teoria_avancada as esc_avancada
-import Modulos.modulos_modos as esc_modos
+import core.modulos.escalas as escalas
+from config.app_settings import lista_afinacoes
+import core.modulos.modulos_escala_maior as esc_maior
+import core.modulos.modulos_penta as esc_penta
+import core.modulos.modulos_teoria_avancada as esc_avancada
+import core.modulos.modulos_modos as esc_modos
 
 class EstudoEscalas:
     """

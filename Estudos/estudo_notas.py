@@ -4,8 +4,8 @@ import math
 import array
 import os
 import sys
-import Modulos.escalas as escalas
-from Core.constantes_ui import lista_afinacoes
+import core.modulos.escalas as escalas
+from config.app_settings import lista_afinacoes
 
 class AcerteANota:
     """

@@ -1,0 +1,20 @@
+Você é o Engenheiro Full Stack e Arquiteto do Guitar Studio. Nossa última reestruturação quebrou os caminhos do nosso script de inicialização (.bat) e dos assets (áudio), e precisamos integrar a captura de áudio do Pygame/Tkinter diretamente com o nosso backend de IA.
+
+Analise a árvore de diretórios atual e execute as seguintes correções:
+
+## TAREFA 1: Consertar o Ligar_GuitarStudio.bat
+1. Encontre onde os arquivos `main.py` (do FastAPI) e `tasks.py` (do Celery) estão localizados na nova arquitetura (ex: na pasta `services/`, `core/`, ou outra).
+2. Atualize o arquivo `Ligar_GuitarStudio.bat` na raiz do projeto. Modifique os caminhos do `cd` para que os terminais entrem na pasta correta antes de chamar o `python main.py` e o `celery`. O ambiente `venv_ia` deve ser ativado corretamente com base no novo caminho.
+
+## TAREFA 2: Consertar o Metrônomo (Assets)
+1. Localize no código fonte a referência ao som `tick_high.wav` que está quebrando.
+2. Atualize a string de caminho (path) para apontar para a nova localização do arquivo dentro da pasta `assets/` (ex: `assets/audio/tick_high.wav`). Garanta que o caminho seja relativo à raiz do projeto.
+
+## TAREFA 3: Integração Direta no Desktop (Pygame/Tkinter)
+1. Localize o arquivo do programa principal onde a captura de áudio acontece (o log acusa: "Captura iniciada no ID 1...").
+2. Atualize a função que envia a gravação para a IA. Ela deve usar a biblioteca `requests` para fazer um `POST` no endpoint `http://127.0.0.1:8000/transcribe` enviando o arquivo de áudio gerado.
+3. Como o Pygame não pode travar (congelar a tela) enquanto a IA processa, crie uma função que rode em uma Thread separada (usando a biblioteca `threading`) para fazer o "polling". Ela deve consultar `http://127.0.0.1:8000/status/{task_id}` a cada 3 segundos.
+4. Quando o status retornar "completed", passe o JSON de notas recebido para a função responsável por renderizar a tablatura na interface do desktop.
+
+## REGRAS DE EXECUÇÃO:
+Mantenha o código robusto, adicione blocos try/except nas chamadas HTTP (`requests.post` e `requests.get`) para evitar que o desktop feche caso o servidor demore a responder. Me confirme quais caminhos foram atualizados.

@@ -1,8 +1,10 @@
 import pygame
 import random
-from Core.constantes_ui import *
-import Modulos.escalas as escalas
-from Core.constantes_ui import lista_afinacoes
+from config.theme import *
+from config.ui_metrics import *
+from config.app_settings import *
+import core.modulos.escalas as escalas
+from config.app_settings import lista_afinacoes
 
 class EstudoAcordesPratico:
     """
@@ -26,7 +28,7 @@ class EstudoAcordesPratico:
         self.cor_feedback = BRANCO
         self.tempo_feedback = 0
         self.acerto_detectado = False
-        import Modulos.modulos_acordes as mod_acordes
+        import core.modulos.modulos_acordes as mod_acordes
         self.acordes_disponiveis = {'C Maior': {'notas': ['C', 'E', 'G'], 'shape': mod_acordes.TRIADE_C_MAIOR}, 'A Maior': {'notas': ['A', 'C#', 'E'], 'shape': mod_acordes.TRIADE_A_MAIOR}, 'G Maior': {'notas': ['G', 'B', 'D'], 'shape': mod_acordes.TRIADE_G_MAIOR}, 'E Maior': {'notas': ['E', 'G#', 'B'], 'shape': mod_acordes.TRIADE_E_MAIOR}, 'D Maior': {'notas': ['D', 'F#', 'A'], 'shape': mod_acordes.TRIADE_D_MAIOR}, 'A Menor': {'notas': ['A', 'C', 'E'], 'shape': mod_acordes.TRIADE_A_MENOR}, 'E Menor': {'notas': ['E', 'G', 'B'], 'shape': mod_acordes.TRIADE_E_MENOR}, 'D Menor': {'notas': ['D', 'F', 'A'], 'shape': [[0, 0, 1, 0], [0, 0, 0, 1], [1, 0, 0, 0], [2, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1], [0, 0, 1, 0]]}}
         self.nomes_acordes = list(self.acordes_disponiveis.keys())
 

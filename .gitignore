@@ -193,3 +193,10 @@ poetry.toml
 pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/archlinuxpackages,python
+
+# Novos Ignores
+venv*
+__pycache__/
+.env
+node_modules/
+temp_audio/

@@ -230,8 +230,8 @@ EIGUIT/
 │   ├── modulo_campo_harmonico.py   # Cálculos de matemática intervalar e renderização do CAGED
 │   ├── modulo_metronomo.py         # Threading e temporização precisa de áudio (BPM)
 │   └── modulo_processamento.py     # Captura de áudio, DSP e análise Fast Fourier Transform
-├── Audios/                     # Banco de timbres sintetizados e gravações do projeto
-└── assets/                     # Pasta local contendo recursos estáticos (Imagens/Ícones)
+├── assets/audio/                     # Banco de timbres sintetizados e gravações do projeto
+└── assets/                     # Pasta local contendo recursos estáticos (assets/images/Ícones)
 
 ```
 

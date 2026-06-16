@@ -1,0 +1,3 @@
+lista_afinacoes = [{'nome': 'Standard B', 'notas': ['B', 'E', 'A', 'D', 'G', 'B', 'E']}, {'nome': 'Drop A', 'notas': ['A', 'E', 'A', 'D', 'G', 'B', 'E']}, {'nome': 'Standard A', 'notas': ['A', 'D', 'G', 'C', 'F', 'A', 'D']}, {'nome': 'All 4ths', 'notas': ['B', 'E', 'A', 'D', 'G', 'C', 'F']}]
+nomes_abas = ['Escalas', 'Acordes', 'Análise de IA', 'Configurações']
+nomes_sub_abas = [['Maior', 'Menor', 'Pentatônica', 'Blues', 'Modos Gregos'], ['Tríades', 'Tétrades', 'Inversões', 'Diminutos', 'Suspensos'], ['Afinador', 'Treino Ritmo', 'Gerar Backing', 'Timbre', 'Chat'], ['Cores', 'Sons', 'MIDI', 'Metrônomo', 'Exportar Projeto']]

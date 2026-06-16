@@ -14,7 +14,7 @@ except ImportError:
     print("Por favor, instale-a usando: pip install rich")
     sys.exit(1)
 
-from Modulos.modulo_estudio_teoria import TeoricoMusical
+from core.modulos.modulo_estudio_teoria import TeoricoMusical
 
 console = Console()
 

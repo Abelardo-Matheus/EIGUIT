@@ -1,0 +1,439 @@
+import pygame
+import os
+import json
+from core.modulos.modulos_config import *
+
+class GerenciadorPerfil:
+    """
+        Como funciona: Mantém instâncias ativas e delega tarefas aos submódulos de 'GerenciadorPerfil'.
+        Para que serve: Orquestra recursos e o ciclo de vida do módulo.
+        Onde é usada: Chamado a partir do módulo ou classe base de 'modulo_perfil'.
+    """
+
+    def __init__(self):
+        """
+            Como funciona: Inicializa os atributos e o estado inicial da instância.
+            Para que serve: Prepara o objeto para ser utilizado no ciclo de vida da aplicação.
+            Onde é usada: Chamado a partir do módulo ou classe base de 'modulo_perfil'.
+        """
+        self.pasta_padrao = 'Perfis'
+        self.arquivo_config_global = 'config_eiguit.json'
+        self.ativo = False
+        self.modo = None
+        self.texto_input = ''
+        self.lista_perfis = []
+        self.indice_selecionado = 0
+        if not os.path.exists(self.pasta_padrao):
+            os.makedirs(self.pasta_padrao)
+        self.BRANCO = PERFIL_BRANCO
+        self.FUNDO = PERFIL_FUNDO
+        self.AZUL_BOTAO = PERFIL_AZUL_BOTAO
+        self.CINZA = PERFIL_CINZA
+        self.VERMELHO = PERFIL_VERMELHO
+        self.VERMELHO_DARK = PERFIL_VERMELHO_DARK
+
+    def abrir_modal_novo(self):
+        """
+            Como funciona: Executa o fluxo lógico necessário para a operação 'abrir modal novo'.
+            Para que serve: Realiza as tarefas fundamentais de 'abrir modal novo' dentro do contexto do módulo.
+            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'abrir modal novo'.
+        """
+        self.ativo = True
+        self.modo = 'salvar'
+        self.texto_input = 'Meu_Setup'
+
+    def abrir_modal_carregar(self):
+        """
+            Como funciona: Executa o fluxo lógico necessário para a operação 'abrir modal carregar'.
+            Para que serve: Realiza as tarefas fundamentais de 'abrir modal carregar' dentro do contexto do módulo.
+            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'abrir modal carregar'.
+        """
+        self.ativo = True
+        self.modo = 'carregar'
+        self.lista_perfis = [f for f in os.listdir(self.pasta_padrao) if f.endswith('.json')]
+        self.indice_selecionado = 0
+
+    def abrir_modal_conta(self, estado):
+        """
+            Como funciona: Executa o fluxo lógico necessário para a operação 'abrir modal conta'.
+            Para que serve: Realiza as tarefas fundamentais de 'abrir modal conta' dentro do contexto do módulo.
+            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'abrir modal conta'.
+        """
+        self.ativo = True
+        self.modo = 'conta'
+        self.email_exibir = getattr(estado, 'email_usuario', '---')
+
+    def fechar_modal(self):
+        """
+            Como funciona: Executa o fluxo lógico necessário para a operação 'fechar modal'.
+            Para que serve: Realiza as tarefas fundamentais de 'fechar modal' dentro do contexto do módulo.
+            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'fechar modal'.
+        """
+        self.ativo = False
+        self.modo = None
+        self.texto_input = ''
+
+    def restaurar_padrao(self, estado, configs=None, campo=None):
+        """
+            Como funciona: Executa o fluxo lógico necessário para a operação 'restaurar padrao'.
+            Para que serve: Realiza as tarefas fundamentais de 'restaurar padrao' dentro do contexto do módulo.
+            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'restaurar padrao'.
+        """
+        import pygame
+        import json
+        
+        # Definição de posições e TAMANHOS padrão extraídos do Setup_Centralizado.json
+        padroes = {
+            'dragger_controles_topo': {'x': 610, 'y': 20, 'w': 700, 'h': 40},
+            'dragger_guitarra': {'x': 141, 'y': 105, 'w': 1713, 'h': 393},
+            'dragger_acordes': {'x': 650, 'y': 556, 'w': 620, 'h': 120},
+            'dragger_painel_inferior': {'x': 197, 'y': 977, 'w': 1526, 'h': 80},
+            'dragger_metronomo': {'x': 822, 'y': 721, 'w': 276, 'h': 104},
+            'dragger_cores': {'x': 610, 'y': 721, 'w': 180, 'h': 150},
+            'dragger_nota_atual': {'x': 1130, 'y': 721, 'w': 280, 'h': 220}
+        }
+        
+        from config.ui_metrics import ALTURA_TOPBAR
+        w_tela = getattr(estado, 'LARGURA_TELA', 1280)
+        h_viewport = getattr(estado, 'ALTURA_TELA', 720) - ALTURA_TOPBAR
+
+        for nome, coords in padroes.items():
+            if hasattr(estado, nome):
+                obj = getattr(estado, nome)
+                
+                if 'w' in coords and 'h' in coords:
+                    obj.largura = coords['w']
+                    obj.altura = coords['h']
+                    
+                # Clamp positions to screen bounds so they never go off-screen
+                max_y = max(10, h_viewport - obj.altura - 10)
+                max_x = max(10, w_tela - obj.largura - 10)
+                
+                obj.x = min(max(10, coords['x']), max_x)
+                obj.y = min(max(10, coords['y']), max_y)
+
+                if hasattr(obj, 'rect_caixa'):
+                    obj.rect_caixa.x = obj.x
+                    obj.rect_caixa.y = obj.y
+                    obj.rect_caixa.width = obj.largura
+                    obj.rect_caixa.height = obj.altura
+        
+        # Resetar variáveis de escala do braço no estado
+        if estado:
+            estado.LARGURA_BRACO = 1713
+            estado.ALTURA_BRACO = 393
+            estado.instrumento = 'guitarra'
+            estado.NUM_CASAS = 18
+            estado.tom_atual = 'C'
+            estado.indice_afinacao = 0
+            estado.indice_cor_tonica = 0
+            estado.indice_cor_terca = 0
+            estado.indice_cor_quinta = 0
+            estado.afinador_suavizacao = 5
+            estado.afinador_sensibilidade = 0.5
+            if hasattr(estado, 'atualizar_medidas'):
+                estado.atualizar_medidas()
+        if campo:
+            campo.tonica_campo = 'C'
+            campo.indice_escala_campo = 0
+            campo.tonica = 'C'
+            campo.tipo_escala = 'Maior (Jônio)'
+            campo.indice_acorde_selecionado = -1
+        try:
+            with open(self.arquivo_config_global, 'w', encoding='utf-8') as f:
+                json.dump({'ultimo_perfil': ''}, f)
+        except:
+            pass
+        print('[PERFIL] Layout restaurado para o padrão centralizado!')
+
+    def salvar_perfil(self, estado, configs, campo, gravador):
+        """
+            Como funciona: Serializa os dados em memória e envia para o armazenamento.
+            Para que serve: Persiste as alterações feitas pelo usuário no banco ou sistema de arquivos.
+            Onde é usada: Chamado a partir do módulo ou classe base de 'modulo_perfil'.
+        """
+        nome_arquivo = self.texto_input.strip()
+        if not nome_arquivo:
+            return
+        if not nome_arquivo.endswith('.json'):
+            nome_arquivo += '.json'
+        caminho = os.path.join(self.pasta_padrao, nome_arquivo)
+        dados = {'posicoes_draggers': {}, 'estado': {'instrumento': getattr(estado, 'instrumento', 'guitarra'), 'NUM_CASAS': getattr(estado, 'NUM_CASAS', 18), 'tom_atual': getattr(estado, 'tom_atual', 'C'), 'indice_afinacao': getattr(estado, 'indice_afinacao', 0), 'indice_cor_tonica': getattr(estado, 'indice_cor_tonica', 0), 'indice_cor_terca': getattr(estado, 'indice_cor_terca', 0), 'indice_cor_quinta': getattr(estado, 'indice_cor_quinta', 0), 'afinador_suavizacao': getattr(estado, 'afinador_suavizacao', 5), 'afinador_sensibilidade': getattr(estado, 'afinador_sensibilidade', 0.5)}, 'configs': {'transparencia': getattr(configs, 'transparencia', 100), 'cor_braco': getattr(configs, 'cor_braco', (80, 40, 15)), 'cor_notas': getattr(configs, 'cor_notas', (255, 255, 255)), 'indice_modo': getattr(configs, 'indice_modo', 0), 'indice_fonte': getattr(configs, 'indice_fonte', 0), 'indice_idioma': getattr(configs, 'indice_idioma', 0)}, 'campo_harmonico': {'tonica_campo': getattr(campo, 'tonica_campo', 'C'), 'indice_escala_campo': getattr(campo, 'indice_escala_campo', 0)}, 'gravador': {'device_id': getattr(gravador, 'device_id', None)}}
+        lista_draggers = ['dragger_guitarra', 'dragger_acordes', 'dragger_controles_topo', 'dragger_painel_inferior', 'dragger_metronomo', 'dragger_cores', 'dragger_nota_atual']
+        for nome in lista_draggers:
+            if hasattr(estado, nome):
+                obj = getattr(estado, nome)
+                dados['posicoes_draggers'][nome] = {'x': obj.x, 'y': obj.y, 'w': obj.largura, 'h': obj.altura}
+        with open(caminho, 'w', encoding='utf-8') as f:
+            json.dump(dados, f, indent=4)
+        if hasattr(estado, 'usuario_id_logado') and estado.usuario_id_logado:
+            try:
+                from BD.gerenciador_remoto_db import GerenciadorDB
+                db = GerenciadorDB()
+                sucesso = db.salvar_perfil(estado.usuario_id_logado, nome_arquivo.replace('.json', ''), dados)
+                if sucesso:
+                    print(f"[CLOUD] Perfil '{nome_arquivo}' sincronizado com sucesso!")
+                else:
+                    print(f"[CLOUD] Erro ao sincronizar perfil '{nome_arquivo}'")
+            except Exception as e:
+                print(f'[CLOUD] Falha na conexão com o banco: {e}')
+        self.salvar_ultimo_perfil_config(caminho)
+        print(f'[PERFIL] Perfil completo salvo em: {caminho}')
+        self.fechar_modal()
+
+    def carregar_perfil(self, caminho, estado, configs, campo, gravador):
+        """
+            Como funciona: Lê dados de disco, banco de dados ou estado salvo.
+            Para que serve: Popula as estruturas em memória com as informações persistidas.
+            Onde é usada: Chamado a partir do módulo ou classe base de 'modulo_perfil'.
+        """
+        if not os.path.exists(caminho):
+            return
+        try:
+            with open(caminho, 'r', encoding='utf-8') as f:
+                dados = json.load(f)
+            if 'posicoes_draggers' in dados:
+                for nome, coords in dados['posicoes_draggers'].items():
+                    if hasattr(estado, nome):
+                        obj = getattr(estado, nome)
+                        obj.x = coords['x']
+                        obj.y = coords['y']
+                        if 'w' in coords: obj.largura = coords['w']
+                        if 'h' in coords: obj.altura = coords['h']
+                        if hasattr(obj, 'rect_caixa'):
+                            obj.rect_caixa.x = obj.x
+                            obj.rect_caixa.y = obj.y
+                            obj.rect_caixa.width = obj.largura
+                            obj.rect_caixa.height = obj.altura
+                        
+                        # Sincronizar braço da guitarra especificamente
+                        if nome == 'dragger_guitarra':
+                            estado.LARGURA_BRACO = obj.largura
+                            estado.ALTURA_BRACO = obj.altura
+            if 'estado' in dados:
+                d_est = dados['estado']
+                estado.instrumento = d_est.get('instrumento', 'guitarra')
+                estado.NUM_CASAS = d_est.get('NUM_CASAS', 18)
+                estado.tom_atual = d_est.get('tom_atual', 'C')
+                estado.indice_afinacao = d_est.get('indice_afinacao', 0)
+                estado.indice_cor_tonica = d_est.get('indice_cor_tonica', 0)
+                estado.indice_cor_terca = d_est.get('indice_cor_terca', 0)
+                estado.indice_cor_quinta = d_est.get('indice_cor_quinta', 0)
+                estado.afinador_suavizacao = d_est.get('afinador_suavizacao', 5)
+                estado.afinador_sensibilidade = d_est.get('afinador_sensibilidade', 0.5)
+            if 'configs' in dados:
+                d_cfg = dados['configs']
+                configs.transparencia = d_cfg.get('transparencia', 100)
+                configs.cor_braco = tuple(d_cfg.get('cor_braco', (80, 40, 15)))
+                configs.cor_notas = tuple(d_cfg.get('cor_notas', (255, 255, 255)))
+                configs.indice_modo = d_cfg.get('indice_modo', 0)
+                configs.indice_fonte = d_cfg.get('indice_fonte', 0)
+                configs.indice_idioma = d_cfg.get('indice_idioma', 0)
+                if hasattr(configs, 'idiomas'):
+                    codigo = configs.idiomas[configs.indice_idioma]['code']
+                    from core.i18n import sistema_traducao
+                    sistema_traducao.atualizar_configuracao(codigo)
+                    estado.idioma = codigo
+            if 'campo_harmonico' in dados:
+                d_ch = dados['campo_harmonico']
+                campo.tonica_campo = d_ch.get('tonica_campo', 'C')
+                campo.indice_escala_campo = d_ch.get('indice_escala_campo', 0)
+                campo.tonica = campo.tonica_campo
+                if hasattr(campo, 'escalas_campo') and 0 <= campo.indice_escala_campo < len(campo.escalas_campo):
+                    campo.tipo_escala = campo.escalas_campo[campo.indice_escala_campo]['nome']
+                campo.indice_acorde_selecionado = -1
+            if 'gravador' in dados and gravador:
+                novo_id = dados['gravador'].get('device_id', None)
+                if novo_id is not None and hasattr(gravador, 'mudar_dispositivo'):
+                    try:
+                        gravador.mudar_dispositivo(novo_id)
+                    except:
+                        pass
+            if hasattr(estado, 'atualizar_medidas'):
+                estado.atualizar_medidas()
+            print(f'[PERFIL] Setup global carregado: {caminho}')
+            self.salvar_ultimo_perfil_config(caminho)
+        except Exception as e:
+            print(f'[PERFIL] Erro ao carregar perfil: {e}')
+
+    def deletar_perfil_atual(self):
+        """
+            Como funciona: Executa o fluxo lógico necessário para a operação 'deletar perfil atual'.
+            Para que serve: Realiza as tarefas fundamentais de 'deletar perfil atual' dentro do contexto do módulo.
+            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'deletar perfil atual'.
+        """
+        if os.path.exists(self.arquivo_config_global):
+            try:
+                with open(self.arquivo_config_global, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                ultimo = config.get('ultimo_perfil', '')
+                if ultimo and os.path.exists(ultimo):
+                    os.remove(ultimo)
+                    print(f'[PERFIL] Perfil deletado: {ultimo}')
+                    with open(self.arquivo_config_global, 'w', encoding='utf-8') as f:
+                        json.dump({'ultimo_perfil': ''}, f)
+            except:
+                pass
+
+    def salvar_ultimo_perfil_config(self, caminho):
+        """
+            Como funciona: Serializa os dados em memória e envia para o armazenamento.
+            Para que serve: Persiste as alterações feitas pelo usuário no banco ou sistema de arquivos.
+            Onde é usada: Chamado a partir do módulo ou classe base de 'modulo_perfil'.
+        """
+        config = {'ultimo_perfil': caminho}
+        with open(self.arquivo_config_global, 'w', encoding='utf-8') as f:
+            json.dump(config, f)
+
+    def carregar_ultimo_perfil(self, estado, configs, campo, gravador):
+        """
+            Como funciona: Lê dados de disco, banco de dados ou estado salvo.
+            Para que serve: Popula as estruturas em memória com as informações persistidas.
+            Onde é usada: Chamado a partir do módulo ou classe base de 'modulo_perfil'.
+        """
+        if os.path.exists(self.arquivo_config_global):
+            try:
+                with open(self.arquivo_config_global, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    ultimo = config.get('ultimo_perfil', '')
+                    if ultimo and os.path.exists(ultimo):
+                        self.carregar_perfil(ultimo, estado, configs, campo, gravador)
+            except:
+                pass
+
+    def tratar_eventos(self, eventos, estado, configs, campo, gravador):
+        """
+            Como funciona: Verifica colisões e processa inputs do mouse/teclado.
+            Para que serve: Mapeia ações do usuário para atualizações de estado.
+            Onde é usada: Chamado a partir do módulo ou classe base de 'modulo_perfil'.
+        """
+        if not self.ativo:
+            return False
+        for evento in eventos:
+            if evento.type == pygame.QUIT:
+                estado.solicitou_saida = True
+            if evento.type == pygame.KEYDOWN:
+                if evento.key == pygame.K_ESCAPE:
+                    self.fechar_modal()
+                elif self.modo == 'salvar':
+                    if evento.key == pygame.K_RETURN:
+                        self.salvar_perfil(estado, configs, campo, gravador)
+                    elif evento.key == pygame.K_BACKSPACE:
+                        self.texto_input = self.texto_input[:-1]
+                    elif len(self.texto_input) < 20 and evento.unicode.isprintable():
+                        self.texto_input += evento.unicode
+                elif self.modo == 'carregar' and evento.key == pygame.K_RETURN:
+                    if len(self.lista_perfis) > 0:
+                        caminho = os.path.join(self.pasta_padrao, self.lista_perfis[self.indice_selecionado])
+                        self.carregar_perfil(caminho, estado, configs, campo, gravador)
+                        self.fechar_modal()
+            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+                pos_mouse = pygame.mouse.get_pos()
+                if hasattr(self, 'btn_cancelar') and self.btn_cancelar.collidepoint(pos_mouse):
+                    self.fechar_modal()
+                if self.modo == 'salvar':
+                    if hasattr(self, 'btn_acao') and self.btn_acao.collidepoint(pos_mouse):
+                        self.salvar_perfil(estado, configs, campo, gravador)
+                elif self.modo == 'carregar':
+                    if hasattr(self, 'btn_esq') and self.btn_esq.collidepoint(pos_mouse) and (len(self.lista_perfis) > 0):
+                        self.indice_selecionado = (self.indice_selecionado - 1) % len(self.lista_perfis)
+                    elif hasattr(self, 'btn_dir') and self.btn_dir.collidepoint(pos_mouse) and (len(self.lista_perfis) > 0):
+                        self.indice_selecionado = (self.indice_selecionado + 1) % len(self.lista_perfis)
+                    elif hasattr(self, 'btn_acao') and self.btn_acao.collidepoint(pos_mouse) and (len(self.lista_perfis) > 0):
+                        caminho = os.path.join(self.pasta_padrao, self.lista_perfis[self.indice_selecionado])
+                        self.carregar_perfil(caminho, estado, configs, campo, gravador)
+                        self.fechar_modal()
+                elif self.modo == 'conta':
+                    if hasattr(self, 'btn_deletar_conta') and self.btn_deletar_conta.collidepoint(pos_mouse):
+                        from tkinter import messagebox, Tk
+                        root = Tk()
+                        root.withdraw()
+                        if messagebox.askyesno('CONFIRMAÇÃO CRÍTICA', 'Deseja REALMENTE deletar sua conta permanentemente?\n\nIsso apagará todos os seus perfis e projetos na nuvem!'):
+                            from BD.gerenciador_remoto_db import GerenciadorDB
+                            db = GerenciadorDB()
+                            if db.deletar_conta(estado.usuario_id_logado):
+                                if os.path.exists('sessao_cache.json'):
+                                    try:
+                                        os.remove('sessao_cache.json')
+                                    except:
+                                        pass
+                                messagebox.showinfo('Sucesso', 'Conta deletada com sucesso. O programa será fechado.')
+                                estado.solicitou_saida = True
+                            else:
+                                messagebox.showerror('Erro', 'Não foi possível deletar a conta. Tente novamente.')
+                        root.destroy()
+        return True
+
+    def desenhar(self, tela, fonte_titulo, fonte_ui, estado=None):
+        """
+            Como funciona: Utiliza funções de renderização do Pygame para desenhar na tela.
+            Para que serve: Apresenta o elemento visual 'desenhar' na interface gráfica.
+            Onde é usada: Chamado a partir do módulo ou classe base de 'modulo_perfil'.
+        """
+        if not self.ativo:
+            return
+        overlay = pygame.Surface((tela.get_width(), tela.get_height()), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        tela.blit(overlay, (0, 0))
+        largura_modal = 450
+        altura_modal = 300 if self.modo == 'conta' else 250
+        cx = tela.get_width() // 2 - largura_modal // 2
+        cy = tela.get_height() // 2 - altura_modal // 2
+        rect_modal = pygame.Rect(cx, cy, largura_modal, altura_modal)
+        pygame.draw.rect(tela, self.FUNDO, rect_modal, border_radius=10)
+        pygame.draw.rect(tela, self.CINZA, rect_modal, width=2, border_radius=10)
+        if self.modo == 'salvar':
+            txt_tit = fonte_titulo.render('Salvar Novo Perfil', True, self.BRANCO)
+            tela.blit(txt_tit, (cx + 20, cy + 20))
+            tela.blit(fonte_ui.render('Nome do Perfil:', True, self.CINZA), (cx + 20, cy + 70))
+            rect_input = pygame.Rect(cx + 20, cy + 95, largura_modal - 40, 40)
+            pygame.draw.rect(tela, (20, 20, 20), rect_input, border_radius=5)
+            pygame.draw.rect(tela, self.AZUL_BOTAO, rect_input, width=2, border_radius=5)
+            txt_digitado = fonte_titulo.render(self.texto_input + '_', True, self.BRANCO)
+            tela.blit(txt_digitado, (rect_input.x + 10, rect_input.y + 10))
+            texto_btn_acao = 'Salvar Setup'
+            cor_acao = self.AZUL_BOTAO if len(self.texto_input) > 0 else self.CINZA
+        elif self.modo == 'carregar':
+            txt_tit = fonte_titulo.render('Carregar Perfil Existente', True, self.BRANCO)
+            tela.blit(txt_tit, (cx + 20, cy + 20))
+            tela.blit(fonte_ui.render('Selecione o arquivo salvo:', True, self.CINZA), (cx + 20, cy + 70))
+            self.btn_esq = pygame.Rect(cx + 20, cy + 95, 40, 40)
+            self.btn_dir = pygame.Rect(cx + largura_modal - 60, cy + 95, 40, 40)
+            rect_meio = pygame.Rect(cx + 70, cy + 95, largura_modal - 140, 40)
+            pygame.draw.rect(tela, self.AZUL_BOTAO, self.btn_esq, border_radius=5)
+            pygame.draw.rect(tela, self.AZUL_BOTAO, self.btn_dir, border_radius=5)
+            tela.blit(fonte_titulo.render('<', True, self.BRANCO), (self.btn_esq.centerx - 6, self.btn_esq.centery - 12))
+            tela.blit(fonte_titulo.render('>', True, self.BRANCO), (self.btn_dir.centerx - 6, self.btn_dir.centery - 12))
+            pygame.draw.rect(tela, (20, 20, 20), rect_meio, border_radius=5)
+            pygame.draw.rect(tela, self.CINZA, rect_meio, width=2, border_radius=5)
+            if len(self.lista_perfis) > 0:
+                nome_exibir = self.lista_perfis[self.indice_selecionado]
+            else:
+                nome_exibir = 'Nenhum Perfil Encontrado'
+            txt_nome = fonte_titulo.render(nome_exibir, True, self.BRANCO)
+            tela.blit(txt_nome, (rect_meio.centerx - txt_nome.get_width() // 2, rect_meio.centery - txt_nome.get_height() // 2))
+            texto_btn_acao = 'Carregar'
+            cor_acao = self.AZUL_BOTAO if len(self.lista_perfis) > 0 else self.CINZA
+        elif self.modo == 'conta':
+            txt_tit = fonte_titulo.render('Minha Conta (Cloud)', True, self.BRANCO)
+            tela.blit(txt_tit, (cx + 20, cy + 20))
+            tela.blit(fonte_ui.render('Email Logado:', True, self.CINZA), (cx + 20, cy + 70))
+            txt_email = fonte_titulo.render(self.email_exibir, True, self.AZUL_BOTAO)
+            tela.blit(txt_email, (cx + 20, cy + 95))
+            self.btn_deletar_conta = pygame.Rect(cx + 20, cy + 150, largura_modal - 40, 45)
+            pygame.draw.rect(tela, self.VERMELHO_DARK, self.btn_deletar_conta, border_radius=5)
+            txt_del = fonte_ui.render('DELETAR MINHA CONTA PERMANENTEMENTE', True, self.BRANCO)
+            tela.blit(txt_del, (self.btn_deletar_conta.centerx - txt_del.get_width() // 2, self.btn_deletar_conta.centery - txt_del.get_height() // 2))
+            texto_btn_acao = 'Ok'
+            cor_acao = self.AZUL_BOTAO
+        if self.modo != 'conta':
+            txt_dir = fonte_ui.render(f'Pasta Base: ./EIGUIT/{self.pasta_padrao}/', True, (150, 150, 150))
+            tela.blit(txt_dir, (cx + 20, cy + 150))
+        self.btn_cancelar = pygame.Rect(cx + 20, cy + altura_modal - 60, 150, 40)
+        self.btn_acao = pygame.Rect(cx + largura_modal - 170, cy + altura_modal - 60, 150, 40)
+        pygame.draw.rect(tela, self.VERMELHO if self.modo != 'conta' else self.CINZA, self.btn_cancelar, border_radius=5)
+        txt_canc = fonte_ui.render('Sair' if self.modo == 'conta' else 'Cancelar', True, self.BRANCO)
+        tela.blit(txt_canc, (self.btn_cancelar.centerx - txt_canc.get_width() // 2, self.btn_cancelar.centery - txt_canc.get_height() // 2))
+        pygame.draw.rect(tela, cor_acao, self.btn_acao, border_radius=5)
+        txt_acao_render = fonte_ui.render(texto_btn_acao, True, self.BRANCO)
+        tela.blit(txt_acao_render, (self.btn_acao.centerx - txt_acao_render.get_width() // 2, self.btn_acao.centery - txt_acao_render.get_height() // 2))
