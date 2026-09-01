@@ -7,6 +7,7 @@ from basic_pitch.inference import predict_and_save
 from basic_pitch import ICASSP_2022_MODEL_PATH
 import music21
 import uuid
+import librosa
 
 # Configuração do Celery
 celery_app = Celery('transcription_tasks', broker='redis://localhost:6379/0', backend='redis://localhost:6379/0')
@@ -14,6 +15,19 @@ celery_app = Celery('transcription_tasks', broker='redis://localhost:6379/0', ba
 # Pasta para arquivos temporários
 UPLOAD_DIR = "temp_audio"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+def detectar_bpm(audio_path):
+    """Detecta o BPM aproximado de um arquivo de áudio."""
+    try:
+        y, sr = librosa.load(audio_path, sr=None)
+        tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+        # O tempo retornado pode ser um array em versões novas do librosa
+        if hasattr(tempo, "__len__"):
+            tempo = tempo[0]
+        return round(float(tempo))
+    except Exception as e:
+        print(f"[IA BPM] Falha ao detectar BPM: {e}")
+        return 120
 
 def midi_to_json(midi_path):
     """Converte um arquivo MIDI para um formato JSON simplificado para o frontend."""
@@ -106,12 +120,14 @@ def process_transcription(self, file_path, target_instrument="other"):
         if not os.path.exists(midi_file):
             raise FileNotFoundError(f"IA não gerou notas para o instrumento selecionado.")
 
-        # 3. Conversão para JSON
+        # 3. Conversão para JSON e Detecção de BPM
         json_data = midi_to_json(midi_file)
+        bpm_detectado = detectar_bpm(file_path) # Detectar do arquivo original para melhor precisão rítmica
         
         return {
             "status": "completed",
             "notes": json_data,
+            "bpm": bpm_detectado,
             "instrument_used": target_instrument
         }
 

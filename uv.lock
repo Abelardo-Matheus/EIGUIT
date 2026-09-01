@@ -209,12 +209,15 @@ dependencies = [
     { name = "pillow" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pyautogui" },
+    { name = "pydub" },
+    { name = "pyfluidsynth" },
     { name = "pygame" },
     { name = "pyinstaller" },
     { name = "requests" },
     { name = "rich" },
     { name = "scipy" },
     { name = "sounddevice" },
+    { name = "tinysoundfont" },
     { name = "tkvideoplayer" },
 ]
 
@@ -231,12 +234,15 @@ requires-dist = [
     { name = "pillow", specifier = ">=12.2.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2.5" },
     { name = "pyautogui", specifier = ">=0.9.54" },
+    { name = "pydub", specifier = ">=0.25.1" },
+    { name = "pyfluidsynth", specifier = ">=1.4.0" },
     { name = "pygame", specifier = ">=2.6.1" },
     { name = "pyinstaller", specifier = ">=6.21.0" },
     { name = "requests", specifier = ">=2.33.1" },
     { name = "rich", specifier = ">=13.7.0" },
     { name = "scipy", specifier = ">=1.17.1" },
     { name = "sounddevice", specifier = ">=0.5.5" },
+    { name = "tinysoundfont", specifier = ">=0.3.7" },
     { name = "tkvideoplayer", specifier = ">=2.8" },
 ]
 
@@ -538,6 +544,16 @@ wheels = [
 ]
 
 [[package]]
+name = "pyaudio"
+version = "0.2.14"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/26/1d/8878c7752febb0f6716a7e1a52cb92ac98871c5aa522cba181878091607c/PyAudio-0.2.14.tar.gz", hash = "sha256:78dfff3879b4994d1f4fc6485646a57755c6ee3c19647a491f790a0895bd2f87", size = 47066, upload-time = "2023-11-07T07:11:48.806Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8d/45/8d2b76e8f6db783f9326c1305f3f816d4a12c8eda5edc6a2e1d03c097c3b/PyAudio-0.2.14-cp312-cp312-win32.whl", hash = "sha256:5fce4bcdd2e0e8c063d835dbe2860dac46437506af509353c7f8114d4bacbd5b", size = 144750, upload-time = "2023-11-07T07:11:40.142Z" },
+    { url = "https://files.pythonhosted.org/packages/b0/6a/d25812e5f79f06285767ec607b39149d02aa3b31d50c2269768f48768930/PyAudio-0.2.14-cp312-cp312-win_amd64.whl", hash = "sha256:12f2f1ba04e06ff95d80700a78967897a489c05e093e3bffa05a84ed9c0a7fa3", size = 164126, upload-time = "2023-11-07T07:11:41.539Z" },
+]
+
+[[package]]
 name = "pyautogui"
 version = "0.9.54"
 source = { registry = "https://pypi.org/simple" }
@@ -560,6 +576,27 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/1b/7d/92392ff7815c21062bea51aa7b87d45576f649f16458d78b7cf94b9ab2e6/pycparser-3.0.tar.gz", hash = "sha256:600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29", size = 103492, upload-time = "2026-01-21T14:26:51.89Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0c/c3/44f3fbbfa403ea2a7c779186dc20772604442dde72947e7d01069cbe98e3/pycparser-3.0-py3-none-any.whl", hash = "sha256:b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992", size = 48172, upload-time = "2026-01-21T14:26:50.693Z" },
+]
+
+[[package]]
+name = "pydub"
+version = "0.25.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fe/9a/e6bca0eed82db26562c73b5076539a4a08d3cffd19c3cc5913a3e61145fd/pydub-0.25.1.tar.gz", hash = "sha256:980a33ce9949cab2a569606b65674d748ecbca4f0796887fd6f46173a7b0d30f", size = 38326, upload-time = "2021-03-10T02:09:54.659Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a6/53/d78dc063216e62fc55f6b2eebb447f6a4b0a59f55c8406376f76bf959b08/pydub-0.25.1-py2.py3-none-any.whl", hash = "sha256:65617e33033874b59d87db603aa1ed450633288aefead953b30bded59cb599a6", size = 32327, upload-time = "2021-03-10T02:09:53.503Z" },
+]
+
+[[package]]
+name = "pyfluidsynth"
+version = "1.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a3/40/00985fe453bf85cfe1d586f236b97f84401e8ac203588e51840955ed835a/pyfluidsynth-1.4.0.tar.gz", hash = "sha256:6a9e1dbaf469fd11f45184f37ec28e198b1d6495ad74f61dc4a57726b2b1ba31", size = 35128, upload-time = "2026-05-30T16:17:51.451Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/40/b6/7387ecf46c01df39ed36d9700312a11d8455efe04803b8472a333ff9d51b/pyfluidsynth-1.4.0-py3-none-any.whl", hash = "sha256:93f0a0e8d5b34f974010473f9985fc52e1379e8f316892afeb2de1d759439ca3", size = 23933, upload-time = "2026-05-30T16:17:50.528Z" },
 ]
 
 [[package]]
@@ -874,6 +911,24 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b7/4d/08c89e34946fce2aec4fbb45c9016efd5f4d7f24af8e5d93296e935631d8/threadpoolctl-3.6.0.tar.gz", hash = "sha256:8ab8b4aa3491d812b623328249fab5302a68d2d71745c8a4c719a2fcaba9f44e", size = 21274, upload-time = "2025-03-13T13:49:23.031Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/32/d5/f9a850d79b0851d1d4ef6456097579a9005b31fea68726a4ae5f2d82ddd9/threadpoolctl-3.6.0-py3-none-any.whl", hash = "sha256:43a0b8fd5a2928500110039e43a5eed8480b918967083ea48dc3ab9f13c4a7fb", size = 18638, upload-time = "2025-03-13T13:49:21.846Z" },
+]
+
+[[package]]
+name = "tinysoundfont"
+version = "0.3.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyaudio" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0d/c9/96ef50b61a0c39fb7dbafff61ee759e0eb60e87f98eb04860579672127c8/tinysoundfont-0.3.7.tar.gz", hash = "sha256:13b560f35469303064d7b597c1584ec35f18193fd915c502c29fcba90ac11d31", size = 372892, upload-time = "2025-06-03T15:17:49.392Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/64/67/9b07986a5ba6fe93efb02e346ed8824d208ad7c1d22515ebe6c3b60c065a/tinysoundfont-0.3.7-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:b871a995adb9ee6e0f14f670311109f48ab6faed7eb746a3ef0be3c5792ad5b7", size = 146338, upload-time = "2025-06-03T15:16:46.839Z" },
+    { url = "https://files.pythonhosted.org/packages/a9/fe/289ad2d5712eb670247cc7c2926495cf582da1a5493543fddf46fea8d3cb/tinysoundfont-0.3.7-cp312-cp312-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:8e6efd15ca7f5647db7709e8d73cebce08a56aded46222654272be5f21002779", size = 200417, upload-time = "2025-06-03T15:16:48.075Z" },
+    { url = "https://files.pythonhosted.org/packages/57/d3/9308fbf4445395ffa3d3cd4fb8c83a85f3b7aa93fa1d9ed1f003e7facdf9/tinysoundfont-0.3.7-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c48a614fbc0287f16ad4bef857c79e80ba9e413474fbe47f460d2dd1ec449d4b", size = 192372, upload-time = "2025-06-03T15:16:49.542Z" },
+    { url = "https://files.pythonhosted.org/packages/7c/fb/2832235a7ff0d62cf73c0d15a5477d1174854ec1e7911c24c7682b722029/tinysoundfont-0.3.7-cp312-cp312-musllinux_1_1_i686.whl", hash = "sha256:015be0a82b2ccf0810b2f99dfb6597f31b3e9a0349fa850e6ba5a18a28846780", size = 775618, upload-time = "2025-06-03T15:16:51.347Z" },
+    { url = "https://files.pythonhosted.org/packages/7b/58/fceb0e19d3c5a5a5acb95cbfc88e54675efdbd8903860f6797c6efa2f97c/tinysoundfont-0.3.7-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:56f190d48865ba06e3b1cdfaab5e35c630a3941687c1d42fd9ae1bb81210d152", size = 716786, upload-time = "2025-06-03T15:16:53.334Z" },
+    { url = "https://files.pythonhosted.org/packages/0b/f6/344747b94e50cb30fc2f5f61de5355148ffa297461ca33188331f2aac210/tinysoundfont-0.3.7-cp312-cp312-win32.whl", hash = "sha256:72767f4645567dcc7de2966c7d734c6a8da3d7b44c63d93e05b2e6e3e1942110", size = 136203, upload-time = "2025-06-03T15:16:55Z" },
+    { url = "https://files.pythonhosted.org/packages/bd/8e/041e5342fda5215622dcac52efa08b3abb5b17b14f21586cb5b89dee5a3d/tinysoundfont-0.3.7-cp312-cp312-win_amd64.whl", hash = "sha256:402269dc9da85d722697a96254dbd64d57fe083f16e56b662d8ed897f53a1aa0", size = 153351, upload-time = "2025-06-03T15:16:56.257Z" },
 ]
 
 [[package]]

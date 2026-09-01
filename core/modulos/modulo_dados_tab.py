@@ -7,92 +7,137 @@ class GerenciadorDadosTablatura:
     def __init__(self, bpm=120):
         self.bpm = bpm
         self.nome_musica = "Nova Música"
-        # Matriz: 6 cordas x N tempos.
-        self.grade = [["-" for _ in range(64)] for _ in range(6)]
+        # Dicionário de trilhas: { "instrumento": grade }
+        # Começa menor para caber na tela inicialmente (~2 desenhos)
+        self.trilhas = {
+            "Guitarra": [["-" for _ in range(64)] for _ in range(6)],
+            "Baixo": [["-" for _ in range(64)] for _ in range(4)], # 4 cordas
+            "Voz": [["-" for _ in range(64)] for _ in range(6)],
+            "Bateria": [["-" for _ in range(64)] for _ in range(6)]
+        }
+        self.instrumento_atual = "Guitarra"
         self.playing = False
         self.cursor_tempo = 0
         self.playback_thread = None
         self.on_note_trigger = None
         
-        # Sistema de Seleção
-        self.selecao_inicio = None # (corda, tempo)
+        self.selecao_inicio = None
         self.selecao_fim = None
         self.copia_buffer = None
 
+    def adicionar_colunas(self, qtd):
+        """Adiciona uma quantidade específica de colunas no final de todas as trilhas."""
+        for inst in self.trilhas:
+            num_c = len(self.trilhas[inst])
+            for c in range(num_c):
+                self.trilhas[inst][c].extend(["-" for _ in range(qtd)])
+
+    @property
+    def grade(self):
+        """Retorna a grade do instrumento atualmente selecionado."""
+        return self.trilhas[self.instrumento_atual]
+
+    @grade.setter
+    def grade(self, valor):
+        self.trilhas[self.instrumento_atual] = valor
+
+    def alternar_instrumento(self, nome):
+        if nome in self.trilhas:
+            self.instrumento_atual = nome
+            print(f"[TAB] Alternado para {nome}")
+
     def adicionar_nota(self, corda, tempo, valor):
         self._garantir_capacidade(tempo)
-        if 0 <= corda < 6:
+        num_cordas = len(self.grade)
+        if 0 <= corda < num_cordas:
+            if isinstance(valor, (int, str)) and str(valor).isdigit():
+                valor = f"{valor}v100"
             self.grade[corda][tempo] = str(valor)
 
     def _garantir_capacidade(self, tempo):
-        """Aumenta a grade automaticamente se o tempo solicitado estiver fora do limite."""
-        while tempo >= len(self.grade[0]):
-            for c in range(6):
-                self.grade[c].extend(["-" for _ in range(32)])
+        """Aumenta a grade de TODAS as trilhas se necessário."""
+        for inst in self.trilhas:
+            while tempo >= len(self.trilhas[inst][0]):
+                num_c = len(self.trilhas[inst])
+                for c in range(num_c):
+                    self.trilhas[inst][c].extend(["-" for _ in range(64)])
 
-    def remover_nota(self, corda, tempo):
-        if 0 <= corda < 6 and 0 <= tempo < len(self.grade[0]):
-            self.grade[corda][tempo] = "-"
-
-    def copiar_selecao(self, corda_ini, tempo_ini, corda_fim, tempo_fim):
-        c1, c2 = min(corda_ini, corda_fim), max(corda_ini, corda_fim)
-        t1, t2 = min(tempo_ini, tempo_fim), max(tempo_ini, tempo_fim)
+    def preencher_da_ia(self, notas_ia, instrumento="Guitarra"):
+        """Converte notas da IA para uma trilha específica."""
+        # Se for "other", mapeamos para Guitarra por padrão
+        mapeamento = {"other": "Guitarra", "vocals": "Voz", "bass": "Baixo", "drums": "Bateria"}
+        inst_alvo = mapeamento.get(instrumento, "Guitarra")
         
-        self.copia_buffer = []
-        for c in range(c1, c2 + 1):
-            linha = []
-            for t in range(t1, t2 + 1):
-                linha.append(self.grade[c][t])
-            self.copia_buffer.append(linha)
-
-    def colar_em(self, corda_alvo, tempo_alvo):
-        if not self.copia_buffer: return
+        # Limpar apenas a trilha alvo
+        num_c = len(self.trilhas[inst_alvo])
+        self.trilhas[inst_alvo] = [["-" for _ in range(len(self.trilhas[inst_alvo][0]))] for _ in range(num_c)]
         
-        for r_idx, linha in enumerate(self.copia_buffer):
-            c_real = corda_alvo + r_idx
-            if c_real >= 6: break
-            for t_idx, valor in enumerate(linha):
-                t_real = tempo_alvo + t_idx
-                self.adicionar_nota(c_real, t_real, valor)
-
-    def limpar_tablatura(self):
-        self.grade = [["-" for _ in range(len(self.grade[0]))] for _ in range(6)]
-
-    def preencher_da_ia(self, notas_ia):
-        """Converte a lista de notas da IA para a grade da tablatura."""
-        self.limpar_tablatura()
-        
-        # Midi notes das cordas (Standard Tuning)
-        # e(64), B(59), G(55), D(50), A(45), E(40)
-        pitch_cordas = [64, 59, 55, 50, 45, 40]
+        pitch_cordas = [64, 59, 55, 50, 45, 40] if inst_alvo != "Baixo" else [43, 38, 33, 28] # G, D, A, E
+        RESOLUCAO = 8 
         
         for nota in notas_ia:
             p = round(nota['pitch'])
-            # offset está em beats. 1 beat = 4 colunas (semicolcheias)
-            tempo = int(nota['offset'] * 4)
+            tempo_col = int(round(nota['offset'] * RESOLUCAO))
+            duracao_cols = max(1, int(round(nota['duration'] * RESOLUCAO)))
             
-            # Garantir que a grade tenha espaço
-            self._garantir_capacidade(tempo)
+            self._garantir_capacidade(tempo_col + duracao_cols)
             
-            # Encontrar a melhor corda (procurar da mais aguda para a mais grave ou vice-versa?)
-            # Geralmente prefere-se cordas mais graves para notas graves
             corda_escolhida = -1
             casa_escolhida = -1
-            
-            # Tentar encontrar a nota em qualquer corda (0 a 24)
-            # Priorizamos a corda que resultar na menor casa >= 0
             melhor_casa = 99
             
             for idx, base_p in enumerate(pitch_cordas):
                 casa = p - base_p
-                if 0 <= casa <= 24:
+                if 0 <= casa <= 22:
                     if casa < melhor_casa:
                         melhor_casa = casa
                         corda_escolhida = idx
                         casa_escolhida = casa
             
             if corda_escolhida != -1:
-                self.adicionar_nota(corda_escolhida, tempo, str(casa_escolhida))
+                val = str(casa_escolhida)
+                if duracao_cols > 1: val += f"d{duracao_cols}"
+                self.trilhas[inst_alvo][corda_escolhida][tempo_col] = val + "v100"
+
+
+    def exportar_notas_txt(self, caminho_arquivo):
+        """
+        Converte a grade de tablatura em nomes de notas (E2, A3, etc) e salva em TXT.
+        """
+        # Notas base das cordas em Standard E (E2, A2, D3, G3, B3, E4)
+        # Usamos índices MIDI: E2(40), A2(45), D3(50), G3(55), B3(59), E4(64)
+        midi_base = [64, 59, 55, 50, 45, 40]
+        nomes_notas = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+        
+        try:
+            with open(caminho_arquivo, 'w', encoding='utf-8') as f:
+                f.write(f"PROJETO: {self.nome_musica}\n")
+                f.write(f"BPM: {self.bpm}\n")
+                f.write("-" * 30 + "\n\n")
+                
+                num_cols = len(self.grade[0])
+                for t in range(num_cols):
+                    notas_no_tempo = []
+                    for c_idx in range(6):
+                        celula = self.grade[c_idx][t]
+                        if celula != "-":
+                            # Extrair apenas a casa
+                            import re
+                            match = re.match(r"(\d+)", str(celula))
+                            if match:
+                                casa = int(match.group(1))
+                                midi_note = midi_base[c_idx] + casa
+                                
+                                nome = nomes_notas[midi_note % 12]
+                                oitava = (midi_note // 12) - 1
+                                notas_no_tempo.append(f"{nome}{oitava}")
+                    
+                    if notas_no_tempo:
+                        f.write(f"Tempo {t:03d}: {' '.join(notas_no_tempo)}\n")
+            return True
+        except Exception as e:
+            print(f"[EXPORT TXT] Erro: {e}")
+            return False
 
     def set_bpm(self, bpm):
         self.bpm = bpm
@@ -151,14 +196,33 @@ class GerenciadorDadosTablatura:
         self.cursor_tempo = 0
 
     def _processar_e_tocar(self, corda, celula):
-        # Extrai número da casa e técnica
+        # Extrai número da casa, técnica e metadados (v=velocity, d=duration, ~=vibrato)
         import re
-        match = re.match(r"(\d+)([a-zA-Z/]*)", celula)
+        match = re.match(r"(\d+)", celula)
         if match:
             casa = int(match.group(1))
-            tecnica = match.group(2) if match.group(2) else None
+            
+            # Extrair volume/velocity (vXX)
+            vol_match = re.search(r"v(\d+)", celula)
+            volume = int(vol_match.group(1)) if vol_match else 100
+            
+            # Extrair duração (dXX)
+            dur_match = re.search(r"d(\d+)", celula)
+            dur_cols = int(dur_match.group(1)) if dur_match else 1
+            
+            # Extrair técnicas (b=bend, /=slide, ~=vibrato, h=hammer, p=pull)
+            tecnicas = "".join(re.findall(r"[a-zA-Z/~]+", celula))
+            # Limpa marcadores de metadados das técnicas
+            tecnicas = tecnicas.replace('v', '').replace('d', '')
+            
             if self.on_note_trigger:
-                self.on_note_trigger(corda, casa, tecnica)
+                # O callback agora aceita volume e duração
+                try:
+                    self.on_note_trigger(corda, casa, tecnicas, dur_cols, volume)
+                except TypeError:
+                    # Fallback para o callback antigo se ainda não atualizado
+                    self.on_note_trigger(corda, casa, tecnicas)
+
 
 if __name__ == "__main__":
     # Teste de lógica

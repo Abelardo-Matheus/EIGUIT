@@ -32,11 +32,13 @@ class ClienteTranscricaoIA:
             # 1. Upload
             with open(caminho_arquivo, 'rb') as f:
                 files = {'file': f}
-                # Passar o instrumento como parâmetro na URL
-                response = requests.post(f"{self.base_url}/transcribe?instrument={instrumento}", files=files)
+                try:
+                    response = requests.post(f"{self.base_url}/transcribe?instrument={instrumento}", files=files, timeout=30)
+                except requests.exceptions.RequestException as e:
+                    raise Exception(f"Erro de conexão ao enviar áudio: {e}")
             
             if response.status_code != 200:
-                raise Exception(f"Erro no servidor: {response.status_code}")
+                raise Exception(f"Erro no servidor (Status {response.status_code})")
             
             self.task_id = response.json().get("task_id")
             self.status = "processing"
@@ -44,44 +46,44 @@ class ClienteTranscricaoIA:
             # 2. Polling (verificar status)
             import time
             while self.status == "processing":
-                status_resp = requests.get(f"{self.base_url}/status/{self.task_id}")
-                data = status_resp.json()
+                try:
+                    status_resp = requests.get(f"{self.base_url}/status/{self.task_id}", timeout=10)
+                    data = status_resp.json()
+                except requests.exceptions.RequestException as e:
+                    print(f"[IA WARNING] Falha temporária no polling: {e}")
+                    time.sleep(5)
+                    continue
                 
                 if data["status"] == "completed":
                     self.resultado = data["result"]["notes"]
+                    self.bpm_detectado = data["result"].get("bpm", 120)
+                    self.instrumento_usado = data["result"].get("instrument_used", "other")
                     self.status = "completed"
-                    # Injetar na tablatura do estado global
-                    self._converter_para_tablatura(self.resultado, estado_global)
+                    # Injetar na trilha específica da tablatura
+                    self._converter_para_tablatura(self.resultado, estado_global, self.bpm_detectado, self.instrumento_usado)
                     break
                 elif data["status"] == "failed":
                     self.status = "failed"
                     self.erro = data.get("error", "Erro desconhecido")
                     break
                 
-                time.sleep(2) # Espera 2 segundos antes de tentar de novo
+                time.sleep(3) # Polling a cada 3 segundos conforme solicitado
                 
         except Exception as e:
             self.status = "failed"
             self.erro = str(e)
             print(f"[IA ERROR] {self.erro}")
 
-    def _converter_para_tablatura(self, notas_json, estado_global):
+    def _converter_para_tablatura(self, notas_json, estado_global, bpm=120, instrumento="other"):
         """Converte o formato de notas MIDI para colunas de tablatura do Guitar Studio."""
-        # Se estivermos no modo de criação, injetamos direto no gerenciador de dados da tablatura
-        from ui.renderizador_ui import render_tab_maker
-        if render_tab_maker and hasattr(render_tab_maker, 'dados'):
-            render_tab_maker.dados.preencher_da_ia(notas_json)
-            return
+        # Atualiza o BPM no estado e no gerenciador
+        estado_global.tab_bpm = bpm
+        if hasattr(estado_global, 'tab_dados_gerenciador'):
+            estado_global.tab_dados_gerenciador.bpm = bpm
+            # Preenche a trilha específica
+            estado_global.tab_dados_gerenciador.preencher_da_ia(notas_json, instrumento)
+            
+        print(f"[IA] Transcrição de {len(notas_json)} notas ({instrumento}) injetada na tablatura.")
 
-        # Fallback para o estado global se não houver renderizador ativo
-        afincacao = [40, 45, 50, 55, 59, 64] 
-        for nota in notas_json:
-            pitch = int(nota['pitch'])
-            coluna = [None] * 6
-            for i in range(5, -1, -1):
-                fret = pitch - afincacao[i]
-                if 0 <= fret <= 22:
-                    coluna[i] = str(fret)
-                    break
-            if any(coluna):
-                estado_global.adicionar_coluna_ia(coluna)
+
+

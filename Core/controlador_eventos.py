@@ -117,7 +117,7 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
         for evento in eventos_viewport:
             # Primeiro tenta tratar no criador de tablatura
             if render_ui.render_tab_maker is not None:
-                if render_ui.render_tab_maker.tratar_evento(evento, estado):
+                if render_ui.render_tab_maker.tratar_evento(evento, estado, meu_gravador):
                     continue # Se o criador consumiu o evento, para aqui
                     
             # Se não consumiu, permite tratar cliques globais (ex: Botão Sair, Bottom Nav)

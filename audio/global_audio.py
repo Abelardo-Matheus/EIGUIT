@@ -3,7 +3,6 @@ import numpy as np
 import threading
 import math
 import pygame
-from scipy.signal import butter, lfilter
 FREQS_NOTAS = {'C0': 16.35, 'C#0': 17.32, 'D0': 18.35, 'D#0': 19.45, 'E0': 20.6, 'F0': 21.83, 'F#0': 23.12, 'G0': 24.5, 'G#0': 25.96, 'A0': 27.5, 'A#0': 29.14, 'B0': 30.87, 'C1': 32.7, 'C#1': 34.65, 'D1': 36.71, 'D#1': 38.89, 'E1': 41.2, 'F1': 43.65, 'F#1': 46.25, 'G1': 49.0, 'G#1': 51.91, 'A1': 55.0, 'A#1': 58.27, 'B1': 61.74, 'C2': 65.41, 'C#2': 69.3, 'D2': 73.42, 'D#2': 77.78, 'E2': 82.41, 'F2': 87.31, 'F#2': 92.5, 'G2': 98.0, 'G#2': 103.83, 'A2': 110.0, 'A#2': 116.54, 'B2': 123.47, 'C3': 130.81, 'C#3': 138.59, 'D3': 146.83, 'D#3': 155.56, 'E3': 164.81, 'F3': 174.61, 'F#3': 185.0, 'G3': 196.0, 'G#3': 207.65, 'A3': 220.0, 'A#3': 233.08, 'B3': 246.94, 'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'E4': 329.63, 'F4': 349.23, 'F#4': 369.99, 'G4': 392.0, 'G#4': 415.3, 'A4': 440.0, 'A#4': 466.16, 'B4': 493.88, 'C5': 523.25, 'C#5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'E5': 659.25, 'F5': 698.46, 'F#5': 739.99, 'G5': 783.99, 'G#5': 830.61, 'A5': 880.0, 'A#5': 932.33, 'B5': 987.77}
 
 class GlobalAudioEngine:
@@ -32,18 +31,10 @@ class GlobalAudioEngine:
         self.volume_atual = 0.0
         self.ultimo_processamento = 0
         self.intervalo_ms = 30
-        self.b_filter, self.a_filter = self._create_filter(70, 1300)
         self.window = np.hanning(self.tamanho_buffer)
+        self.gravando = False
+        self.frames_gravacao = []
         self.iniciar()
-
-    def _create_filter(self, low, high, order=5):
-        """
-            Como funciona: Executa o fluxo lógico necessário para a operação ' create filter'.
-            Para que serve: Realiza as tarefas fundamentais de ' create filter' dentro do contexto do módulo.
-            Onde é usada: Utilizado internamente para gerenciar comportamentos de ' create filter'.
-        """
-        nyq = 0.5 * self.sr
-        return butter(order, [low / nyq, high / nyq], btype='band')
 
     def callback_audio(self, indata, frames, time, status):
         """
@@ -54,6 +45,37 @@ class GlobalAudioEngine:
         self.buffer = np.roll(self.buffer, -frames)
         self.buffer[-frames:] = indata[:, 0]
         self.volume_atual = np.sqrt(np.mean(indata ** 2))
+        
+        if self.gravando:
+            self.frames_gravacao.append(indata.copy())
+
+    def iniciar_gravacao(self):
+        print("🎤 [GLOBAL AUDIO] Gravação iniciada...")
+        self.frames_gravacao = []
+        self.gravando = True
+
+    def parar_gravacao(self, output_path="temp_recording.wav"):
+        if not self.gravando:
+            return None
+        self.gravando = False
+        print(f"🎤 [GLOBAL AUDIO] Gravação finalizada. Salvando em {output_path}...")
+        
+        import wave
+        try:
+            audio_data = np.concatenate(self.frames_gravacao, axis=0)
+            # Converter de float32 (-1.0 a 1.0) para int16
+            audio_int16 = (audio_data * 32767).astype(np.int16)
+            
+            with wave.open(output_path, 'wb') as wf:
+                wf.setnchannels(self.canais)
+                wf.setsampwidth(2) # 16-bit
+                wf.setframerate(self.sr)
+                wf.writeframes(audio_int16.tobytes())
+            
+            return output_path
+        except Exception as e:
+            print(f"❌ [GLOBAL AUDIO] Erro ao salvar gravação: {e}")
+            return None
 
     def iniciar(self):
         """
@@ -70,13 +92,13 @@ class GlobalAudioEngine:
                     self.stream = sd.InputStream(samplerate=self.sr, channels=self.canais, device=self.device_id, callback=self.callback_audio, blocksize=1024, latency='high')
                     self.stream.start()
                     self.ativo = True
-                    print(f'🎤 [GLOBAL AUDIO] Captura iniciada no ID {self.device_id} @ {self.sr}Hz')
+                    print(f'[GLOBAL AUDIO] Captura iniciada no ID {self.device_id} @ {self.sr}Hz')
                     sucesso = True
                     break
                 except Exception as e:
-                    print(f'⚠️ [GLOBAL AUDIO] Falha ao iniciar @ {taxa}Hz: {e}')
+                    print(f'[GLOBAL AUDIO] Falha ao iniciar @ {taxa}Hz: {e}')
             if not sucesso:
-                print(f'❌ [GLOBAL AUDIO] Erro fatal: Não foi possível abrir nenhum dispositivo de entrada.')
+                print(f'[GLOBAL AUDIO] Erro fatal: Não foi possível abrir nenhum dispositivo de entrada.')
 
     def parar(self):
         """

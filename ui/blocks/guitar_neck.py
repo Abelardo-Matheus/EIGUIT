@@ -40,7 +40,7 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_
         if casa > 0:
             x_centro_casa = x - espaco_casas_dinamico / 2
             txt_casa = fontes['pequena'].render(str(casa), True, (130, 130, 130))
-            tela.blit(txt_casa, (x_centro_casa - txt_casa.get_width() // 2, offset_y_atual + altura_braco_atual + 12))
+            tela.blit(txt_casa, (x_centro_casa - txt_casa.get_width() // 2, offset_y_atual + altura_braco_atual + 35))
     modo_texto = configs.get_modo_texto() if configs else 'letras'
     cor_base_escala = configs.get_cor_notas() if configs else BRANCO
     tom_global = getattr(meu_campo_harmonico, 'tom', getattr(meu_campo_harmonico, 'tonica', estado.tom_atual))

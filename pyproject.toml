@@ -16,12 +16,15 @@ dependencies = [
     "pillow>=12.2.0",
     "psycopg[binary]>=3.2.5",
     "pyautogui>=0.9.54",
+    "pydub>=0.25.1",
+    "pyfluidsynth>=1.4.0",
     "pygame>=2.6.1",
     "pyinstaller>=6.21.0",
     "requests>=2.33.1",
     "rich>=13.7.0",
     "scipy>=1.17.1",
     "sounddevice>=0.5.5",
+    "tinysoundfont>=0.3.7",
     "tkvideoplayer>=2.8",
 ]
 

@@ -11,11 +11,11 @@ timeout /t 2 /nobreak > NUL
 
 :: 2. Ligar o Servidor Backend (FastAPI)
 echo [2/4] Iniciando Servidor FastAPI...
-start "FastAPI (Servidor Web)" cmd /k "cd services\transcription && .\venv_ia\Scripts\activate && python main.py"
+start "FastAPI (Servidor Web)" cmd /k "cd services\transcription && ..\venv_ia\Scripts\activate && python main.py"
 
 :: 3. Ligar o Motor da IA (Celery)
 echo [3/4] Iniciando a IA (Celery)...
-start "Celery (Inteligencia Artificial)" cmd /k "cd services\transcription && .\venv_ia\Scripts\activate && python -m celery -A tasks worker --loglevel=info -P solo"
+start "Celery (Inteligencia Artificial)" cmd /k "cd services\transcription && ..\venv_ia\Scripts\activate && python -m celery -A tasks worker --loglevel=info -P solo"
 
 :: 4. Ligar a Interface Visual (React)
 echo [4/4] Iniciando o Frontend React...

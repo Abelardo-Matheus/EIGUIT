@@ -8,7 +8,6 @@ from config.app_settings import *
 from Jogos.Jogos_interativos import GerenciadorJogos
 import core.modulos.modulos_estudos as modulo_estudos
 from ui.renderizador_tablatura import RenderizadorTablatura
-from ui.renderizador_criador_tab import RenderizadorCriadorTablatura
 from ui.components import (
     desenhar_painel_superior, 
     desenhar_controles_instrumento,
@@ -95,13 +94,13 @@ def _desenhar_tela_cheia_tablatura(tela, largura, altura, estado, fontes):
 
 def _desenhar_tela_criacao_tablatura(tela, largura, altura, estado, fontes, configs, meu_campo_harmonico=None):
     """
-    Renderiza a interface do Criador de Tablaturas.
+    Renderiza a interface do Criador de Tablaturas seguindo GEMINI.md.
     """
     global render_tab_maker
     if render_tab_maker is None:
-        render_tab_maker = RenderizadorCriadorTablatura(tela, largura, altura)
+        render_tab_maker = RenderizadorTablatura()
         
-    render_tab_maker.renderizar()
+    render_tab_maker.desenhar_interface_tab(tela, estado, fontes, largura, altura, configs, meu_campo_harmonico)
 
 def desenhar_tudo(tela, estado, configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos):
     largura_tela = tela.get_width()

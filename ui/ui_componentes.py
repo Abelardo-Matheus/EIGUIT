@@ -30,7 +30,7 @@ class DesenhoEscala:
         self.cor_base = cor_base
         self.num_casas_desenho = len(padrao[0])
         self.padding_x = 5
-        self.padding_y = 20
+        self.padding_y = 25
         self.estado = 'painel'
         self.casa_atual = 0
         self.last_w_braco = 0
@@ -39,11 +39,11 @@ class DesenhoEscala:
         self.reconstruir_superficies(espaco_casas, espaco_cordas, altura_braco)
         self.rect_painel = self.imagem_painel.get_rect(topleft=(x_painel, y_painel))
 
-    def reconstruir_superficies(self, espaco_casas, espaco_cordas, altura_braco):
+    def reconstruir_superficies(self, espaco_casas, espaco_cordas, altura_braco, atualizar_painel=True):
         """
-            Como funciona: Executa o fluxo lógico necessário para a operação 'reconstruir superficies'.
-            Para que serve: Realiza as tarefas fundamentais de 'reconstruir superficies' dentro do contexto do módulo.
-            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'reconstruir superficies'.
+        Como funciona: Executa o fluxo lógico necessário para a operação 'reconstruir superficies'.
+        Para que serve: Realiza as tarefas fundamentais de 'reconstruir superficies' dentro do contexto do módulo.
+        Onde é usada: Utilizado internamente para gerenciar comportamentos de 'reconstruir superficies'.
         """
         self.espaco_casas = espaco_casas
         self.largura_real = espaco_casas * self.num_casas_desenho
@@ -58,10 +58,12 @@ class DesenhoEscala:
         self.imagem_braco.set_colorkey(COR_CK)
         self.imagem_braco.fill(COR_CK)
         
-        # Desenhar "Braço" do card (fundo escuro)
-        rect_card = pygame.Rect(self.padding_x, self.padding_y, self.largura_real, self.altura_real)
-        pygame.draw.rect(self.imagem_braco, (35, 35, 40), rect_card, border_radius=3)
-        pygame.draw.rect(self.imagem_braco, (80, 80, 90), rect_card, width=1, border_radius=3)
+        # Desenhar "Braço" do card (fundo escuro - Premium Dark)
+        # Aumentamos o tamanho vertical (expansao_y) para tampar as bolinhas do braço da guitarra 
+        expansao_y = 22
+        rect_card = pygame.Rect(self.padding_x, self.padding_y - expansao_y, self.largura_real, self.altura_real + expansao_y * 2)
+        pygame.draw.rect(self.imagem_braco, (20, 20, 24), rect_card, border_radius=12)
+        pygame.draw.rect(self.imagem_braco, (45, 45, 55), rect_card, width=1, border_radius=12)
         
         # Desenhar Trastes
         for c in range(self.num_casas_desenho + 1):
@@ -99,18 +101,19 @@ class DesenhoEscala:
                     x_bolinha = self.padding_x + casa_interna * espaco_casas + espaco_casas / 2
                     y_bolinha = self.padding_y + self.altura_real - corda * espaco_cordas
                     
-                    # Sombra da nota
-                    pygame.draw.circle(self.imagem_braco, (0, 0, 0, 100), (int(x_bolinha)+2, int(y_bolinha)+2), raio)
+                    # Preenche o interior com a cor transparente (fura o fundo cinza)
+                    pygame.draw.circle(self.imagem_braco, COR_CK, (int(x_bolinha), int(y_bolinha)), raio)
                     
                     cor_n = COR_DESTAQUE_TONICA if valor_matriz == 2 else COR_NORMAL
-                    pygame.draw.circle(self.imagem_braco, cor_n, (int(x_bolinha), int(y_bolinha)), raio)
-                    pygame.draw.circle(self.imagem_braco, (255, 255, 255, 150), (int(x_bolinha), int(y_bolinha)), raio, 1)
+                    # Desenha apenas a borda (width=3), contornando o buraco transparente
+                    pygame.draw.circle(self.imagem_braco, cor_n, (int(x_bolinha), int(y_bolinha)), raio, 3)
 
-        escala = CARDS_ESC_INTERNA
-        w_painel = int(w_surf * escala)
-        h_painel = int(h_surf * escala)
-        self.imagem_painel = pygame.transform.scale(self.imagem_braco, (w_painel, h_painel))
-        self.imagem_painel.set_colorkey(COR_CK)
+        if atualizar_painel:
+            escala = CARDS_ESC_INTERNA
+            w_painel = int(w_surf * escala)
+            h_painel = int(h_surf * escala)
+            self.imagem_painel = pygame.transform.scale(self.imagem_braco, (w_painel, h_painel))
+            self.imagem_painel.set_colorkey(COR_CK)
         self.rect_braco = self.imagem_braco.get_rect()
 
     def tratar_clique(self, pos_mouse, rect_braco_colisao):
@@ -134,16 +137,21 @@ class DesenhoEscala:
             if rect_braco_colisao.collidepoint(pos_mouse):
                 self.estado = 'braco'
             else:
-                self.estado = 'painel'
+                if self.estado != 'painel':
+                    self.estado = 'painel'
+                    self.ultimo_estado = 'painel'
             return True
         return False
 
-    def atualizar_e_desenhar(self, tela, pos_mouse, rect_braco_colisao, fonte_pequena, nivel_alpha=255):
+    def atualizar_e_desenhar(self, tela, pos_mouse, rect_braco_colisao, fonte_pequena, nivel_alpha=255, estado=None):
         """
-            Como funciona: Recalcula dimensões, estados e processa alterações temporais.
-            Para que serve: Garante que os dados e a interface reflitam as últimas mudanças.
-            Onde é usada: Chamado a partir do módulo ou classe base de 'ui_componentes'.
+        Como funciona: Recalcula dimensões, estados e processa alterações temporais.
+        Para que serve: Garante que os dados e a interface reflitam as últimas mudanças.
+        Onde é usada: Chamado a partir do módulo ou classe base de 'ui_componentes'.
         """
+        if estado is not None:
+            self.num_casas_total = getattr(estado, 'NUM_CASAS', self.num_casas_total)
+            
         scroll = getattr(self, 'scroll_offset', 0)
         if self.estado == 'painel':
             self.imagem_painel.set_alpha(nivel_alpha)
@@ -155,12 +163,13 @@ class DesenhoEscala:
                 txt_y = y_desenho_rolado + CARDS_TEXTO_OFFSET_Y
                 tela.blit(texto_nome, (txt_x, txt_y))
         elif self.estado in ['mouse', 'braco']:
-            if rect_braco_colisao.width != self.last_w_braco or rect_braco_colisao.height != self.last_h_braco:
+            if rect_braco_colisao.width != self.last_w_braco or rect_braco_colisao.height != self.last_h_braco or getattr(self, 'ultimo_estado', 'painel') != self.estado:
                 self.last_w_braco = rect_braco_colisao.width
                 self.last_h_braco = rect_braco_colisao.height
+                self.ultimo_estado = self.estado
                 novo_espaco_casas = rect_braco_colisao.width / self.num_casas_total
-                novo_espaco_cordas = rect_braco_colisao.height / 5
-                self.reconstruir_superficies(novo_espaco_casas, novo_espaco_cordas, rect_braco_colisao.height)
+                novo_espaco_cordas = rect_braco_colisao.height / 6
+                self.reconstruir_superficies(novo_espaco_casas, novo_espaco_cordas, rect_braco_colisao.height, atualizar_painel=False)
             self.imagem_braco.set_alpha(nivel_alpha)
             x_guit_real = rect_braco_colisao.x
             y_guit_real = rect_braco_colisao.y

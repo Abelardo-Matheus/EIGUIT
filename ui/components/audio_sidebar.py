@@ -18,8 +18,9 @@ def desenhar_painel_cores(tela, estado, fontes):
     largura = estado.dragger_cores.largura
     altura = estado.dragger_cores.altura
     
-    pygame.draw.rect(tela, FUNDO_PAINEL, (x_base, y_base, largura, altura), border_radius=RADIUS_PADRAO)
-    pygame.draw.rect(tela, COR_BORDA, (x_base, y_base, largura, altura), width=1, border_radius=RADIUS_PADRAO)
+    # Fundo Premium Dark (arredondado)
+    pygame.draw.rect(tela, (20, 20, 24), (x_base, y_base, largura, altura), border_radius=15)
+    pygame.draw.rect(tela, COR_BORDA, (x_base, y_base, largura, altura), width=1, border_radius=15)
     
     txt_tit = fontes['pequena'].render(_t('Cores (Graus)'), True, BRANCO)
     tela.blit(txt_tit, (x_base + largura // 2 - txt_tit.get_width() // 2, y_base + 12))
@@ -60,8 +61,9 @@ def desenhar_bloco_nota_atual(tela, estado, fontes, configs):
     largura = estado.dragger_nota_atual.largura
     altura = estado.dragger_nota_atual.altura
     
-    pygame.draw.rect(tela, FUNDO_PAINEL, (x_base, y_base, largura, altura), border_radius=RADIUS_PADRAO)
-    pygame.draw.rect(tela, COR_BORDA, (x_base, y_base, largura, altura), width=1, border_radius=RADIUS_PADRAO)
+    # Fundo Premium Dark
+    pygame.draw.rect(tela, (20, 20, 24), (x_base, y_base, largura, altura), border_radius=15)
+    pygame.draw.rect(tela, COR_BORDA, (x_base, y_base, largura, altura), width=1, border_radius=15)
     
     nota_microfone = estado.nota_atual_detectada
     cor_nota_grande = VERDE_SUCCESS if nota_microfone != '--' else (100, 100, 100)

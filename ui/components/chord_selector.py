@@ -15,8 +15,8 @@ def desenhar_acordes_arrastaveis(tela, estado, meu_campo_harmonico, fontes):
     x_base = estado.dragger_acordes.x
     y_base = estado.dragger_acordes.y
     largura = estado.dragger_acordes.largura
-    pygame.draw.rect(tela, FUNDO_PAINEL, (x_base, y_base, largura, estado.ALTURA_ACORDES), border_radius=RADIUS_PADRAO)
-    pygame.draw.rect(tela, COR_BORDA, (x_base, y_base, largura, estado.ALTURA_ACORDES), width=1, border_radius=RADIUS_PADRAO)
+    pygame.draw.rect(tela, (20, 20, 24), (x_base, y_base, largura, estado.ALTURA_ACORDES), border_radius=15)
+    pygame.draw.rect(tela, COR_BORDA, (x_base, y_base, largura, estado.ALTURA_ACORDES), width=1, border_radius=15)
     meu_campo_harmonico.desenhar(tela, x_base, y_base + CHORD_OFFSET_Y_INTERNO, largura, fontes['titulo'], fontes['ui'], fontes['pequena'])
     if estado.drag_ativado:
         estado.dragger_acordes.desenhar_caixa_selecao(tela, margem=8)

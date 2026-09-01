@@ -20,9 +20,6 @@ def main():
         Para que serve: Ponto de entrada do sistema que orquestra a inicialização e o ciclo de vida da aplicação.
         Onde é usada: Executado diretamente ao iniciar o software via main.py.
     """
-    from core.modulos.gerenciador_servicos_ia import iniciar_servicos_ia
-    iniciar_servicos_ia()
-    
     usuario_logado = tela_login.iniciar_fluxo_autenticacao()
     if not usuario_logado:
         print('Autenticação cancelada. Saindo...')
@@ -43,6 +40,7 @@ def main():
     estado.email_usuario = usuario_logado['email']
     from BD.gerenciador_remoto_db import GerenciadorDB
     db = GerenciadorDB()
+    estado.db = db
     estado.favoritos_songsterr = db.obter_favoritos(estado.usuario_id_logado)
     print(f'[CLOUD] {len(estado.favoritos_songsterr)} favoritos carregados da conta.')
     estado.LARGURA_TELA = tela.get_width()

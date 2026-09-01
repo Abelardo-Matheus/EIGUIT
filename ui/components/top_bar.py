@@ -13,9 +13,9 @@ def desenhar_painel_superior(tela, estado, fontes, configs):
     largura_tela_real = tela.get_width()
     altura_barra = 40
     
-    # 1. Desenhar Fundo da Barra
-    pygame.draw.rect(tela, (30, 30, 35), (0, 0, largura_tela_real, altura_barra))
-    pygame.draw.line(tela, (60, 60, 70), (0, altura_barra), (largura_tela_real, altura_barra), 1)
+    # 1. Desenhar Fundo da Barra (Clean Dark)
+    pygame.draw.rect(tela, (15, 15, 18), (0, 0, largura_tela_real, altura_barra))
+    # Removemos a linha dura inferior para criar um aspecto mais limpo e contínuo
 
     # 2. Desenhar Menus (Arquivo, Perfil, etc)
     if hasattr(estado, 'menu_superior'):
@@ -38,8 +38,8 @@ def desenhar_painel_superior(tela, estado, fontes, configs):
     offset_pin = 10 if not aba_aberta else (tam_btn + 20)
     estado.rect_btn_pin = pygame.Rect(largura_tela_real - tam_btn - offset_pin, margem_y, tam_btn, tam_btn)
     
-    cor_pin_bg = cor_tema if estado.drag_ativado else (50, 50, 60)
-    pygame.draw.rect(tela, cor_pin_bg, estado.rect_btn_pin, border_radius=6)
+    cor_pin_bg = cor_tema if estado.drag_ativado else (30, 30, 35)
+    pygame.draw.rect(tela, cor_pin_bg, estado.rect_btn_pin, border_radius=8)
     
     cx, cy = estado.rect_btn_pin.center
     if estado.drag_ativado:
@@ -53,7 +53,7 @@ def desenhar_painel_superior(tela, estado, fontes, configs):
     # Botão SAIR Global
     if aba_aberta:
         estado.rect_btn_voltar_global = pygame.Rect(largura_tela_real - tam_btn - 10, margem_y, tam_btn, tam_btn)
-        pygame.draw.rect(tela, (231, 76, 60), estado.rect_btn_voltar_global, border_radius=6)
+        pygame.draw.rect(tela, (255, 60, 80), estado.rect_btn_voltar_global, border_radius=8)
         # Seta ( < )
         cx_v, cy_v = estado.rect_btn_voltar_global.center
         pts = [(cx_v + 4, cy_v - 7), (cx_v - 4, cy_v), (cx_v + 4, cy_v + 7)]

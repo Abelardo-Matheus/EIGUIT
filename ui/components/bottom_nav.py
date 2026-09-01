@@ -302,7 +302,7 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
             if modulo.estado != 'painel':
                 modulo.x_braco = pos_x_guit
                 modulo.y_braco = offset_y_guit
-                modulo.atualizar_e_desenhar(tela, pygame.mouse.get_pos(), rect_braco_real, fontes['pequena'], alpha_atual)
+                modulo.atualizar_e_desenhar(tela, pygame.mouse.get_pos(), rect_braco_real, fontes['pequena'], alpha_atual, estado=estado)
 
     num_secoes = len(estado.secoes_inferiores)
     espacamento_entre_botoes = 8
@@ -314,10 +314,11 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
         rect_cabecalho = pygame.Rect(x_botao, dy, largura_botao_fluida, altura_dragger)
         secao['rect_cabecalho'] = rect_cabecalho
 
-        cor_fundo = cor_tema if secao['expandido'] else (40, 40, 40)
-        pygame.draw.rect(tela, cor_fundo, rect_cabecalho, border_radius=RADIUS_PADRAO)
+        cor_fundo = cor_tema if secao['expandido'] else (30, 30, 35)
+        # Borda arredondada maior (estilo pílula)
+        pygame.draw.rect(tela, cor_fundo, rect_cabecalho, border_radius=15)
         if not secao['expandido']:
-            pygame.draw.rect(tela, COR_BORDA, rect_cabecalho, width=1, border_radius=RADIUS_PADRAO)
+            pygame.draw.rect(tela, (50, 50, 60), rect_cabecalho, width=1, border_radius=15)
 
         txt_traduzido = _t(secao['titulo'])
         fonte_btn = fontes['pequena']
@@ -330,8 +331,9 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
         if secao['expandido']:
             y_conteudo = dy - altura_caixa_total - 10
             rect_fundo_conteudo = pygame.Rect(dx, y_conteudo, largura_conteudo, altura_caixa_total)
-            pygame.draw.rect(tela, (25, 25, 25), rect_fundo_conteudo, border_radius=RADIUS_PADRAO)
-            pygame.draw.rect(tela, COR_BORDA, rect_fundo_conteudo, width=2, border_radius=RADIUS_PADRAO)
+            # Fundo mais limpo com cantos suaves
+            pygame.draw.rect(tela, (20, 20, 24), rect_fundo_conteudo, border_radius=15)
+            pygame.draw.rect(tela, (45, 45, 55), rect_fundo_conteudo, width=1, border_radius=15)
 
             # Sub-abas responsivas
             y_sub_abas = y_conteudo + 10
@@ -343,8 +345,8 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
                 for j, nome_sub in enumerate(secao['sub_abas']):
                     rect_sub = pygame.Rect(dx + 20 + j * (largura_sub + 5), y_sub_abas, largura_sub, altura_sub)
                     secao[f'rect_sub_{j}'] = rect_sub
-                    cor_sub = cor_tema if secao['memoria_sub_aba'] == j else (40, 40, 40)
-                    pygame.draw.rect(tela, cor_sub, rect_sub, border_radius=6)
+                    cor_sub = cor_tema if secao['memoria_sub_aba'] == j else (35, 35, 45)
+                    pygame.draw.rect(tela, cor_sub, rect_sub, border_radius=10)
 
                     txt_sub_trad = _t(nome_sub)
                     txt_sub = fontes['pequena'].render(txt_sub_trad, True, BRANCO)
@@ -399,7 +401,7 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
                             modulo.rect_painel.y = y_start + 45 + y_idx * (altura_bloco + espacamento_y)
                             
                             altura_total_conteudo = max(altura_total_conteudo, (y_idx + 1) * (altura_bloco + espacamento_y) + 100)
-                            modulo.atualizar_e_desenhar(tela, pygame.mouse.get_pos(), rect_braco_real, fontes['pequena'], alpha_atual)
+                            modulo.atualizar_e_desenhar(tela, pygame.mouse.get_pos(), rect_braco_real, fontes['pequena'], alpha_atual, estado=estado)
                             
                     estado.max_scroll[i] = max(0, altura_total_conteudo - altura_util + 50)
             elif secao['conteudo'] == 'analise_ia':

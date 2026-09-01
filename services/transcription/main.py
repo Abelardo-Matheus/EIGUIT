@@ -18,25 +18,43 @@ UPLOAD_DIR = "temp_audio"
 
 @app.post("/transcribe")
 async def transcribe_audio(file: UploadFile = File(...), instrument: str = "other"):
-    if not file.filename.endswith(('.mp3', '.wav', '.ogg')):
-        raise HTTPException(status_code=400, detail="Formato de arquivo não suportado.")
+    try:
+        if not file.filename.endswith(('.mp3', '.wav', '.ogg')):
+            raise HTTPException(status_code=400, detail="Formato de arquivo não suportado.")
 
-    # Validar instrumento
-    valid_instruments = ["vocals", "drums", "bass", "other"]
-    if instrument not in valid_instruments:
-        instrument = "other"
+        # Validar instrumento
+        valid_instruments = ["vocals", "drums", "bass", "other"]
+        if instrument not in valid_instruments:
+            instrument = "other"
 
-    # Gerar nome único e salvar arquivo
-    file_id = str(uuid.uuid4())
-    file_path = os.path.join(UPLOAD_DIR, f"{file_id}_{file.filename}")
-    
-    with open(file_path, "wb") as buffer:
-        buffer.write(await file.read())
+        # Garantir diretório existe
+        if not os.path.exists(UPLOAD_DIR):
+            os.makedirs(UPLOAD_DIR)
 
-    # Disparar tarefa no Celery com o instrumento alvo
-    task = process_transcription.delay(file_path, instrument)
-    
-    return {"task_id": task.id, "status": "processing", "instrument": instrument}
+        # Gerar nome único e salvar arquivo
+        file_id = str(uuid.uuid4())
+        file_path = os.path.join(UPLOAD_DIR, f"{file_id}_{file.filename}")
+        
+        print(f"[API] Recebendo arquivo: {file.filename} -> {file_path}")
+        
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+
+        # Disparar tarefa no Celery
+        print(f"[API] Enfileirando tarefa Celery para {instrument}...")
+        try:
+            task = process_transcription.delay(file_path, instrument)
+            return {"task_id": task.id, "status": "processing", "instrument": instrument}
+        except Exception as celery_err:
+            print(f"[API ERROR] Falha ao conectar ao Celery/Redis: {celery_err}")
+            raise HTTPException(status_code=503, detail=f"Serviço de fila indisponível (Redis está rodando?): {celery_err}")
+
+    except Exception as e:
+        print(f"[API ERROR] Erro interno: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/status/{task_id}")
 async def get_status(task_id: str):

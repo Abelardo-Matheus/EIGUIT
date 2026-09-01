@@ -75,7 +75,7 @@ class EstadoGlobal:
         # Posições adaptativas para não saírem da tela
         # Grandes
         self.dragger_controles_topo = ElementoArrastavel(centro_x - 350, 10, 700, 40)
-        self.dragger_guitarra = ElementoArrastavel(max(10, centro_x - self.LARGURA_BRACO // 2), 60, self.LARGURA_BRACO, self.ALTURA_BRACO)
+        self.dragger_guitarra = ElementoArrastavel(max(10, centro_x - self.LARGURA_BRACO // 2), 110, self.LARGURA_BRACO, self.ALTURA_BRACO)
         
         # Painel inferior no limite inferior do viewport
         y_inf = alt_viewport - 80 - 10 # 10px de margem
@@ -100,12 +100,13 @@ class EstadoGlobal:
         self.secoes_inferiores = [{'titulo': 'ESCALAS', 'expandido': False, 'conteudo': 'escalas', 'memoria_sub_aba': 0, 'sub_abas': ['Maior', 'Menor', 'Penta Maior', 'Penta Menor', 'Blues', 'Modos', 'Harmônica', 'Melodica', 'Exóticas']}, {'titulo': 'ACORDES', 'expandido': False, 'conteudo': 'acordes', 'memoria_sub_aba': 0, 'sub_abas': ['CAGED', 'Tríades Maiores', 'Tríades Menores', 'Sétimas', 'Power Chords']}, {'titulo': 'ANÁLISE DE IA', 'expandido': False, 'conteudo': 'analise_ia', 'memoria_sub_aba': 0, 'sub_abas': ['Afinador / IA', 'JOGOS']}, {'titulo': 'ESTUDOS', 'expandido': False, 'conteudo': 'estudos', 'memoria_sub_aba': 0, 'sub_abas': ['Notas', 'Escalas', 'Acordes', 'Teoria']}, {'titulo': 'MÚSICAS', 'expandido': False, 'conteudo': 'musicas', 'memoria_sub_aba': 0, 'sub_abas': ['Songster', 'Minhas Músicas', 'Criação Musical']}, {'titulo': 'CONFIGURAÇÃO', 'expandido': False, 'conteudo': 'configuracao', 'memoria_sub_aba': 0, 'sub_abas': ['Cores da Interface', 'Configurações Globais']}]
         
         # --- Criador de Tablaturas ---
+        from core.modulos.modulo_dados_tab import GerenciadorDadosTablatura
         self.tela_criacao_tab_ativa = False
         self.tab_nome = "Nova Música"
         self.tab_bpm = 120
         self.tab_reproduzindo = False
         self.tab_coluna_atual = 0
-        self.tab_dados = [['-' for _ in range(6)] for _ in range(100)] # 100 colunas iniciais
+        self.tab_dados_gerenciador = GerenciadorDadosTablatura(self.tab_bpm)
         self.tab_cursor_col = 0
         self.tab_cursor_corda = 0
         self.tab_scroll_x = 0
@@ -116,17 +117,11 @@ class EstadoGlobal:
         # --- IA de Transcrição ---
         from core.modulos.modulo_ia_transcricao import ClienteTranscricaoIA
         self.cliente_ia = ClienteTranscricaoIA()
+        self.ia_ligada = False
 
-    def adicionar_coluna_ia(self, coluna):
-        """Adiciona uma nova coluna de notas vinda da IA na tablatura."""
-        # Encontra a primeira coluna vazia ou apenas anexa
-        vazia = ['-' for _ in range(6)]
-        for i, col in enumerate(self.tab_dados):
-            if col == vazia:
-                self.tab_dados[i] = [c if c is not None else '-' for c in coluna]
-                return
-        # Se não houver espaço, expande a tablatura
-        self.tab_dados.append([c if c is not None else '-' for c in coluna])
+    def adicionar_coluna_ia(self, notas_json):
+        """Preenche os dados da tablatura vindo da IA usando o gerenciador."""
+        self.tab_dados_gerenciador.preencher_da_ia(notas_json)
 
     def atualizar_medidas(self):
         """

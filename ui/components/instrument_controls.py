@@ -21,9 +21,9 @@ def desenhar_controles_instrumento(tela, estado, fontes, configs):
     largura = alvo.largura
     altura = alvo.altura
     
-    # Fundo sutil para o painel de controles
-    pygame.draw.rect(tela, (25, 25, 30), (dx, dy, largura, altura), border_radius=10)
-    pygame.draw.rect(tela, (60, 60, 70), (dx, dy, largura, altura), width=1, border_radius=10)
+    # Fundo sutil para o painel de controles (Premium Dark)
+    pygame.draw.rect(tela, (20, 20, 24), (dx, dy, largura, altura), border_radius=15)
+    pygame.draw.rect(tela, (45, 45, 55), (dx, dy, largura, altura), width=1, border_radius=15)
 
     # Cálculo de proporções
     terco = largura // 3

@@ -50,7 +50,8 @@ class Metronomo:
                 pasta_raiz = os.path.dirname(sys.executable)
             else:
                 pasta_modulos = os.path.dirname(os.path.abspath(__file__))
-                pasta_raiz = os.path.dirname(pasta_modulos)
+                # core/modulos -> core -> raiz
+                pasta_raiz = os.path.dirname(os.path.dirname(pasta_modulos))
             pasta_audios = os.path.join(pasta_raiz, 'assets', 'audio')
             caminho_tick = os.path.join(pasta_audios, 'tick.wav')
             caminho_tick_high = os.path.join(pasta_audios, 'tick_high.wav')
@@ -205,6 +206,10 @@ class Metronomo:
         dx, dy = (dragger.x, dragger.y)
         largura = dragger.largura
         altura = dragger.altura
+        
+        # Fundo Premium Dark
+        pygame.draw.rect(tela, (20, 20, 24), (dx, dy, largura, altura), border_radius=15)
+        pygame.draw.rect(tela, (45, 45, 55), (dx, dy, largura, altura), width=1, border_radius=15)
 
         # Espaçamento dinâmico para as bolinhas de tempo
         espacamento_bolas = min(35, (largura - 40) // self.compasso)

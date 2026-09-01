@@ -85,7 +85,7 @@ class GerenciadorPerfil:
         # Definição de posições e TAMANHOS padrão extraídos do Setup_Centralizado.json
         padroes = {
             'dragger_controles_topo': {'x': 610, 'y': 20, 'w': 700, 'h': 40},
-            'dragger_guitarra': {'x': 141, 'y': 105, 'w': 1713, 'h': 393},
+            'dragger_guitarra': {'x': 141, 'y': 150, 'w': 1713, 'h': 393},
             'dragger_acordes': {'x': 650, 'y': 556, 'w': 620, 'h': 120},
             'dragger_painel_inferior': {'x': 197, 'y': 977, 'w': 1526, 'h': 80},
             'dragger_metronomo': {'x': 822, 'y': 721, 'w': 276, 'h': 104},

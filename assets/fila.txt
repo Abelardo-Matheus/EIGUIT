@@ -1,20 +1,34 @@
-Você é o Engenheiro Full Stack e Arquiteto do Guitar Studio. Nossa última reestruturação quebrou os caminhos do nosso script de inicialização (.bat) e dos assets (áudio), e precisamos integrar a captura de áudio do Pygame/Tkinter diretamente com o nosso backend de IA.
+Você é o Engenheiro de Áudio do Guitar Studio. Nossa missão é substituir o som de sintetizador nativo do Python ("beep") por um motor de SoundFont (.sf2) profissional executado via pyfluidsynth.
 
-Analise a árvore de diretórios atual e execute as seguintes correções:
+Execute as seguintes tarefas rigorosamente para acoplar o motor ao nosso Desktop:
 
-## TAREFA 1: Consertar o Ligar_GuitarStudio.bat
-1. Encontre onde os arquivos `main.py` (do FastAPI) e `tasks.py` (do Celery) estão localizados na nova arquitetura (ex: na pasta `services/`, `core/`, ou outra).
-2. Atualize o arquivo `Ligar_GuitarStudio.bat` na raiz do projeto. Modifique os caminhos do `cd` para que os terminais entrem na pasta correta antes de chamar o `python main.py` e o `celery`. O ambiente `venv_ia` deve ser ativado corretamente com base no novo caminho.
+## TAREFA 1: O Script de Download e Setup (Engine e SoundFont)
+1. Crie um script PowerShell `scripts/instalar_sf2_desktop.ps1`.
+2. O script deve:
+   - Baixar o pacote oficial do FluidSynth para Windows (https://github.com/FluidSynth/fluidsynth/releases/download/v2.3.4/fluidsynth-2.3.4-win10-x64.zip).
+   - Extrair os arquivos (.dll e .exe) na nova pasta `assets/bin/fluidsynth/`.
+   - Baixar o arquivo `sonivox.sf2` (https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/soundfont/sonivox.sf2) para a pasta `assets/audio/soundfonts/`.
+3. Adicione `pyfluidsynth` ao `requirements.txt` do ambiente desktop (se existir) ou instrua o usuário a instalar via pip.
 
-## TAREFA 2: Consertar o Metrônomo (Assets)
-1. Localize no código fonte a referência ao som `tick_high.wav` que está quebrando.
-2. Atualize a string de caminho (path) para apontar para a nova localização do arquivo dentro da pasta `assets/` (ex: `assets/audio/tick_high.wav`). Garanta que o caminho seja relativo à raiz do projeto.
+## TAREFA 2: O Motor de Áudio Python (sf2_synth.py)
+1. Crie o arquivo `audio/sf2_synth.py`.
+2. REGRA DE OURO DO WINDOWS: Antes de importar `fluidsynth`, o arquivo DEVE injetar a pasta `assets/bin/fluidsynth/bin/` no `os.environ["PATH"]` para que o Python encontre a `fluidsynth.dll`.
+3. Crie uma classe `GuitarSynth` que:
+   - Inicialize o `fluidsynth.Synth()` e o `fluidsynth.Sequencer()`.
+   - Carregue o arquivo `sonivox.sf2`.
+   - Tenha um método `tocar_nota(corda, casa, duracao_ms)`.
+   - Mapeamento MIDI Obrigatório (7 Cordas Padrão):
+     * Corda 7 (B1) = MIDI 35
+     * Corda 6 (E2) = MIDI 40
+     * Corda 5 (A2) = MIDI 45
+     * Corda 4 (D3) = MIDI 50
+     * Corda 3 (G3) = MIDI 55
+     * Corda 2 (B3) = MIDI 59
+     * Corda 1 (E4) = MIDI 64
+     A fórmula será: nota_midi = valor_da_corda + casa.
 
-## TAREFA 3: Integração Direta no Desktop (Pygame/Tkinter)
-1. Localize o arquivo do programa principal onde a captura de áudio acontece (o log acusa: "Captura iniciada no ID 1...").
-2. Atualize a função que envia a gravação para a IA. Ela deve usar a biblioteca `requests` para fazer um `POST` no endpoint `http://127.0.0.1:8000/transcribe` enviando o arquivo de áudio gerado.
-3. Como o Pygame não pode travar (congelar a tela) enquanto a IA processa, crie uma função que rode em uma Thread separada (usando a biblioteca `threading`) para fazer o "polling". Ela deve consultar `http://127.0.0.1:8000/status/{task_id}` a cada 3 segundos.
-4. Quando o status retornar "completed", passe o JSON de notas recebido para a função responsável por renderizar a tablatura na interface do desktop.
+## TAREFA 3: Integração na Interface de Tablatura
+1. Localize o módulo da interface Desktop onde o usuário clica ou digita as notas na grade da tablatura (Pygame ou Tkinter).
+2. Substitua a função antiga que emitia o "beep" por uma chamada assíncrona/em thread ao nosso `GuitarSynth.tocar_nota(corda, casa)`. O áudio deve tocar imediatamente ao inserir o número.
 
-## REGRAS DE EXECUÇÃO:
-Mantenha o código robusto, adicione blocos try/except nas chamadas HTTP (`requests.post` e `requests.get`) para evitar que o desktop feche caso o servidor demore a responder. Me confirme quais caminhos foram atualizados.
+Mostre a confirmação das integrações feitas.
