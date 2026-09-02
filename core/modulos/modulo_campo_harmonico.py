@@ -51,78 +51,89 @@ class CampoHarmonico:
 
     def desenhar(self, tela, x_base, y_base, largura_dragger, fonte_titulo, fonte_ui, fonte_pequena):
         """
-            Como funciona: Utiliza funções de renderização do Pygame para desenhar na tela.
-            Para que serve: Apresenta o elemento visual 'desenhar' na interface gráfica.
-            Onde é usada: Chamado a partir do módulo ou classe base de 'modulo_campo_harmonico'.
+            Como funciona: Renderiza os sete graus da tonalidade como cartoes
+            selecionaveis, com o algarismo romano acima e os controles de tonica
+            e escala logo abaixo.
+            Para que serve: Navegar pelo campo harmonico e filtrar o braco.
+            Onde e usada: Chamado pelo painel de acordes do workspace.
         """
-        x_centro = x_base + largura_dragger // 2
-        COR_FUNDO = (40, 40, 40)
-        COR_BORDA = (100, 100, 100)
-        COR_TEXTO = (255, 255, 255)
-        AZUL_BOTAO = (0, 120, 215)
+        from config.design_system import TEMA, ds
+
         escala_atual = self.escalas_campo[self.indice_escala_campo]
         idx_tonica = self.notas_base.index(self.tonica_campo)
-        
-        # Proporcionalidade baseada na largura
-        largura_bloco = min(80, (largura_dragger - 100) // 7)
-        altura_bloco = 60
-        espacamento = max(5, (largura_dragger - (7 * largura_bloco)) // 8)
+        x_centro = x_base + largura_dragger // 2
+
+        # --- Cartoes dos sete graus ---------------------------------------
+        largura_bloco = min(88, max(48, (largura_dragger - 120) // 7))
+        altura_bloco = 58
+        espacamento = max(6, (largura_dragger - 7 * largura_bloco) // 9)
         largura_total = 7 * largura_bloco + 6 * espacamento
         x_inicial = x_centro - largura_total // 2
-        
+
         self.rects_acordes_campo.clear()
         for i in range(7):
             x_bloco = x_inicial + i * (largura_bloco + espacamento)
             idx_nota = (idx_tonica + escala_atual['int'][i]) % 12
-            nota_acorde = self.notas_base[idx_nota]
-            nome_acorde = nota_acorde + escala_atual['qualidades'][i]
+            nome_acorde = self.notas_base[idx_nota] + escala_atual['qualidades'][i]
             romano = escala_atual['romanos'][i]
-            
-            txt_romano = fonte_pequena.render(romano, True, COR_BORDA)
-            tela.blit(txt_romano, (x_bloco + largura_bloco // 2 - txt_romano.get_width() // 2, y_base - 20))
-            
+            selecionado = self.indice_acorde_selecionado == i
+
+            ds.texto_em(tela, romano, fonte_pequena,
+                        (x_bloco + largura_bloco // 2, y_base - 12),
+                        TEMA.acento if selecionado else TEMA.texto_apagado,
+                        ancora='center')
+
             rect_bloco = pygame.Rect(x_bloco, y_base, largura_bloco, altura_bloco)
             self.rects_acordes_campo.append(rect_bloco)
-            
-            if self.indice_acorde_selecionado == i:
-                pygame.draw.rect(tela, AZUL_BOTAO, rect_bloco, border_radius=8)
-                pygame.draw.rect(tela, COR_TEXTO, rect_bloco, width=2, border_radius=8)
-            else:
-                pygame.draw.rect(tela, COR_FUNDO, rect_bloco, border_radius=8)
-                pygame.draw.rect(tela, COR_BORDA, rect_bloco, width=2, border_radius=8)
-            
-            txt_acorde = fonte_titulo.render(nome_acorde, True, COR_TEXTO)
-            if txt_acorde.get_width() > largura_bloco - 10:
-                txt_acorde = fonte_ui.render(nome_acorde, True, COR_TEXTO)
-            tela.blit(txt_acorde, (x_bloco + largura_bloco // 2 - txt_acorde.get_width() // 2, y_base + (altura_bloco - txt_acorde.get_height()) // 2))
 
-        # Controles Inferiores (Tonica e Escala)
-        y_controles = y_base + altura_bloco + 15
-        espaco_controles = largura_dragger // 2
-        
-        # Bloco Tonica (Esquerda)
-        x_tonica_centro = x_base + espaco_controles // 2
-        self.rect_tonica_esq = pygame.Rect(x_tonica_centro - 60, y_controles, 30, 30)
-        self.rect_tonica_dir = pygame.Rect(x_tonica_centro + 30, y_controles, 30, 30)
-        pygame.draw.rect(tela, AZUL_BOTAO, self.rect_tonica_esq, border_radius=5)
-        pygame.draw.rect(tela, AZUL_BOTAO, self.rect_tonica_dir, border_radius=5)
-        tela.blit(fonte_titulo.render('<', True, COR_TEXTO), (self.rect_tonica_esq.x + 8, self.rect_tonica_esq.y + 2))
-        tela.blit(fonte_titulo.render('>', True, COR_TEXTO), (self.rect_tonica_dir.x + 8, self.rect_tonica_dir.y + 2))
-        txt_tonica = fonte_titulo.render(self.tonica_campo, True, COR_TEXTO)
-        tela.blit(txt_tonica, (x_tonica_centro - txt_tonica.get_width() // 2, y_controles + 5))
-        
-        # Bloco Escala (Direita)
-        x_escala_centro = x_base + espaco_controles + espaco_controles // 2
-        self.rect_escala_esq = pygame.Rect(x_escala_centro - 100, y_controles, 30, 30)
-        self.rect_escala_dir = pygame.Rect(x_escala_centro + 70, y_controles, 30, 30)
-        pygame.draw.rect(tela, AZUL_BOTAO, self.rect_escala_esq, border_radius=5)
-        pygame.draw.rect(tela, AZUL_BOTAO, self.rect_escala_dir, border_radius=5)
-        tela.blit(fonte_titulo.render('<', True, COR_TEXTO), (self.rect_escala_esq.x + 8, self.rect_escala_esq.y + 2))
-        tela.blit(fonte_titulo.render('>', True, COR_TEXTO), (self.rect_escala_dir.x + 8, self.rect_escala_dir.y + 2))
-        txt_escala = fonte_ui.render(escala_atual['nome'], True, COR_TEXTO)
-        if txt_escala.get_width() > 130:
-             txt_escala = fonte_pequena.render(escala_atual['nome'], True, COR_TEXTO)
-        tela.blit(txt_escala, (x_escala_centro - txt_escala.get_width() // 2, y_controles + 7))
+            if selecionado:
+                ds.gradiente_vertical(tela, rect_bloco,
+                                      ds.clarear(TEMA.acento, 0.18),
+                                      TEMA.acento, ds.RAIO_LG)
+                pygame.draw.rect(tela, ds.rgb(TEMA.texto), rect_bloco,
+                                 width=2, border_radius=ds.RAIO_LG)
+                cor_txt = TEMA.texto_sobre_cor
+            else:
+                ds.superficie_translucida(tela, rect_bloco, TEMA.superficie_alt,
+                                          235, ds.RAIO_LG, TEMA.borda, 1)
+                cor_txt = TEMA.texto
+
+            fonte_acorde = fonte_titulo
+            if fonte_acorde.size(nome_acorde)[0] > largura_bloco - 10:
+                fonte_acorde = fonte_ui
+            ds.texto_centralizado(tela, nome_acorde, fonte_acorde, rect_bloco,
+                                  cor_txt)
+
+        # --- Controles de tonica e escala ---------------------------------
+        y_controles = y_base + altura_bloco + ds.ESPACO_LG
+        metade = largura_dragger // 2
+        tam_seta = 28
+        altura_ctrl = 30
+
+        def _stepper(x_centro_ctrl, largura_campo, valor, rotulo, fonte_valor):
+            largura_campo = max(70, largura_campo)
+            rect_esq = pygame.Rect(x_centro_ctrl - largura_campo // 2 - tam_seta,
+                                   y_controles, tam_seta, altura_ctrl)
+            rect_dir = pygame.Rect(x_centro_ctrl + largura_campo // 2,
+                                   y_controles, tam_seta, altura_ctrl)
+            ds.texto_em(tela, rotulo, fonte_pequena,
+                        (x_centro_ctrl, y_controles - 12),
+                        TEMA.texto_apagado, ancora='center')
+            ds.botao(tela, rect_esq, '<', fonte_pequena, variante='secundario')
+            ds.botao(tela, rect_dir, '>', fonte_pequena, variante='secundario')
+            rect_valor = pygame.Rect(rect_esq.right, y_controles,
+                                     rect_dir.left - rect_esq.right, altura_ctrl)
+            ds.texto_centralizado(tela, valor, fonte_valor, rect_valor, TEMA.texto)
+            return rect_esq, rect_dir
+
+        from core.i18n import _t
+        self.rect_tonica_esq, self.rect_tonica_dir = _stepper(
+            x_base + metade // 2, 60, self.tonica_campo, _t('Tonica'), fonte_titulo)
+
+        fonte_escala = fonte_ui if fonte_ui.size(escala_atual['nome'])[0] <= 150 else fonte_pequena
+        self.rect_escala_esq, self.rect_escala_dir = _stepper(
+            x_base + metade + metade // 2, min(170, metade - 80),
+            escala_atual['nome'], _t('Escala'), fonte_escala)
 
     def tratar_clique(self, pos_mouse):
         """

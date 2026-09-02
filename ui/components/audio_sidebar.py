@@ -1,129 +1,188 @@
+# -*- coding: utf-8 -*-
+"""Widgets de audio: paleta de graus e bloco de afinacao/entrada de microfone."""
+import math
+
 import pygame
+
 from config.theme import *
 from config.ui_metrics import *
 from config.app_settings import *
+from config.design_system import TEMA, ds
 from core.i18n import _t
-from ui.components.config_componentes import SIDEBAR_NOTA_OFFSET_X, SIDEBAR_NOTA_OFFSET_Y, SIDEBAR_LABEL_OFFSET_Y, SIDEBAR_GRID_NOTAS_Y, SIDEBAR_SLIDER_OFFSET_Y, SIDEBAR_SLIDER_ALTURA_PROX
+
+NOTAS_CROMATICAS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+
+
+def _analisar_frequencia(freq):
+    """Devolve (nome_nota, oitava, desvio_em_cents) para uma frequencia em Hz."""
+    try:
+        f = float(freq)
+    except (TypeError, ValueError):
+        return None, None, 0.0
+    if f < 20.0:
+        return None, None, 0.0
+    valor = 12 * math.log2(f / 440.0)
+    semitons = round(valor)
+    cents = (valor - semitons) * 100.0
+    nome = NOTAS_CROMATICAS[int((semitons + 9) % 12)]
+    oitava = 4 + (semitons + 9) // 12
+    return nome, int(oitava), cents
+
 
 def desenhar_painel_cores(tela, estado, fontes):
     """
-        Como funciona: Utiliza funções de renderização do Pygame para desenhar na tela.
-        Para que serve: Apresenta o elemento visual 'painel cores' na interface gráfica.
-        Onde é usada: Chamado a partir do módulo ou classe base de 'audio_sidebar'.
+    Como funciona: Desenha o seletor de cores dos graus (tonica, terca e quinta).
+    Para que serve: Permite identificar visualmente os graus no braco.
+    Onde e usada: Chamada pelo renderizador do workspace.
     """
     if not hasattr(estado, 'dragger_cores'):
         return
-    x_base = estado.dragger_cores.x
-    y_base = estado.dragger_cores.y
-    largura = estado.dragger_cores.largura
-    altura = estado.dragger_cores.altura
-    
-    # Fundo Premium Dark (arredondado)
-    pygame.draw.rect(tela, (20, 20, 24), (x_base, y_base, largura, altura), border_radius=15)
-    pygame.draw.rect(tela, COR_BORDA, (x_base, y_base, largura, altura), width=1, border_radius=15)
-    
-    txt_tit = fontes['pequena'].render(_t('Cores (Graus)'), True, BRANCO)
-    tela.blit(txt_tit, (x_base + largura // 2 - txt_tit.get_width() // 2, y_base + 12))
-    
-    itens = [(_t('Tônica (1)'), estado.indice_cor_tonica, 'rect_cor_tonica'), (_t('Terça (3)'), estado.indice_cor_terca, 'rect_cor_terca'), (_t('Quinta (5)'), estado.indice_cor_quinta, 'rect_cor_quinta')]
-    
-    espacamento_v = (altura - 50) // 3
-    y_item = y_base + 45
-    
-    for texto, indice_cor, nome_rect in itens:
-        txt = fontes['pequena'].render(texto, True, BRANCO)
-        if txt.get_width() > largura - 60:
-             txt = fontes['pequena'].render(texto[:5] + ".", True, BRANCO)
-             
-        tela.blit(txt, (x_base + 10, y_item + (espacamento_v - 25) // 2))
-        
-        rect_cor = pygame.Rect(x_base + largura - 40, y_item + (espacamento_v - 25) // 2, 25, 25)
-        cor_atual = CORES_TONICA[indice_cor % len(CORES_TONICA)]
-        pygame.draw.rect(tela, cor_atual, rect_cor, border_radius=5)
-        pygame.draw.rect(tela, BRANCO, rect_cor, width=2, border_radius=5)
+
+    d = estado.dragger_cores
+    rect = pygame.Rect(d.x, d.y, d.largura, d.altura)
+    y = ds.painel(tela, rect, _t('Cores (Graus)'), fontes['pequena'],
+                  acento=TEMA.acento)
+
+    itens = [
+        (_t('Tonica (1)'), estado.indice_cor_tonica, 'rect_cor_tonica'),
+        (_t('Terca (3)'), estado.indice_cor_terca, 'rect_cor_terca'),
+        (_t('Quinta (5)'), estado.indice_cor_quinta, 'rect_cor_quinta'),
+    ]
+
+    disponivel = max(24, rect.bottom - y - ds.ESPACO_MD)
+    altura_linha = min(38, disponivel // 3)
+    tam_amostra = min(24, altura_linha - 6)
+
+    for texto, indice, nome_rect in itens:
+        linha = pygame.Rect(rect.x + ds.ESPACO_MD, y,
+                            rect.width - ds.ESPACO_MD * 2, altura_linha)
+        rect_cor = pygame.Rect(0, 0, tam_amostra, tam_amostra)
+        rect_cor.midright = (linha.right, linha.centery)
+
+        ds.texto_em(tela, texto, fontes['pequena'],
+                    (linha.x, linha.centery), TEMA.texto_suave,
+                    ancora='midleft',
+                    largura_max=linha.width - tam_amostra - ds.ESPACO_SM)
+        ds.amostra_cor(tela, rect_cor,
+                       CORES_TONICA[indice % len(CORES_TONICA)], False, ds.RAIO_SM)
         setattr(estado, nome_rect, rect_cor)
-        y_item += espacamento_v
-        
+        y += altura_linha
+
     if estado.drag_ativado:
-        estado.dragger_cores.desenhar_caixa_selecao(tela, margem=5)
+        d.desenhar_caixa_selecao(tela, margem=5)
+
 
 def desenhar_bloco_nota_atual(tela, estado, fontes, configs):
     """
-        Como funciona: Utiliza funções de renderização do Pygame para desenhar na tela.
-        Para que serve: Apresenta o elemento visual 'bloco nota atual' na interface gráfica.
-        Onde é usada: Chamado a partir do módulo ou classe base de 'audio_sidebar'.
+    Como funciona: Mostra a nota captada pelo microfone, o desvio de afinacao em
+    cents, o seletor cromatico de nota-alvo e os ajustes do afinador.
+    Para que serve: Painel principal de afinacao e monitoramento de entrada.
+    Onde e usada: Chamada pelo renderizador do workspace.
     """
     if not hasattr(estado, 'dragger_nota_atual'):
         return
-    cor_tema = configs.get_cor_tema()
-    x_base = estado.dragger_nota_atual.x
-    y_base = estado.dragger_nota_atual.y
-    largura = estado.dragger_nota_atual.largura
-    altura = estado.dragger_nota_atual.altura
-    
-    # Fundo Premium Dark
-    pygame.draw.rect(tela, (20, 20, 24), (x_base, y_base, largura, altura), border_radius=15)
-    pygame.draw.rect(tela, COR_BORDA, (x_base, y_base, largura, altura), width=1, border_radius=15)
-    
-    nota_microfone = estado.nota_atual_detectada
-    cor_nota_grande = VERDE_SUCCESS if nota_microfone != '--' else (100, 100, 100)
-    
-    # Cabeçalho adaptável
-    txt_nota = fontes['titulo'].render(nota_microfone, True, cor_nota_grande)
-    tela.blit(txt_nota, (x_base + 20, y_base + 15))
-    
-    txt_label = fontes['pequena'].render(_t('Entrada de Áudio'), True, (150, 150, 150))
-    tela.blit(txt_label, (x_base + 20, y_base + 45))
-    
-    # Seleção de notas adaptável
-    y_selecao = y_base + 75
-    margem_h = 20
-    espacamento = (largura - margem_h * 2) / 12
-    estado.rects_notas_selecao.clear()
-    notas_base = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-    
-    for i, n in enumerate(notas_base):
-        rect_n = pygame.Rect(x_base + margem_h + i * espacamento, y_selecao, espacamento - 2, 30)
-        estado.rects_notas_selecao.append((rect_n, n))
-        cor_bg = cor_tema if estado.nota_selecionada_bloco == n else (40, 40, 40)
-        pygame.draw.rect(tela, cor_bg, rect_n, border_radius=5)
-        if estado.nota_selecionada_bloco != n:
-            pygame.draw.rect(tela, COR_BORDA, rect_n, width=1, border_radius=5)
-        
-        fonte_n = fontes['pequena'] if espacamento > 20 else fontes['pequena'] # Poderia ser menor se necessário
-        txt_n = fonte_n.render(n, True, BRANCO)
-        if txt_n.get_width() < rect_n.width:
-            tela.blit(txt_n, (rect_n.centerx - txt_n.get_width() // 2, rect_n.centery - txt_n.get_height() // 2))
 
-    # Sliders adaptáveis
-    altura_util_sliders = altura - (y_selecao - y_base) - 40
-    espacamento_slider = altura_util_sliders // 2
-    
-    y_ctrl = y_selecao + 40
-    # Slider 1: Persistência
-    txt_pers = fontes['pequena'].render(f"{_t('Pers')}: {estado.afinador_persistencia}ms", True, (180, 180, 180))
-    tela.blit(txt_pers, (x_base + 20, y_ctrl))
-    
-    barra_pers = pygame.Rect(x_base + 20, y_ctrl + 20, largura - 40, 6)
-    pygame.draw.rect(tela, (40, 40, 40), barra_pers, border_radius=3)
+    d = estado.dragger_nota_atual
+    rect = pygame.Rect(d.x, d.y, d.largura, d.altura)
+    ds.painel(tela, rect, None, None, acento=TEMA.acento)
+
+    nota = estado.nota_atual_detectada
+    detectando = nota != '--'
+    nome_freq, oitava, cents = _analisar_frequencia(getattr(estado, 'freq_detectada', 0))
+
+    pad = ds.ESPACO_LG
+    x = rect.x + pad
+    largura_util = rect.width - pad * 2
+    y = rect.y + ds.ESPACO_MD
+
+    # --- Cabecalho: nota grande + frequencia ------------------------------
+    cor_nota = TEMA.verde if detectando else TEMA.texto_apagado
+    rotulo = f'{nota}{oitava}' if (detectando and oitava is not None) else nota
+    ds.texto_em(tela, rotulo, fontes['titulo'], (x, y), cor_nota)
+
+    largura_nota = fontes['titulo'].size(rotulo)[0]
+    if detectando:
+        try:
+            hz = f'{float(estado.freq_detectada):.1f} Hz'
+        except (TypeError, ValueError):
+            hz = ''
+        if hz:
+            ds.texto_em(tela, hz, fontes['pequena'],
+                        (x + largura_nota + ds.ESPACO_SM,
+                         y + fontes['titulo'].get_height() - ds.ESPACO_SM),
+                        TEMA.texto_apagado)
+
+    # Indicador de sinal vivo no canto direito
+    ds.texto_em(tela, _t('Entrada de Audio'), fontes['pequena'],
+                (rect.right - pad, y + 2), TEMA.texto_apagado, ancora='topright',
+                largura_max=largura_util // 2)
+    pygame.draw.circle(tela, ds.rgb(TEMA.verde if detectando else TEMA.trilho),
+                       (rect.right - pad - 2, y + fontes['pequena'].get_height() + 10), 4)
+
+    y += fontes['titulo'].get_height() + ds.ESPACO_MD
+
+    # --- Medidor de afinacao ----------------------------------------------
+    rect_medidor = pygame.Rect(x, y, largura_util, 8)
+    if detectando:
+        ds.medidor_desvio(tela, rect_medidor, cents, 50.0, fontes['pequena'])
+    else:
+        pygame.draw.rect(tela, ds.rgb(TEMA.trilho), rect_medidor,
+                         border_radius=4)
+        pygame.draw.line(tela, ds.rgb(TEMA.borda),
+                         (rect_medidor.centerx, rect_medidor.y - 3),
+                         (rect_medidor.centerx, rect_medidor.bottom + 3), 2)
+        ds.texto_em(tela, _t('Toque uma nota'), fontes['pequena'],
+                    (rect_medidor.centerx,
+                     rect_medidor.bottom + ds.ESPACO_SM + fontes['pequena'].get_height() // 2),
+                    TEMA.texto_apagado, ancora='center')
+    y += 8 + ds.ESPACO_SM + fontes['pequena'].get_height() + ds.ESPACO_MD
+
+    # --- Seletor cromatico -------------------------------------------------
+    estado.rects_notas_selecao.clear()
+    largura_celula = largura_util / 12
+    altura_celula = min(28, max(20, int(largura_celula * 1.15)))
+    for i, n in enumerate(NOTAS_CROMATICAS):
+        rect_n = pygame.Rect(int(x + i * largura_celula), y,
+                             int(largura_celula) - 2, altura_celula)
+        estado.rects_notas_selecao.append((rect_n, n))
+        selecionada = estado.nota_selecionada_bloco == n
+        tocando = detectando and n == nota
+        if selecionada:
+            pygame.draw.rect(tela, ds.rgb(TEMA.acento), rect_n,
+                             border_radius=ds.RAIO_SM)
+            cor_txt = TEMA.texto_sobre_cor
+        elif tocando:
+            ds.superficie_translucida(tela, rect_n, TEMA.verde, 70,
+                                      ds.RAIO_SM, TEMA.verde, 1)
+            cor_txt = TEMA.verde
+        else:
+            ds.superficie_translucida(tela, rect_n, TEMA.superficie_alt, 200,
+                                      ds.RAIO_SM, TEMA.borda, 1)
+            cor_txt = TEMA.texto_suave
+        if fontes['pequena'].size(n)[0] < rect_n.width:
+            ds.texto_centralizado(tela, n, fontes['pequena'], rect_n, cor_txt)
+    y += altura_celula + ds.ESPACO_LG + fontes['pequena'].get_height()
+
+    # --- Ajustes do afinador ----------------------------------------------
+    espaco_restante = rect.bottom - y - ds.ESPACO_MD
+    passo = max(28, espaco_restante // 2)
+
     pct_pers = (estado.afinador_persistencia - 100) / 2900
-    pos_alca = barra_pers.x + pct_pers * barra_pers.width
-    estado.rect_alca_persistencia = pygame.Rect(pos_alca - 7, barra_pers.y - 5, 14, 16)
-    pygame.draw.rect(tela, cor_tema, estado.rect_alca_persistencia, border_radius=4)
-    estado.rect_barra_persistencia = barra_pers
-    
-    y_ctrl += espacamento_slider
-    # Slider 2: Sensibilidade
-    txt_thresh = fontes['pequena'].render(f"{_t('Sens')}: {estado.afinador_threshold:.2f}", True, (180, 180, 180))
-    tela.blit(txt_thresh, (x_base + 20, y_ctrl))
-    
-    barra_thresh = pygame.Rect(x_base + 20, y_ctrl + 20, largura - 40, 6)
-    pygame.draw.rect(tela, (40, 40, 40), barra_thresh, border_radius=3)
-    pct_thresh = (estado.afinador_threshold - 0.1) / 0.7
-    pos_alca_t = barra_thresh.x + pct_thresh * barra_thresh.width
-    estado.rect_alca_threshold = pygame.Rect(pos_alca_t - 7, barra_thresh.y - 5, 14, 16)
-    pygame.draw.rect(tela, cor_tema, estado.rect_alca_threshold, border_radius=4)
-    estado.rect_barra_threshold = barra_thresh
-    
+    barra, alca = ds.slider(
+        tela, pygame.Rect(x, y, largura_util, ALTURA_TRILHO), pct_pers,
+        rotulo=_t('Persistencia'), valor=f'{estado.afinador_persistencia} ms',
+        fonte=fontes['pequena'])
+    estado.rect_barra_persistencia = barra
+    estado.rect_alca_persistencia = alca
+
+    y += passo
+    pct_sens = (estado.afinador_threshold - 0.1) / 0.7
+    barra_t, alca_t = ds.slider(
+        tela, pygame.Rect(x, y, largura_util, ALTURA_TRILHO), pct_sens,
+        rotulo=_t('Sensibilidade'), valor=f'{estado.afinador_threshold:.2f}',
+        fonte=fontes['pequena'])
+    estado.rect_barra_threshold = barra_t
+    estado.rect_alca_threshold = alca_t
+
     if estado.drag_ativado:
-        estado.dragger_nota_atual.desenhar_caixa_selecao(tela, margem=8)
+        d.desenhar_caixa_selecao(tela, margem=8)

@@ -5,6 +5,7 @@ from ui import gerenciador_interface
 from config.theme import *
 from config.ui_metrics import *
 from config.app_settings import *
+from config.design_system import TEMA, ds
 from Jogos.Jogos_interativos import GerenciadorJogos
 import core.modulos.modulos_estudos as modulo_estudos
 from ui.renderizador_tablatura import RenderizadorTablatura
@@ -74,18 +75,19 @@ def desenhar_ui_fixa(tela, estado, fontes, meu_gravador, configs, meu_gerenciado
 
 def _desenhar_tela_cheia_tablatura(tela, largura, altura, estado, fontes):
     tab = estado.tab_focada
-    tela.fill(FUNDO_ESCURO)
-    pygame.draw.rect(tela, (30, 30, 35), (0, 0, largura, 80))
-    pygame.draw.line(tela, (60, 60, 65), (0, 80), (largura, 80), 2)
-    txt_t = fontes['titulo'].render(f'{tab.titulo}', True, (240, 240, 240))
-    tela.blit(txt_t, (40, 20))
-    txt_a = fontes['ui'].render(f'Artista: {tab.artista}', True, (160, 160, 160))
-    tela.blit(txt_a, (40, 50))
+    ds.fundo_app(tela)
+    ds.gradiente_vertical(tela, pygame.Rect(0, 0, largura, 80),
+                          TEMA.superficie_topo, TEMA.superficie)
+    pygame.draw.line(tela, ds.rgb(ds.misturar(TEMA.borda, TEMA.acento, 0.35)),
+                     (0, 80), (largura, 80), 2)
+    ds.texto_em(tela, f'{tab.titulo}', fontes['titulo'], (40, 20), TEMA.texto)
+    ds.texto_em(tela, f'Artista: {tab.artista}', fontes['ui'], (40, 52),
+                TEMA.texto_suave)
     
     original_fundo = tab.COR_FUNDO
     original_linha = tab.COR_LINHA
-    tab.COR_FUNDO = FUNDO_ESCURO
-    tab.COR_LINHA = (60, 60, 65)
+    tab.COR_FUNDO = ds.rgb(TEMA.fundo)
+    tab.COR_LINHA = ds.rgb(TEMA.borda)
     margem_x = 60
     largura_folha = largura - margem_x * 2
     tab._desenhar_visualizador_tab(tela, margem_x, 120, largura_folha, altura - 150, fontes)
@@ -106,8 +108,8 @@ def desenhar_tudo(tela, estado, configs, dicionario_escalas, fontes, meu_metrono
     largura_tela = tela.get_width()
     altura_tela = tela.get_height()
 
-    # 1. Limpa a tela principal
-    tela.fill(FUNDO_ESCURO)
+    # 1. Limpa a tela principal com o gradiente do tema
+    ds.fundo_app(tela)
 
     # 2. ÁREA 2: Conteúdo Dinâmico (Abaixo da Top Bar)
     # Criamos um Viewport para que as telas internas não precisem gerenciar o offset

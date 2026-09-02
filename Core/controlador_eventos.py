@@ -60,6 +60,14 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             return # Bloqueia propagação
 
         if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+            # Tratar Botao de Tema (Claro/Escuro) - troca ao vivo
+            if hasattr(estado, 'rect_btn_tema') and estado.rect_btn_tema.collidepoint(pos_real):
+                from config.design_system import TEMA
+                import config.theme as _tema_legado
+                TEMA.alternar()
+                _tema_legado.sincronizar_tema()
+                return  # Bloqueia propagacao
+
             # Tratar Botão PIN (Edit Mode)
             if hasattr(estado, 'rect_btn_pin') and estado.rect_btn_pin.collidepoint(pos_real):
                 estado.drag_ativado = not estado.drag_ativado
@@ -315,6 +323,14 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                  dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
 
         if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+            # Tratar Botao de Tema (Claro/Escuro) - troca ao vivo
+            if hasattr(estado, 'rect_btn_tema') and estado.rect_btn_tema.collidepoint(pos_real):
+                from config.design_system import TEMA
+                import config.theme as _tema_legado
+                TEMA.alternar()
+                _tema_legado.sincronizar_tema()
+                continue
+
             if hasattr(estado, 'rect_btn_pin') and estado.rect_btn_pin.collidepoint(pos_real):
                 estado.drag_ativado = not estado.drag_ativado
                 if not estado.drag_ativado:

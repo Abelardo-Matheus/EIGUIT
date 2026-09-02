@@ -57,6 +57,8 @@ class Configuracoes:
         self.rect_btn_vel_mais = pygame.Rect(0, 0, 35, 30)
         self.rect_btn_tema_esq = pygame.Rect(0, 0, 30, 30)
         self.rect_btn_tema_dir = pygame.Rect(0, 0, 30, 30)
+        self.rect_btn_modo_tema = pygame.Rect(0, 0, 56, 28)
+        self.rects_cores_temas = []
         self.rect_btn_nota_menos = pygame.Rect(0, 0, 30, 30)
         self.rect_btn_nota_mais = pygame.Rect(0, 0, 30, 30)
         self.BRANCO = (255, 255, 255)
@@ -204,6 +206,17 @@ class Configuracoes:
         if self.rect_btn_vel_mais.collidepoint(pos_mouse):
             self.velocidade_jogo = round(min(3.0, self.velocidade_jogo + 0.1), 1)
             return True
+        if self.rect_btn_modo_tema.collidepoint(pos_mouse):
+            from config.design_system import TEMA
+            import config.theme as _tema_legado
+            TEMA.alternar()
+            _tema_legado.sincronizar_tema()
+            return True
+        for i, r in enumerate(self.rects_cores_temas):
+            if r.collidepoint(pos_mouse):
+                self.indice_tema = i
+                self.AZUL_DESTAQUE = self.cores_temas[i]
+                return True
         if self.rect_btn_tema_esq.collidepoint(pos_mouse):
             self.indice_tema = (self.indice_tema - 1) % len(self.temas)
             self.AZUL_DESTAQUE = self.cores_temas[self.indice_tema]
@@ -261,136 +274,192 @@ class Configuracoes:
 
     def desenhar(self, tela, fontes, scroll_y=0, largura_max=1200):
         """
-            Como funciona: Utiliza funções de renderização do Pygame para desenhar na tela.
-            Para que serve: Apresenta o elemento visual 'desenhar' na interface gráfica.
-            Onde é usada: Chamado a partir do módulo ou classe base de 'config'.
+            Como funciona: Monta uma grade responsiva de cartoes, cada um com um
+            grupo de ajustes, usando os componentes do design system.
+            Para que serve: Painel de Configuracoes > Cores/Aparencia.
+            Onde e usada: Chamado pela aba inferior de Configuracoes.
         """
+        from config.design_system import TEMA, ds
+
+        TEMA.definir_acento(self.get_cor_tema())
         fonte_titulo = fontes['titulo']
         fonte_ui = fontes['ui']
+        fonte_p = fontes['pequena']
+        pos_mouse = pygame.mouse.get_pos()
+
         largura_util = largura_max - 40
-        x_start, y_start = (self.x, self.y - scroll_y + 15)
-        esp = 15
-        altura_bloco = 185
-        
-        # Cálculo dinâmico de colunas baseado na largura
-        min_largura_bloco = 220
-        num_colunas = max(1, largura_util // (min_largura_bloco + esp))
-        largura_bloco = (largura_util - (num_colunas - 1) * esp) // num_colunas
-        
-        x_atual, y_atual = (x_start, y_start)
+        esp = ds.ESPACO_LG
+        altura_bloco = 190
+        min_largura = 235
+        colunas = max(1, largura_util // (min_largura + esp))
+        largura_bloco = (largura_util - (colunas - 1) * esp) // colunas
 
-        def avancar_posicao(x, y):
-            """
-                Como funciona: Executa o fluxo lógico necessário para a operação 'avancar posicao'.
-            """
-            x += largura_bloco + esp
-            if x + largura_bloco > x_start + largura_util + 5:
-                x = x_start
-                y += altura_bloco + esp
-            return (x, y)
+        x_inicial = self.x
+        x_atual = x_inicial
+        y_atual = self.y - scroll_y + ds.ESPACO_MD
 
-        def container(x, y, titulo):
-            """
-                Como funciona: Desenha o fundo de cada bloco de configuração.
-            """
-            rect = pygame.Rect(x, y, largura_bloco, altura_bloco)
-            pygame.draw.rect(tela, (35, 35, 45), rect, border_radius=12)
-            pygame.draw.rect(tela, (80, 80, 100), rect, width=2, border_radius=12)
-            
-            txt_t = fonte_ui.render(_t(titulo), True, self.AZUL_DESTAQUE)
-            if txt_t.get_width() > largura_bloco - 20:
-                 txt_t = fontes['pequena'].render(_t(titulo), True, self.AZUL_DESTAQUE)
-            tela.blit(txt_t, (x + 15, y + 10))
-            return y + 45
-        y_int = container(x_atual, y_atual, 'Ajustes de Áudio')
-        tela.blit(fonte_ui.render(f"{_t('Transparência')}: {self.transparencia}%", True, self.BRANCO), (x_atual + 15, y_int))
-        self.rect_barra_transp.topleft = (x_atual + 15, y_int + 25)
-        pygame.draw.rect(tela, self.CINZA, self.rect_barra_transp, border_radius=5)
-        px = self.rect_barra_transp.x + self.transparencia / 100 * self.largura_slider
-        self.rect_cursor_transp.topleft = (px - 7, self.rect_barra_transp.y - 5)
-        pygame.draw.rect(tela, self.BRANCO, self.rect_cursor_transp, border_radius=3)
-        y_int += 65
-        tela.blit(fonte_ui.render(f"{_t('Volume FX')}: {self.volume_fx}%", True, self.BRANCO), (x_atual + 15, y_int))
-        self.rect_barra_vol_fx.topleft = (x_atual + 15, y_int + 25)
-        pygame.draw.rect(tela, self.CINZA, self.rect_barra_vol_fx, border_radius=5)
-        pxv = self.rect_barra_vol_fx.x + self.volume_fx / 100 * self.largura_slider
-        self.rect_cursor_vol_fx.topleft = (pxv - 7, self.rect_barra_vol_fx.y - 5)
-        pygame.draw.rect(tela, self.BRANCO, self.rect_cursor_vol_fx, border_radius=3)
-        x_atual, y_atual = avancar_posicao(x_atual, y_atual)
-        y_int = container(x_atual, y_atual, 'Cores do Instrumento')
-        self.rect_btn_cor_braco.topleft = (x_atual + 20, y_int + 5)
-        pygame.draw.rect(tela, self.cor_braco, self.rect_btn_cor_braco, border_radius=8)
-        pygame.draw.rect(tela, self.BRANCO, self.rect_btn_cor_braco, 2, border_radius=8)
-        tela.blit(fonte_ui.render(_t('Cor Madeira'), True, self.BRANCO), (self.rect_btn_cor_braco.right + 15, y_int + 15))
-        self.rect_btn_cor_notas.topleft = (x_atual + 20, y_int + 70)
-        pygame.draw.rect(tela, self.cor_notas, self.rect_btn_cor_notas, border_radius=8)
-        pygame.draw.rect(tela, self.BRANCO, self.rect_btn_cor_notas, 2, border_radius=8)
-        tela.blit(fonte_ui.render(_t('Cor Notas'), True, self.BRANCO), (self.rect_btn_cor_notas.right + 15, y_int + 80))
-        x_atual, y_atual = avancar_posicao(x_atual, y_atual)
-        y_int = container(x_atual, y_atual, 'Performance e Jogos')
-        self.rect_btn_particulas.topleft = (x_atual + 15, y_int)
-        pygame.draw.rect(tela, (60, 60, 60), self.rect_btn_particulas, border_radius=5)
-        if self.particulas_habilitadas:
-            pygame.draw.rect(tela, self.AZUL_DESTAQUE, self.rect_btn_particulas.inflate(-10, -10), border_radius=3)
-        pygame.draw.rect(tela, self.BRANCO, self.rect_btn_particulas, 2, border_radius=5)
-        tela.blit(fonte_ui.render(_t('Efeitos de Partículas'), True, self.BRANCO), (self.rect_btn_particulas.right + 10, y_int + 2))
-        y_int += 50
-        tela.blit(fonte_ui.render(f"{_t('Velocidade Jogos')}: {self.velocidade_jogo}x", True, self.BRANCO), (x_atual + 15, y_int))
-        self.rect_btn_vel_menos.topleft = (x_atual + 15, y_int + 30)
-        self.rect_btn_vel_mais.topleft = (x_atual + 110, y_int + 30)
-        pygame.draw.rect(tela, self.AZUL_DESTAQUE, self.rect_btn_vel_menos, border_radius=5)
-        pygame.draw.rect(tela, self.AZUL_DESTAQUE, self.rect_btn_vel_mais, border_radius=5)
-        tela.blit(fonte_titulo.render('-', True, self.BRANCO), (self.rect_btn_vel_menos.centerx - 5, self.rect_btn_vel_menos.centery - 15))
-        tela.blit(fonte_titulo.render('+', True, self.BRANCO), (self.rect_btn_vel_mais.centerx - 7, self.rect_btn_vel_mais.centery - 15))
-        x_atual, y_atual = avancar_posicao(x_atual, y_atual)
-        y_int = container(x_atual, y_atual, 'Temas e Aparência')
-        tela.blit(fonte_ui.render(_t('Tema de Cores:'), True, self.BRANCO), (x_atual + 15, y_int))
-        self.rect_btn_tema_esq.topleft = (x_atual + 15, y_int + 30)
-        self.rect_btn_tema_dir.topleft = (x_atual + 180, y_int + 30)
-        pygame.draw.rect(tela, self.AZUL_DESTAQUE, self.rect_btn_tema_esq, border_radius=5)
-        pygame.draw.rect(tela, self.AZUL_DESTAQUE, self.rect_btn_tema_dir, border_radius=5)
-        tela.blit(fonte_ui.render('<', True, self.BRANCO), (self.rect_btn_tema_esq.centerx - 5, self.rect_btn_tema_esq.centery - 10))
-        tela.blit(fonte_ui.render('>', True, self.BRANCO), (self.rect_btn_tema_dir.centerx - 5, self.rect_btn_tema_dir.centery - 10))
-        txt_t = fonte_ui.render(_t(self.temas[self.indice_tema]), True, self.BRANCO)
-        tela.blit(txt_t, (x_atual + 100 - txt_t.get_width() // 2, y_int + 35))
-        y_int += 75
-        tela.blit(fonte_ui.render(f"{_t('Escala Notas')}: {self.tamanho_notas}x", True, self.BRANCO), (x_atual + 15, y_int))
-        self.rect_btn_nota_menos.topleft = (x_atual + 15, y_int + 30)
-        self.rect_btn_nota_mais.topleft = (x_atual + 110, y_int + 30)
-        pygame.draw.rect(tela, self.AZUL_DESTAQUE, self.rect_btn_nota_menos, border_radius=5)
-        pygame.draw.rect(tela, self.AZUL_DESTAQUE, self.rect_btn_nota_mais, border_radius=5)
-        tela.blit(fonte_titulo.render('-', True, self.BRANCO), (self.rect_btn_nota_menos.centerx - 5, self.rect_btn_nota_menos.centery - 15))
-        tela.blit(fonte_titulo.render('+', True, self.BRANCO), (self.rect_btn_nota_mais.centerx - 7, self.rect_btn_nota_mais.centery - 15))
-        x_atual, y_atual = avancar_posicao(x_atual, y_atual)
-        y_int = container(x_atual, y_atual, 'Estilo de Notas')
+        def novo_cartao(titulo):
+            """Desenha o cartao e devolve (x_conteudo, y_conteudo, largura_interna)."""
+            nonlocal x_atual, y_atual
+            rect = pygame.Rect(x_atual, y_atual, largura_bloco, altura_bloco)
+            y_conteudo = ds.painel(tela, rect, _t(titulo), fonte_p,
+                                   acento=self.AZUL_DESTAQUE)
+            info = (rect.x + ds.ESPACO_LG, y_conteudo + ds.ESPACO_XS,
+                    largura_bloco - ds.ESPACO_LG * 2)
+            x_atual += largura_bloco + esp
+            if x_atual + largura_bloco > x_inicial + largura_util + 5:
+                x_atual = x_inicial
+                y_atual += altura_bloco + esp
+            return info
+
+        def stepper(x, y, largura, rotulo, valor, rect_menos, rect_mais):
+            """Rotulo + [-] valor [+] reaproveitado por varios ajustes."""
+            ds.texto_em(tela, rotulo, fonte_p, (x, y), TEMA.texto_suave,
+                        largura_max=largura)
+            y_btn = y + fonte_p.get_height() + ds.ESPACO_SM
+            rect_menos.topleft = (x, y_btn)
+            rect_menos.size = (30, 30)
+            rect_mais.topleft = (x + largura - 30, y_btn)
+            rect_mais.size = (30, 30)
+            ds.botao(tela, rect_menos, '-', fonte_ui, variante='secundario',
+                     hover=rect_menos.collidepoint(pos_mouse))
+            ds.botao(tela, rect_mais, '+', fonte_ui, variante='secundario',
+                     hover=rect_mais.collidepoint(pos_mouse))
+            ds.texto_centralizado(
+                tela, str(valor), fonte_ui,
+                pygame.Rect(rect_menos.right, y_btn,
+                            rect_mais.left - rect_menos.right, 30), TEMA.texto)
+            return y_btn + 30 + ds.ESPACO_MD
+
+        def seletor(x, y, largura, rotulo, valor, rect_esq, rect_dir):
+            """Rotulo + [<] valor [>] para listas circulares."""
+            ds.texto_em(tela, rotulo, fonte_p, (x, y), TEMA.texto_suave,
+                        largura_max=largura)
+            y_btn = y + fonte_p.get_height() + ds.ESPACO_SM
+            rect_esq.topleft = (x, y_btn)
+            rect_esq.size = (30, 30)
+            rect_dir.topleft = (x + largura - 30, y_btn)
+            rect_dir.size = (30, 30)
+            ds.botao(tela, rect_esq, '<', fonte_p, variante='secundario',
+                     hover=rect_esq.collidepoint(pos_mouse))
+            ds.botao(tela, rect_dir, '>', fonte_p, variante='secundario',
+                     hover=rect_dir.collidepoint(pos_mouse))
+            ds.texto_centralizado(
+                tela, valor, fonte_ui,
+                pygame.Rect(rect_esq.right, y_btn,
+                            rect_dir.left - rect_esq.right, 30), TEMA.texto)
+            return y_btn + 30 + ds.ESPACO_MD
+
+        # ---------------------------------------------------- 1. Audio -----
+        x, y, larg = novo_cartao('Audio e Interface')
+        y += fonte_p.get_height() + ds.ESPACO_SM
+        self.rect_barra_transp = pygame.Rect(x, y, larg, ds.ALTURA_TRILHO)
+        self.largura_slider = larg
+        _, self.rect_cursor_transp = ds.slider(
+            tela, self.rect_barra_transp, self.transparencia / 100,
+            rotulo=_t('Transparencia'), valor=f'{self.transparencia}%', fonte=fonte_p)
+
+        y += 52 + fonte_p.get_height()
+        self.rect_barra_vol_fx = pygame.Rect(x, y, larg, ds.ALTURA_TRILHO)
+        _, self.rect_cursor_vol_fx = ds.slider(
+            tela, self.rect_barra_vol_fx, self.volume_fx / 100,
+            rotulo=_t('Volume FX'), valor=f'{self.volume_fx}%', fonte=fonte_p)
+
+        # ------------------------------------------ 2. Cores do braco ------
+        x, y, larg = novo_cartao('Cores do Instrumento')
+        self.rect_btn_cor_braco = pygame.Rect(x, y, 46, 46)
+        ds.amostra_cor(tela, self.rect_btn_cor_braco, self.cor_braco)
+        ds.texto_em(tela, _t('Cor da Madeira'), fonte_p,
+                    (self.rect_btn_cor_braco.right + ds.ESPACO_MD,
+                     self.rect_btn_cor_braco.centery), TEMA.texto_suave,
+                    ancora='midleft', largura_max=larg - 60)
+
+        y += 46 + ds.ESPACO_MD
+        self.rect_btn_cor_notas = pygame.Rect(x, y, 46, 46)
+        ds.amostra_cor(tela, self.rect_btn_cor_notas, self.cor_notas)
+        ds.texto_em(tela, _t('Cor das Notas'), fonte_p,
+                    (self.rect_btn_cor_notas.right + ds.ESPACO_MD,
+                     self.rect_btn_cor_notas.centery), TEMA.texto_suave,
+                    ancora='midleft', largura_max=larg - 60)
+
+        # ----------------------------------------- 3. Tema da interface ----
+        x, y, larg = novo_cartao('Tema da Interface')
+        ds.texto_em(tela, _t('Modo claro / escuro'), fonte_p, (x, y),
+                    TEMA.texto_suave, largura_max=larg)
+        y += fonte_p.get_height() + ds.ESPACO_MD
+
+        self.rect_btn_modo_tema = pygame.Rect(x, y, 56, 28)
+        ds.interruptor(tela, self.rect_btn_modo_tema, not TEMA.escuro)
+        rotulo_modo = _t('Claro') if not TEMA.escuro else _t('Escuro')
+        ds.icone_tema(tela, (self.rect_btn_modo_tema.right + 22,
+                             self.rect_btn_modo_tema.centery),
+                      TEMA.modo, TEMA.aviso if not TEMA.escuro else TEMA.texto_suave, 7)
+        ds.texto_em(tela, rotulo_modo, fonte_ui,
+                    (self.rect_btn_modo_tema.right + 42,
+                     self.rect_btn_modo_tema.centery), TEMA.texto, ancora='midleft')
+
+        y += 28 + ds.ESPACO_MD
+        ds.texto_em(tela, _t('Tambem disponivel na barra superior'), fonte_p,
+                    (x, y), TEMA.texto_apagado, largura_max=larg)
+
+        # ------------------------------------- 4. Performance e jogos ------
+        x, y, larg = novo_cartao('Performance e Jogos')
+        self.rect_btn_particulas = pygame.Rect(x, y, 26, 26)
+        ds.caixa_selecao(tela, self.rect_btn_particulas, self.particulas_habilitadas)
+        ds.texto_em(tela, _t('Efeitos de Particulas'), fonte_p,
+                    (self.rect_btn_particulas.right + ds.ESPACO_MD,
+                     self.rect_btn_particulas.centery), TEMA.texto_suave,
+                    ancora='midleft', largura_max=larg - 40)
+        y += 26 + ds.ESPACO_LG
+        stepper(x, y, larg, _t('Velocidade dos Jogos'), f'{self.velocidade_jogo}x',
+                self.rect_btn_vel_menos, self.rect_btn_vel_mais)
+
+        # --------------------------------------- 5. Cor de destaque --------
+        x, y, larg = novo_cartao('Cor de Destaque')
+        y = seletor(x, y, larg, _t('Tema de cores'), _t(self.temas[self.indice_tema]),
+                    self.rect_btn_tema_esq, self.rect_btn_tema_dir)
+        largura_amostra = (larg - (len(self.cores_temas) - 1) * ds.ESPACO_SM) // len(self.cores_temas)
+        self.rects_cores_temas = []
+        for i, cor in enumerate(self.cores_temas):
+            rect_c = pygame.Rect(x + i * (largura_amostra + ds.ESPACO_SM), y,
+                                 largura_amostra, 22)
+            self.rects_cores_temas.append(rect_c)
+            ds.amostra_cor(tela, rect_c, cor, selecionado=i == self.indice_tema,
+                           raio=ds.RAIO_SM)
+
+        # ------------------------------------------ 6. Escala das notas ----
+        x, y, larg = novo_cartao('Tamanho das Notas')
+        stepper(x, y, larg, _t('Escala das bolinhas'), f'{self.tamanho_notas}x',
+                self.rect_btn_nota_menos, self.rect_btn_nota_mais)
+
+        # -------------------------------------------- 7. Estilo de notas ---
+        x, y, larg = novo_cartao('Estilo das Notas')
         self.rects_modos.clear()
-        for i, n in enumerate(self.nomes_modos):
-            r = pygame.Rect(x_atual + 15, y_int + i * 35, 220, 28)
+        for i, nome in enumerate(self.nomes_modos):
+            r = pygame.Rect(x, y + i * 34, larg, 28)
             self.rects_modos.append(r)
-            pygame.draw.rect(tela, self.AZUL_DESTAQUE if i == self.indice_modo else (60, 60, 60), r, border_radius=5)
-            tela.blit(fonte_ui.render(_t(n), True, self.BRANCO), (r.x + 10, r.y + 3))
-        x_atual, y_atual = avancar_posicao(x_atual, y_atual)
-        y_int = container(x_atual, y_atual, 'Fontes do Sistema')
+            ds.chip(tela, r, _t(nome), fonte_p, ativo=i == self.indice_modo)
+
+        # -------------------------------------------------- 8. Fontes ------
+        x, y, larg = novo_cartao('Fonte da Interface')
         self.rects_fontes.clear()
-        for i, f in enumerate(self.fontes_disponiveis):
-            r = pygame.Rect(x_atual + 15, y_int + i * 25, 180, 22)
+        for i, nome in enumerate(self.fontes_disponiveis):
+            r = pygame.Rect(x, y + i * 25, larg, 22)
             self.rects_fontes.append(r)
-            pygame.draw.rect(tela, self.AZUL_DESTAQUE if i == self.indice_fonte else (60, 60, 60), r, border_radius=5)
-            tela.blit(fonte_ui.render(f, True, self.BRANCO), (r.x + 10, r.y + 1))
-        x_atual, y_atual = avancar_posicao(x_atual, y_atual)
-        y_int = container(x_atual, y_atual, 'Idioma da Interface')
-        self.rect_btn_idioma_esq.topleft = (x_atual + 15, y_int + 15)
-        self.rect_btn_idioma_dir.topleft = (x_atual + 180, y_int + 15)
-        pygame.draw.rect(tela, self.AZUL_DESTAQUE, self.rect_btn_idioma_esq, border_radius=5)
-        pygame.draw.rect(tela, self.AZUL_DESTAQUE, self.rect_btn_idioma_dir, border_radius=5)
-        tela.blit(fonte_ui.render('<', True, self.BRANCO), (self.rect_btn_idioma_esq.centerx - 5, self.rect_btn_idioma_esq.centery - 10))
-        tela.blit(fonte_ui.render('>', True, self.BRANCO), (self.rect_btn_idioma_dir.centerx - 5, self.rect_btn_idioma_dir.centery - 10))
-        txt_id = fonte_ui.render(_t(self.idiomas[self.indice_idioma]['nome']), True, self.BRANCO)
-        tela.blit(txt_id, (x_atual + 100 - txt_id.get_width() // 2, y_int + 20))
-        lbl_info = fontes['pequena'].render(_t('(API Translation + Cache)'), True, self.CINZA)
-        tela.blit(lbl_info, (x_atual + 15, y_int + 55))
+            ds.chip(tela, r, nome, fonte_p, ativo=i == self.indice_fonte)
+
+        # -------------------------------------------------- 9. Idioma ------
+        x, y, larg = novo_cartao('Idioma da Interface')
+        y = seletor(x, y, larg, _t('Idioma'),
+                    _t(self.idiomas[self.indice_idioma]['nome']),
+                    self.rect_btn_idioma_esq, self.rect_btn_idioma_dir)
+        ds.texto_em(tela, _t('(API de traducao + cache local)'), fonte_p, (x, y),
+                    TEMA.texto_apagado, largura_max=larg)
+
+        # ---------------------------------------------- Color picker -------
         if self.picker_aberto:
-            fp = pygame.Rect(self.rect_picker.x - 5, self.rect_picker.y - 5, self.rect_picker.width + 10, self.rect_picker.height + 10)
-            pygame.draw.rect(tela, self.PRETO, fp, border_radius=5)
+            moldura = self.rect_picker.inflate(12, 12)
+            ds.sombra(tela, moldura, ds.RAIO_LG)
+            ds.superficie_translucida(tela, moldura, TEMA.superficie, 250,
+                                      ds.RAIO_LG, TEMA.acento, 2)
             tela.blit(self.surf_paleta, self.rect_picker.topleft)
-            pygame.draw.rect(tela, self.BRANCO, self.rect_picker, 2)
