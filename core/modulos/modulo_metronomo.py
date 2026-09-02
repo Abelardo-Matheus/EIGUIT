@@ -1,25 +1,36 @@
-import pygame
+# -*- coding: utf-8 -*-
+"""Metronomo do EIGUIT Studio: widget compacto no workspace e painel completo."""
 import os
 import sys
+
+import pygame
+
 from core.modulos.modulos_config import *
+from core.i18n import _t
+from config.design_system import TEMA, ds
+
+BPM_MIN = 40
+BPM_MAX = 300
+PRESETS_BPM = [60, 80, 100, 120, 140, 180]
+
 
 class Metronomo:
     """
-        Como funciona: Define a estrutura e estado do componente 'Metronomo'.
-        Para que serve: Atua como o modelo principal para instâncias de 'Metronomo'.
-        Onde é usada: Chamado a partir do módulo ou classe base de 'modulo_metronomo'.
+        Como funciona: Mantem o estado de tempo (BPM, compasso, batida atual) e
+        dispara os sons de tick e acento.
+        Para que serve: Referencia ritmica para estudo e gravacao.
+        Onde e usada: Instanciado em main.py e desenhado pelo workspace.
     """
 
     def __init__(self, x_painel, y_painel):
         """
-            Como funciona: Inicializa os atributos e o estado inicial da instância.
-            Para que serve: Prepara o objeto para ser utilizado no ciclo de vida da aplicação.
-            Onde é usada: Chamado a partir do módulo ou classe base de 'modulo_metronomo'.
+            Como funciona: Inicializa estado, retangulos de interacao e sons.
+            Para que serve: Preparar o metronomo para o ciclo de vida do app.
+            Onde e usada: Chamado a partir de main.py.
         """
         self.x = x_painel
         self.y = y_painel
-        self.som_tick = None
-        self.som_acento = None
+        self.x_config = x_painel
         self.bpm = 100
         self.ativado = True
         self.tocando = False
@@ -28,49 +39,79 @@ class Metronomo:
         self.ultimo_tick = 0
         self.foco_input = False
         self.bpm_texto = str(self.bpm)
+
         self.BRANCO = METRONOMO_BRANCO
         self.CINZA = METRONOMO_CINZA
         self.FUNDO_INPUT = METRONOMO_FUNDO_INPUT
-        self.paleta_cores = [(255, 50, 50), (50, 255, 50), (50, 150, 255), (255, 255, 50), (255, 150, 50), (200, 50, 255)]
+
+        self.paleta_cores = [
+            (255, 107, 107), (78, 205, 196), (0, 212, 255),
+            (255, 217, 61), (255, 149, 61), (155, 122, 255),
+        ]
         self.indices_cores = [0] + [1] * 7
+
         self.slider_largura = METRONOMO_SLIDER_LARGURA
         self.btn_play = pygame.Rect(0, 0, 55, 30)
-        self.rect_slider_barra = pygame.Rect(0, 0, self.slider_largura, 10)
-        self.rect_cursor = pygame.Rect(0, 0, 15, 20)
-        self.rect_input = pygame.Rect(0, 0, 50, 30)
+        self.rect_slider_barra = pygame.Rect(0, 0, self.slider_largura, ds.ALTURA_TRILHO)
+        self.rect_alca = pygame.Rect(0, 0, 16, 16)
+        self.rect_input = pygame.Rect(0, 0, 52, 30)
         self.arrastando_slider = False
-        self.rect_checkbox = pygame.Rect(self.x, self.y, 25, 25)
-        self.btn_mais_batida = pygame.Rect(self.x + 100, self.y + 40, 30, 30)
-        self.btn_menos_batida = pygame.Rect(self.x + 140, self.y + 40, 30, 30)
+
+        self.rect_checkbox = pygame.Rect(self.x, self.y, 24, 24)
+        self.btn_mais_batida = pygame.Rect(0, 0, 30, 30)
+        self.btn_menos_batida = pygame.Rect(0, 0, 30, 30)
         self.rects_cores_config = []
+        self.rects_presets = []
+
         self.som_tick = None
         self.som_acento = None
+        self._carregar_sons()
+
+    # ------------------------------------------------------------------ sons
+    def _carregar_sons(self):
+        """Carrega tick.wav e tick_high.wav de assets/audio, se existirem."""
         try:
             if getattr(sys, 'frozen', False):
                 pasta_raiz = os.path.dirname(sys.executable)
             else:
                 pasta_modulos = os.path.dirname(os.path.abspath(__file__))
-                # core/modulos -> core -> raiz
                 pasta_raiz = os.path.dirname(os.path.dirname(pasta_modulos))
             pasta_audios = os.path.join(pasta_raiz, 'assets', 'audio')
             caminho_tick = os.path.join(pasta_audios, 'tick.wav')
-            caminho_tick_high = os.path.join(pasta_audios, 'tick_high.wav')
+            caminho_acento = os.path.join(pasta_audios, 'tick_high.wav')
             if os.path.exists(caminho_tick):
                 self.som_tick = pygame.mixer.Sound(caminho_tick)
             else:
-                print(f'Aviso: Som do metrônomo não encontrado em: {caminho_tick}')
-            if os.path.exists(caminho_tick_high):
-                self.som_acento = pygame.mixer.Sound(caminho_tick_high)
+                print(f'Aviso: som do metronomo nao encontrado em: {caminho_tick}')
+            if os.path.exists(caminho_acento):
+                self.som_acento = pygame.mixer.Sound(caminho_acento)
             else:
-                print(f'Aviso: Som de acento não encontrado em: {caminho_tick_high}')
+                print(f'Aviso: som de acento nao encontrado em: {caminho_acento}')
         except Exception as e:
-            print(f'Aviso: Erro ao carregar sons externos do metrônomo: {e}')
+            print(f'Aviso: erro ao carregar sons do metronomo: {e}')
 
+    def _tocar_batida(self, acentuada):
+        som = self.som_acento if (acentuada and self.som_acento) else self.som_tick
+        if som:
+            som.play()
+
+    def _iniciar(self):
+        self.tocando = True
+        self.ultimo_tick = pygame.time.get_ticks()
+        self.tempo_atual = 0
+        self._tocar_batida(True)
+
+    def definir_bpm(self, valor):
+        self.bpm = max(BPM_MIN, min(BPM_MAX, int(valor)))
+        self.bpm_texto = str(self.bpm)
+
+    # --------------------------------------------------------------- eventos
     def tratar_clique(self, pos_mouse, estado, aba_config_aberta=False):
         """
-            Como funciona: Verifica colisões e processa inputs do mouse/teclado.
-            Para que serve: Mapeia ações do usuário para atualizações de estado.
-            Onde é usada: Chamado a partir do módulo ou classe base de 'modulo_metronomo'.
+            Como funciona: Testa colisao com os retangulos calculados no ultimo
+            desenho, o que mantem clique e visual sempre alinhados.
+            Para que serve: Traduzir cliques em mudancas de estado.
+            Onde e usada: Chamado pelo controlador de eventos.
         """
         if aba_config_aberta:
             if self.rect_checkbox.collidepoint(pos_mouse):
@@ -82,181 +123,231 @@ class Metronomo:
             if self.btn_menos_batida.collidepoint(pos_mouse):
                 self.compasso = max(2, self.compasso - 1)
                 return True
+            for i, rect in enumerate(self.rects_presets):
+                if rect.collidepoint(pos_mouse):
+                    self.definir_bpm(PRESETS_BPM[i])
+                    return True
             for i, rect in enumerate(self.rects_cores_config):
                 if rect.collidepoint(pos_mouse) and i < self.compasso:
                     self.indices_cores[i] = (self.indices_cores[i] + 1) % len(self.paleta_cores)
                     return True
-        if self.ativado:
-            dx = estado.dragger_metronomo.x
-            dy = estado.dragger_metronomo.y
-            largura_total_ui = 55 + 10 + self.slider_largura + 10 + 50
-            x_start = dx + (estado.dragger_metronomo.largura - largura_total_ui) // 2
-            y_ctrl = dy + 45
-            self.btn_play.topleft = (x_start, y_ctrl)
-            self.rect_slider_barra.topleft = (x_start + 65, y_ctrl + 10)
-            self.rect_input.topleft = (x_start + 65 + self.slider_largura + 10, y_ctrl)
-            if self.btn_play.collidepoint(pos_mouse):
-                self.tocando = not self.tocando
-                if self.tocando:
-                    self.ultimo_tick, self.tempo_atual = (pygame.time.get_ticks(), 0)
-                    if self.som_tick:
-                        (self.som_acento if self.som_acento else self.som_tick).play()
-                return True
-            if self.rect_input.collidepoint(pos_mouse):
-                self.foco_input, self.bpm_texto = (True, '')
-                return True
+
+        if not self.ativado:
+            return False
+
+        if self.btn_play.collidepoint(pos_mouse):
+            if self.tocando:
+                self.tocando = False
             else:
-                self.foco_input = False
-            pos_x_cursor = self.rect_slider_barra.x + (self.bpm - 40) / (300 - 40) * self.slider_largura
-            cursor_temp = pygame.Rect(pos_x_cursor - 7, y_ctrl + 5, 15, 20)
-            if cursor_temp.collidepoint(pos_mouse) or self.rect_slider_barra.collidepoint(pos_mouse):
-                self.arrastando_slider = True
-                return True
+                self._iniciar()
+            return True
+
+        if self.rect_input.collidepoint(pos_mouse):
+            self.foco_input = True
+            self.bpm_texto = ''
+            return True
+        self.foco_input = False
+
+        if (self.rect_alca.collidepoint(pos_mouse)
+                or self.rect_slider_barra.inflate(0, 14).collidepoint(pos_mouse)):
+            self.arrastando_slider = True
+            self._atualizar_bpm_por_mouse(pos_mouse)
+            return True
         return False
 
     def tratar_teclado(self, evento):
         """
-            Como funciona: Executa o fluxo lógico necessário para a operação 'tratar teclado'.
-            Para que serve: Realiza as tarefas fundamentais de 'tratar teclado' dentro do contexto do módulo.
-            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'tratar teclado'.
+            Como funciona: Trata digitacao no campo de BPM e o atalho de espaco.
+            Para que serve: Controle rapido do metronomo pelo teclado.
+            Onde e usada: Chamado pelo controlador de eventos.
         """
         if self.foco_input:
             if evento.key == pygame.K_RETURN:
                 self.foco_input = False
                 try:
-                    self.bpm = max(40, min(300, int(self.bpm_texto)))
-                except:
-                    pass
+                    self.definir_bpm(int(self.bpm_texto))
+                except ValueError:
+                    self.bpm_texto = str(self.bpm)
+            elif evento.key == pygame.K_ESCAPE:
+                self.foco_input = False
                 self.bpm_texto = str(self.bpm)
             elif evento.key == pygame.K_BACKSPACE:
                 self.bpm_texto = self.bpm_texto[:-1]
             elif evento.unicode.isdigit() and len(self.bpm_texto) < 3:
                 self.bpm_texto += evento.unicode
         elif evento.key == pygame.K_SPACE and self.ativado:
-            self.tocando = not self.tocando
             if self.tocando:
-                self.ultimo_tick, self.tempo_atual = (pygame.time.get_ticks(), 0)
-                if self.som_tick:
-                    (self.som_acento if self.som_acento else self.som_tick).play()
+                self.tocando = False
+            else:
+                self._iniciar()
+
+    def _atualizar_bpm_por_mouse(self, pos_mouse):
+        barra = self.rect_slider_barra
+        if barra.width <= 0:
+            return
+        rel = max(0, min(barra.width, pos_mouse[0] - barra.x))
+        self.definir_bpm(BPM_MIN + rel / barra.width * (BPM_MAX - BPM_MIN))
 
     def processar_logica(self, pos_mouse, estado):
         """
-            Como funciona: Executa o fluxo lógico necessário para a operação 'processar logica'.
-            Para que serve: Realiza as tarefas fundamentais de 'processar logica' dentro do contexto do módulo.
-            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'processar logica'.
+            Como funciona: Atualiza o arrasto do slider e dispara as batidas.
+            Para que serve: Manter o pulso ritmico em tempo real.
+            Onde e usada: Chamado a cada quadro por main.py.
         """
         if self.arrastando_slider:
             if not pygame.mouse.get_pressed()[0]:
                 self.arrastando_slider = False
             else:
-                dx = estado.dragger_metronomo.x
-                largura_total_ui = 55 + 10 + self.slider_largura + 10 + 50
-                x_barra = dx + (estado.dragger_metronomo.largura - largura_total_ui) // 2 + 65
-                rel_x = max(0, min(self.slider_largura, pos_mouse[0] - x_barra))
-                self.bpm = int(40 + rel_x / self.slider_largura * (300 - 40))
-                self.bpm_texto = str(self.bpm)
-        if self.ativado and self.tocando:
-            tempo_ms = pygame.time.get_ticks()
-            if tempo_ms - self.ultimo_tick >= 60000 / self.bpm:
-                self.ultimo_tick = tempo_ms
-                self.tempo_atual = (self.tempo_atual + 1) % self.compasso
-                if self.som_tick:
-                    (self.som_acento if self.tempo_atual == 0 and self.som_acento else self.som_tick).play()
+                self._atualizar_bpm_por_mouse(pos_mouse)
 
-    def desenhar_config(self, tela, fonte_ui, scroll_y=0, configs=None):
-        """
-            Como funciona: Utiliza funções de renderização do Pygame para desenhar na tela.
-            Para que serve: Apresenta o elemento visual 'config' na interface gráfica.
-            Onde é usada: Chamado a partir do módulo ou classe base de 'modulo_metronomo'.
-        """
-        cor_tema = configs.get_cor_tema() if configs else (0, 163, 255)
-        y_rolado = self.y - scroll_y
-        self.rect_checkbox.y = y_rolado
-        pygame.draw.rect(tela, self.CINZA, self.rect_checkbox, 2)
-        if self.ativado:
-            pygame.draw.line(tela, cor_tema, (self.x + 5, y_rolado + 12), (self.x + 10, y_rolado + 20), 3)
-            pygame.draw.line(tela, cor_tema, (self.x + 10, y_rolado + 20), (self.x + 20, y_rolado + 5), 3)
-        tela.blit(fonte_ui.render(_t('Ativar Metrônomo'), True, self.BRANCO), (self.x + 35, y_rolado))
-        y_compasso = y_rolado + 45
-        self.btn_mais_batida.y = self.btn_menos_batida.y = y_rolado + 40
-        pygame.draw.rect(tela, (50, 50, 50), self.btn_mais_batida, border_radius=5)
-        pygame.draw.rect(tela, (50, 50, 50), self.btn_menos_batida, border_radius=5)
-        tela.blit(fonte_ui.render(f"{_t('Batidas')}: {self.compasso}", True, self.BRANCO), (self.x, y_compasso))
-        tela.blit(fonte_ui.render('+', True, self.BRANCO), (self.btn_mais_batida.x + 8, self.btn_mais_batida.y + 2))
-        tela.blit(fonte_ui.render('-', True, self.BRANCO), (self.btn_menos_batida.x + 10, self.btn_menos_batida.y + 2))
-        y_cores = y_rolado + 100
-        tela.blit(fonte_ui.render(_t('Cores (Clique):'), True, self.BRANCO), (self.x, y_cores))
-        self.rects_cores_config.clear()
+        if self.ativado and self.tocando:
+            agora = pygame.time.get_ticks()
+            if agora - self.ultimo_tick >= 60000 / self.bpm:
+                self.ultimo_tick = agora
+                self.tempo_atual = (self.tempo_atual + 1) % self.compasso
+                self._tocar_batida(self.tempo_atual == 0)
+
+    # -------------------------------------------------------------- desenhos
+    def _desenhar_batidas(self, tela, centro_x, centro_y, largura_disponivel):
+        """Circulos que pulsam a cada batida do compasso."""
+        espacamento = min(34, max(18, largura_disponivel // max(1, self.compasso)))
+        x_inicio = centro_x - (self.compasso - 1) * espacamento // 2
+        decorrido = pygame.time.get_ticks() - self.ultimo_tick
+
         for i in range(self.compasso):
-            cx, cy = (self.x + 200 + i * 35, y_cores + 12)
-            pygame.draw.circle(tela, self.paleta_cores[self.indices_cores[i]], (cx, cy), 12)
-            pygame.draw.circle(tela, self.BRANCO, (cx, cy), 12, 2)
-            self.rects_cores_config.append(pygame.Rect(cx - 12, cy - 12, 24, 24))
+            cor = self.paleta_cores[self.indices_cores[i] % len(self.paleta_cores)]
+            ativa = (i == self.tempo_atual and self.tocando)
+            cx = x_inicio + i * espacamento
+            raio = 9 + (max(0, 6 - decorrido / 30) if ativa else 0)
+
+            if ativa:
+                halo = pygame.Surface((int(raio * 4), int(raio * 4)), pygame.SRCALPHA)
+                pygame.draw.circle(halo, ds.com_alpha(cor, 70),
+                                   (int(raio * 2), int(raio * 2)), int(raio * 1.9))
+                tela.blit(halo, (cx - raio * 2, centro_y - raio * 2))
+                pygame.draw.circle(tela, ds.rgb(cor), (int(cx), int(centro_y)), int(raio))
+            else:
+                base = ds.misturar(TEMA.superficie_alt, cor, 0.35)
+                pygame.draw.circle(tela, ds.rgb(base), (int(cx), int(centro_y)), int(raio))
+                pygame.draw.circle(tela, ds.rgb(ds.misturar(TEMA.borda, cor, 0.5)),
+                                   (int(cx), int(centro_y)), int(raio), 1)
 
     def desenhar_mini_metronomo(self, tela, estado, fonte_ui, configs=None):
         """
-            Como funciona: Utiliza funções de renderização do Pygame para desenhar na tela.
-            Para que serve: Apresenta o elemento visual 'mini metronomo' na interface gráfica.
-            Onde é usada: Chamado a partir do módulo ou classe base de 'modulo_metronomo'.
+            Como funciona: Widget compacto com batidas, play/stop, slider de BPM
+            e campo numerico editavel.
+            Para que serve: Controle do tempo sem sair do workspace.
+            Onde e usada: Chamado por desenhar_controles_playback.
         """
         if not self.ativado:
             return
-        cor_tema = configs.get_cor_tema() if configs else (0, 163, 255)
+        if configs is not None:
+            TEMA.definir_acento(configs.get_cor_tema())
+
         dragger = estado.dragger_metronomo
-        dx, dy = (dragger.x, dragger.y)
-        largura = dragger.largura
-        altura = dragger.altura
-        
-        # Fundo Premium Dark
-        pygame.draw.rect(tela, (20, 20, 24), (dx, dy, largura, altura), border_radius=15)
-        pygame.draw.rect(tela, (45, 45, 55), (dx, dy, largura, altura), width=1, border_radius=15)
+        rect = pygame.Rect(dragger.x, dragger.y, dragger.largura, dragger.altura)
+        ds.painel(tela, rect, None, None, acento=TEMA.acento)
 
-        # Espaçamento dinâmico para as bolinhas de tempo
-        espacamento_bolas = min(35, (largura - 40) // self.compasso)
-        x_inicio_bolas = dx + largura // 2 - (self.compasso - 1) * espacamento_bolas // 2
+        pad = ds.ESPACO_MD
+        # Cabecalho: rotulo e BPM atual
+        ds.texto_em(tela, _t('Metronomo').upper(), fonte_ui,
+                    (rect.x + pad, rect.y + ds.ESPACO_SM), TEMA.acento,
+                    largura_max=rect.width // 2)
+        ds.texto_em(tela, f'{self.bpm} BPM', fonte_ui,
+                    (rect.right - pad, rect.y + ds.ESPACO_SM), TEMA.texto_suave,
+                    ancora='topright')
 
-        tempo_decorrido = pygame.time.get_ticks() - self.ultimo_tick
-        for i in range(self.compasso):
-            cor = self.paleta_cores[self.indices_cores[i]]
-            cx, cy = (x_inicio_bolas + i * espacamento_bolas, dy + 15 + (altura - 100) // 4)
-            raio = 10 + (max(0, 6 - tempo_decorrido / 30) if i == self.tempo_atual and self.tocando else 0)
-            if not (i == self.tempo_atual and self.tocando):
-                cor = (max(0, cor[0] - 150), max(0, cor[1] - 150), max(0, cor[2] - 150))
-            pygame.draw.circle(tela, cor, (int(cx), int(cy)), int(raio))
-            pygame.draw.circle(tela, (200, 200, 200), (int(cx), int(cy)), int(raio), 2)
+        y_batidas = rect.y + ds.ESPACO_SM + fonte_ui.get_height() + 16
+        self._desenhar_batidas(tela, rect.centerx, y_batidas, rect.width - pad * 2)
 
-        # Controles (Play, Slider, Input)
-        # Largura adaptável para o slider
-        btn_w = 55
-        in_w = 50
-        gap = 10
-        self.slider_largura = max(40, largura - btn_w - in_w - (gap * 4))
+        # Linha de controles
+        altura_btn = 30
+        y_ctrl = min(rect.bottom - altura_btn - ds.ESPACO_MD, y_batidas + 24)
+        largura_play = 56
+        largura_input = 50
+        gap = ds.ESPACO_SM
 
-        largura_total_ui = btn_w + gap + self.slider_largura + gap + in_w
-        x_start = dx + (largura - largura_total_ui) // 2
-        y_ctrl = dy + 45 + (altura - 100) // 2
+        self.btn_play = pygame.Rect(rect.x + pad, y_ctrl, largura_play, altura_btn)
+        self.rect_input = pygame.Rect(rect.right - pad - largura_input, y_ctrl,
+                                      largura_input, altura_btn)
 
-        # Botão Play/Stop
-        self.btn_play = pygame.Rect(x_start, y_ctrl, btn_w, 30)
-        pygame.draw.rect(tela, (200, 50, 50) if self.tocando else cor_tema, self.btn_play, border_radius=5)
-        txt = fonte_ui.render('STOP' if self.tocando else 'PLAY', True, self.BRANCO)
-        tela.blit(txt, (self.btn_play.centerx - txt.get_width() // 2, self.btn_play.centery - txt.get_height() // 2))
+        ds.botao(tela, self.btn_play, _t('STOP') if self.tocando else _t('PLAY'),
+                 fonte_ui, variante='perigo' if self.tocando else 'primario',
+                 hover=self.btn_play.collidepoint(pygame.mouse.get_pos()))
 
-        # Barra do Slider
-        self.rect_slider_barra = pygame.Rect(x_start + btn_w + gap, y_ctrl + 10, self.slider_largura, 10)
-        pygame.draw.rect(tela, self.CINZA, self.rect_slider_barra, border_radius=5)
+        largura_slider = max(40, self.rect_input.left - self.btn_play.right - gap * 2)
+        self.slider_largura = largura_slider
+        barra = pygame.Rect(self.btn_play.right + gap,
+                            y_ctrl + altura_btn // 2 - ds.ALTURA_TRILHO // 2,
+                            largura_slider, ds.ALTURA_TRILHO)
+        pct = (self.bpm - BPM_MIN) / (BPM_MAX - BPM_MIN)
+        self.rect_slider_barra, self.rect_alca = ds.slider(tela, barra, pct)
 
-        # Cursor do Slider
-        cursor_x = self.rect_slider_barra.x + (self.bpm - 40) / (300 - 40) * self.slider_largura
-        pygame.draw.rect(tela, self.BRANCO, (cursor_x - 7, y_ctrl + 5, 15, 20), border_radius=3)
-
-        # Input de BPM
-        self.rect_input = pygame.Rect(x_start + btn_w + gap + self.slider_largura + gap, y_ctrl, in_w, 30)
-        pygame.draw.rect(tela, self.FUNDO_INPUT, self.rect_input, border_radius=5)
-        pygame.draw.rect(tela, cor_tema if self.foco_input else self.CINZA, self.rect_input, 2, border_radius=5)
-
-        txt_bpm = fonte_ui.render(self.bpm_texto, True, self.BRANCO)
-        tela.blit(txt_bpm, (self.rect_input.x + (in_w - txt_bpm.get_width()) // 2, self.rect_input.y + 5))
+        ds.caixa_texto(tela, self.rect_input, self.bpm_texto, fonte_ui,
+                       focado=self.foco_input)
 
         if estado.drag_ativado:
             dragger.desenhar_caixa_selecao(tela, margem=5)
+
+    def desenhar_config(self, tela, fonte_ui, scroll_y=0, configs=None):
+        """
+            Como funciona: Painel completo de ajustes: ativar, compasso,
+            atalhos de BPM e cores de cada batida.
+            Para que serve: Configuracao detalhada do metronomo.
+            Onde e usada: Aba Configuracoes > Metronomo.
+        """
+        if configs is not None:
+            TEMA.definir_acento(configs.get_cor_tema())
+
+        x = self.x
+        y = self.y - scroll_y
+        # Linha 1: ativar
+        self.rect_checkbox = pygame.Rect(x, y, 24, 24)
+        ds.caixa_selecao(tela, self.rect_checkbox, self.ativado)
+        ds.texto_em(tela, _t('Ativar Metronomo'), fonte_ui,
+                    (self.rect_checkbox.right + ds.ESPACO_MD,
+                     self.rect_checkbox.centery), TEMA.texto, ancora='midleft')
+
+        # Linha 2: compasso
+        y += 46
+        ds.rotulo_secao(tela, x, y, _t('Batidas por compasso'), fonte_ui,
+                        TEMA.texto_apagado)
+        y += fonte_ui.get_height() + ds.ESPACO_SM
+        self.btn_menos_batida = pygame.Rect(x, y, 30, 30)
+        self.btn_mais_batida = pygame.Rect(x + 76, y, 30, 30)
+        ds.botao(tela, self.btn_menos_batida, '-', fonte_ui, variante='secundario')
+        ds.botao(tela, self.btn_mais_batida, '+', fonte_ui, variante='secundario')
+        ds.texto_centralizado(tela, f'{self.compasso}/4', fonte_ui,
+                              pygame.Rect(self.btn_menos_batida.right, y,
+                                          self.btn_mais_batida.left - self.btn_menos_batida.right,
+                                          30), TEMA.texto)
+
+        # Linha 3: presets de BPM
+        y += 48
+        ds.rotulo_secao(tela, x, y, _t('Tempos rapidos'), fonte_ui,
+                        TEMA.texto_apagado)
+        y += fonte_ui.get_height() + ds.ESPACO_SM
+        self.rects_presets = []
+        largura_chip = 52
+        for i, valor in enumerate(PRESETS_BPM):
+            rect_chip = pygame.Rect(x + i * (largura_chip + ds.ESPACO_SM), y,
+                                    largura_chip, 28)
+            self.rects_presets.append(rect_chip)
+            ds.chip(tela, rect_chip, str(valor), fonte_ui, ativo=self.bpm == valor)
+
+        # Linha 4: cores das batidas
+        y += 48
+        ds.rotulo_secao(tela, x, y, _t('Cores das batidas (clique para trocar)'),
+                        fonte_ui, TEMA.texto_apagado)
+        y += fonte_ui.get_height() + ds.ESPACO_MD
+        self.rects_cores_config.clear()
+        for i in range(self.compasso):
+            cx = x + 16 + i * 38
+            cor = self.paleta_cores[self.indices_cores[i] % len(self.paleta_cores)]
+            pygame.draw.circle(tela, ds.rgb(cor), (cx, y + 12), 13)
+            pygame.draw.circle(tela, ds.rgb(TEMA.texto if i == 0 else TEMA.borda),
+                               (cx, y + 12), 13, 2)
+            if i == 0:
+                ds.texto_em(tela, '1', fonte_ui, (cx, y + 12),
+                            ds.contraste_texto(cor), ancora='center')
+            self.rects_cores_config.append(pygame.Rect(cx - 13, y - 1, 26, 26))

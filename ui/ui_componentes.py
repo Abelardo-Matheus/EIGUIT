@@ -5,6 +5,7 @@ from config.theme import *
 from config.ui_metrics import *
 from config.app_settings import *
 from ui.components.config_componentes import CARDS_ESC_INTERNA, CARDS_TEXTO_OFFSET_Y
+from config.design_system import TEMA, ds
 
 class DesenhoEscala:
     """
@@ -51,7 +52,8 @@ class DesenhoEscala:
         w_surf = int(self.largura_real + self.padding_x * 2)
         h_surf = int(self.altura_real + self.padding_y * 2)
         self.imagem_braco = pygame.Surface((w_surf, h_surf))
-        self.imagem_braco.fill((20, 20, 25)) # Fundo levemente cinza para os cards
+        self.imagem_braco.fill(ds.rgb(TEMA.superficie))
+        self._modo_tema_render = TEMA.modo
         
         # Cor de colorkey (não usamos branco pois as notas podem ser brancas)
         COR_CK = (1, 1, 1) 
@@ -62,20 +64,20 @@ class DesenhoEscala:
         # Aumentamos o tamanho vertical (expansao_y) para tampar as bolinhas do braço da guitarra 
         expansao_y = 22
         rect_card = pygame.Rect(self.padding_x, self.padding_y - expansao_y, self.largura_real, self.altura_real + expansao_y * 2)
-        pygame.draw.rect(self.imagem_braco, (20, 20, 24), rect_card, border_radius=12)
-        pygame.draw.rect(self.imagem_braco, (45, 45, 55), rect_card, width=1, border_radius=12)
+        pygame.draw.rect(self.imagem_braco, ds.rgb(TEMA.superficie_alt), rect_card, border_radius=12)
+        pygame.draw.rect(self.imagem_braco, ds.rgb(TEMA.borda), rect_card, width=1, border_radius=12)
         
         # Desenhar Trastes
         for c in range(self.num_casas_desenho + 1):
             x_fret = self.padding_x + c * espaco_casas
-            pygame.draw.line(self.imagem_braco, (100, 100, 110), (x_fret, self.padding_y), (x_fret, self.padding_y + self.altura_real), 1)
+            pygame.draw.line(self.imagem_braco, ds.rgb(TEMA.traste), (x_fret, self.padding_y), (x_fret, self.padding_y + self.altura_real), 1)
             
         # Desenhar Cordas
         for s in range(6):
             y_string = self.padding_y + self.altura_real - s * espaco_cordas
-            pygame.draw.line(self.imagem_braco, (60, 60, 65), (self.padding_x, y_string), (self.padding_x + self.largura_real, y_string), 1)
+            pygame.draw.line(self.imagem_braco, ds.rgb(ds.escurecer(TEMA.corda, 0.35)), (self.padding_x, y_string), (self.padding_x + self.largura_real, y_string), 1)
 
-        COR_DESTAQUE_TONICA = (255, 80, 80)
+        COR_DESTAQUE_TONICA = ds.rgb(TEMA.alerta)
         COR_NORMAL = self.cor_base
         raio = max(10, min(18, int(espaco_casas * 0.42)))
         
@@ -151,6 +153,13 @@ class DesenhoEscala:
         """
         if estado is not None:
             self.num_casas_total = getattr(estado, 'NUM_CASAS', self.num_casas_total)
+
+        # Reconstroi as superficies em cache quando o tema claro/escuro muda
+        if getattr(self, '_modo_tema_render', None) != TEMA.modo:
+            self.reconstruir_superficies(self.espaco_casas,
+                                         self.altura_real / 6 if self.altura_real else 20,
+                                         self.altura_real)
+            self.escala_atual_painel = None
             
         scroll = getattr(self, 'scroll_offset', 0)
         if self.estado == 'painel':
@@ -158,7 +167,7 @@ class DesenhoEscala:
             y_desenho_rolado = self.rect_painel.y - scroll
             tela.blit(self.imagem_painel, (self.rect_painel.x, y_desenho_rolado))
             if self.nome != '':
-                texto_nome = fonte_pequena.render(self.nome, True, BRANCO)
+                texto_nome = fonte_pequena.render(self.nome, True, ds.rgb(TEMA.texto))
                 txt_x = self.rect_painel.centerx - texto_nome.get_width() / 2
                 txt_y = y_desenho_rolado + CARDS_TEXTO_OFFSET_Y
                 tela.blit(texto_nome, (txt_x, txt_y))
@@ -180,10 +189,10 @@ class DesenhoEscala:
                     self.casa_atual = max(0, min(self.casa_atual, self.num_casas_total - self.num_casas_desenho))
                     self.rect_braco.x = x_guit_real + self.casa_atual * self.espaco_casas - self.padding_x
                     self.rect_braco.y = y_guit_real - self.padding_y
-                    pygame.draw.rect(tela, (0, 255, 0), self.rect_braco, 4)
+                    pygame.draw.rect(tela, ds.rgb(TEMA.verde), self.rect_braco, 4, border_radius=ds.RAIO_MD)
                 else:
                     self.rect_braco.center = pos_mouse
-                    pygame.draw.rect(tela, (255, 0, 0), self.rect_braco, 4)
+                    pygame.draw.rect(tela, ds.rgb(TEMA.alerta), self.rect_braco, 4, border_radius=ds.RAIO_MD)
             elif self.estado == 'braco':
                 self.rect_braco.x = x_guit_real + self.casa_atual * self.espaco_casas - self.padding_x
                 self.rect_braco.y = y_guit_real - self.padding_y

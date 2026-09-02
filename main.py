@@ -13,6 +13,7 @@ from core.modulos.modulo_perfil import GerenciadorPerfil
 import core.modulos.modulo_camera as modulo_camera
 from audio.global_audio import GlobalAudioEngine
 from ui import tela_login
+from config.design_system import TEMA, ds
 
 def main():
     """
@@ -113,9 +114,9 @@ def main():
         meu_processador.processar_logica_continua(motor_audio, estado)
         if estado.tela_jogo_ativa and meu_gerenciador_jogos.jogo_id_ativo == 'acerte_a_nota':
             pass
-        minha_camera.tela_virtual.fill((20, 20, 20))
+        ds.fundo_app(minha_camera.tela_virtual)
         renderizador_ui.desenhar_workspace(minha_camera.tela_virtual, estado, minhas_configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos)
-        tela.fill((0, 0, 0))
+        tela.fill(ds.rgb(TEMA.fundo))
         
         from config.ui_metrics import ALTURA_TOPBAR
         from ui.components import desenhar_painel_superior
