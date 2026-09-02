@@ -36,6 +36,9 @@ def desenhar_workspace(tela, estado, configs, dicionario_escalas, fontes, meu_me
     if hasattr(estado, 'guias_x') and (estado.guias_x or estado.guias_y):
         desenhar_guias_inteligentes(tela, estado.guias_x, estado.guias_y, tela.get_width(), tela.get_height())
 
+    # O painel inferior (aba CAGED) precisa do campo harmonico
+    estado.campo_harmonico_ref = meu_campo_harmonico
+
     if hasattr(estado, 'lista_guitarras'):
         for guit in estado.lista_guitarras:
             desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_harmonico, dragger_obj=guit)

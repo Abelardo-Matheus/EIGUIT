@@ -76,27 +76,31 @@ class EstadoGlobal:
         self.ALTURA_SESSAO = 150
         
         from config.ui_metrics import ALTURA_TOPBAR
-        alt_viewport = max(600, self.ALTURA_TELA - ALTURA_TOPBAR)
-        centro_x = self.LARGURA_TELA // 2
+        from config.layout_padrao import calcular as calcular_layout_padrao
 
-        # Posições adaptativas para não saírem da tela
-        # Grandes
-        self.dragger_controles_topo = ElementoArrastavel(centro_x - 350, 10, 700, 40)
-        self.dragger_guitarra = ElementoArrastavel(max(10, centro_x - self.LARGURA_BRACO // 2), 110, self.LARGURA_BRACO, self.ALTURA_BRACO)
-        
-        # Painel inferior no limite inferior do viewport
-        y_inf = alt_viewport - 80 - 10 # 10px de margem
-        self.dragger_painel_inferior = ElementoArrastavel(max(10, centro_x - 1526 // 2), y_inf, 1526, 80)
-        
-        # Linha de blocos secundários logo acima do painel inferior
-        y_sec = y_inf - self.ALTURA_ACORDES - 15
-        self.dragger_acordes = ElementoArrastavel(centro_x - self.LARGURA_ACORDES // 2, y_sec, self.LARGURA_ACORDES, self.ALTURA_ACORDES)
-        
-        y_terc = y_sec - self.ALTURA_BLOCO_NOTA - 15
-        self.dragger_metronomo = ElementoArrastavel(centro_x - 138, y_terc, self.LARGURA_METRONOMO, self.ALTURA_METRONOMO)
-        self.dragger_cores = ElementoArrastavel(centro_x - 350, y_terc, 180, 150)
-        self.dragger_nota_atual = ElementoArrastavel(centro_x + 200, y_terc, self.LARGURA_BLOCO_NOTA, self.ALTURA_BLOCO_NOTA)
-        self.dragger_sessao = ElementoArrastavel(centro_x + 200 + self.LARGURA_BLOCO_NOTA + 15, y_terc, self.LARGURA_SESSAO, self.ALTURA_SESSAO)
+        alt_viewport = max(600, self.ALTURA_TELA - ALTURA_TOPBAR)
+
+        # Layout de abertura derivado do canvas de design, proporcional a tela.
+        layout = calcular_layout_padrao(self.LARGURA_TELA, alt_viewport)
+
+        def _bloco(nome):
+            m = layout[nome]
+            return ElementoArrastavel(m['x'], m['y'], m['w'], m['h'])
+
+        # O braco define as medidas de casas e cordas, entao vem primeiro
+        medidas_braco = layout['dragger_guitarra']
+        self.LARGURA_BRACO = medidas_braco['w']
+        self.ALTURA_BRACO = medidas_braco['h']
+        self.ALTURA_ACORDES = layout['dragger_acordes']['h']
+
+        self.dragger_controles_topo = _bloco('dragger_controles_topo')
+        self.dragger_guitarra = _bloco('dragger_guitarra')
+        self.dragger_painel_inferior = _bloco('dragger_painel_inferior')
+        self.dragger_acordes = _bloco('dragger_acordes')
+        self.dragger_metronomo = _bloco('dragger_metronomo')
+        self.dragger_cores = _bloco('dragger_cores')
+        self.dragger_nota_atual = _bloco('dragger_nota_atual')
+        self.dragger_sessao = _bloco('dragger_sessao')
 
         self.atualizar_medidas()
 

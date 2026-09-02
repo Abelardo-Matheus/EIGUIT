@@ -227,6 +227,9 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                             estado.scroll_y[i] = max(0, min(estado.scroll_y[i], max_val))
                             break
         if evento.type == pygame.KEYDOWN:
+            # Campo hexadecimal da cor principal tem prioridade quando focado
+            if getattr(configs, 'hex_foco', False) and configs.tratar_teclado(evento):
+                continue
             if getattr(estado, 'songsterr_search_active', False):
                 if evento.key == pygame.K_BACKSPACE:
                     estado.query_songsterr = estado.query_songsterr[:-1]
@@ -472,7 +475,14 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                         clicou_conteudo = True
                     scroll_atual = estado.scroll_y.get(i, 0)
                     y_start = y_conteudo + BOTTOM_OFFSET_AREA_DESENHO - scroll_atual
-                    if secao['conteudo'] in ['escalas', 'acordes']:
+                    if secao['conteudo'] == 'acordes' and secao['memoria_sub_aba'] == 0:
+                        from ui.blocks.painel_caged import painel_caged
+                        if painel_caged.tratar_clique(evento.pos, meu_campo_harmonico):
+                            estado.tom_atual = getattr(meu_campo_harmonico, 'tonica_campo', estado.tom_atual)
+                            dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
+                            clicou_conteudo = True
+                            break
+                    elif secao['conteudo'] in ['escalas', 'acordes']:
                         pos_x_guit = estado.dragger_guitarra.x if hasattr(estado, 'dragger_guitarra') else 100
                         pos_y_guit = estado.dragger_guitarra.y if hasattr(estado, 'dragger_guitarra') else 90
                         rect_braco_real = pygame.Rect(pos_x_guit, pos_y_guit, estado.LARGURA_BRACO, estado.ALTURA_BRACO)

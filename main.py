@@ -62,7 +62,15 @@ def main():
     estado.gerenciador_perfil.carregar_ultimo_perfil(estado, minhas_configs, meu_campo_harmonico, meu_gravador)
     dicionario_escalas = fabrica_escalas.gerar_modulos(estado, minhas_configs)
     nome_fonte = minhas_configs.get_fonte()
-    fontes = {'ui': pygame.font.SysFont(nome_fonte, 18, bold=True), 'pequena': pygame.font.SysFont(nome_fonte, 15, bold=True), 'titulo': pygame.font.SysFont(nome_fonte, 22, bold=True), 'notas': pygame.font.SysFont(nome_fonte, 20, bold=True)}
+    TAMANHOS_BASE = {'ui': 18, 'pequena': 15, 'titulo': 22, 'notas': 20}
+
+    def montar_fontes(nome, escala):
+        """Cria o conjunto de fontes aplicando a escala escolhida nas configuracoes."""
+        return {chave: pygame.font.SysFont(nome, max(9, int(base * escala)), bold=True)
+                for chave, base in TAMANHOS_BASE.items()}
+
+    escala_fonte = minhas_configs.get_escala_fonte()
+    fontes = montar_fontes(nome_fonte, escala_fonte)
     jogo_aberto_anteriormente = False
     memoria_botao_ia = False
     original_get_pos = pygame.mouse.get_pos
@@ -124,9 +132,11 @@ def main():
                 eventos_traduzidos.append(evento)
         meu_metronomo.processar_logica(pos_mouse_virtual, estado)
         minhas_configs.processar_logica(pos_mouse_virtual)
-        if nome_fonte != minhas_configs.get_fonte():
+        if (nome_fonte != minhas_configs.get_fonte()
+                or escala_fonte != minhas_configs.get_escala_fonte()):
             nome_fonte = minhas_configs.get_fonte()
-            fontes = {k: pygame.font.SysFont(nome_fonte, v, bold=True) for k, v in zip(fontes.keys(), [18, 15, 22, 20])}
+            escala_fonte = minhas_configs.get_escala_fonte()
+            fontes = montar_fontes(nome_fonte, escala_fonte)
         controlador_eventos.processar(eventos_traduzidos, estado, minhas_configs, dicionario_escalas, meu_metronomo, meu_processador, motor_audio, meu_campo_harmonico, meu_gerenciador_jogos)
         meu_processador.processar_logica_continua(motor_audio, estado)
         if estado.tela_jogo_ativa and meu_gerenciador_jogos.jogo_id_ativo == 'acerte_a_nota':

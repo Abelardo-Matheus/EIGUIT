@@ -82,35 +82,28 @@ class GerenciadorPerfil:
         import pygame
         import json
         
-        # Definição de posições e TAMANHOS padrão extraídos do Setup_Centralizado.json
-        padroes = {
-            'dragger_controles_topo': {'x': 610, 'y': 20, 'w': 700, 'h': 40},
-            'dragger_guitarra': {'x': 141, 'y': 150, 'w': 1713, 'h': 393},
-            'dragger_acordes': {'x': 650, 'y': 556, 'w': 620, 'h': 120},
-            'dragger_painel_inferior': {'x': 197, 'y': 977, 'w': 1526, 'h': 80},
-            'dragger_metronomo': {'x': 822, 'y': 721, 'w': 276, 'h': 104},
-            'dragger_cores': {'x': 610, 'y': 721, 'w': 180, 'h': 150},
-            'dragger_nota_atual': {'x': 1130, 'y': 721, 'w': 280, 'h': 220}
-        }
-        
+        # Layout padrao vem do canvas de design (config/layout_padrao.py),
+        # ja proporcional a resolucao atual.
         from config.ui_metrics import ALTURA_TOPBAR
+        from config.layout_padrao import calcular as calcular_layout_padrao
+
         w_tela = getattr(estado, 'LARGURA_TELA', 1280)
-        h_viewport = getattr(estado, 'ALTURA_TELA', 720) - ALTURA_TOPBAR
+        h_viewport = max(600, getattr(estado, 'ALTURA_TELA', 720) - ALTURA_TOPBAR)
+        padroes = calcular_layout_padrao(w_tela, h_viewport)
 
         for nome, coords in padroes.items():
             if hasattr(estado, nome):
                 obj = getattr(estado, nome)
-                
-                if 'w' in coords and 'h' in coords:
-                    obj.largura = coords['w']
-                    obj.altura = coords['h']
-                    
-                # Clamp positions to screen bounds so they never go off-screen
-                max_y = max(10, h_viewport - obj.altura - 10)
-                max_x = max(10, w_tela - obj.largura - 10)
-                
-                obj.x = min(max(10, coords['x']), max_x)
-                obj.y = min(max(10, coords['y']), max_y)
+                obj.largura = coords['w']
+                obj.altura = coords['h']
+                obj.x = coords['x']
+                obj.y = coords['y']
+
+                if nome == 'dragger_guitarra':
+                    estado.LARGURA_BRACO = coords['w']
+                    estado.ALTURA_BRACO = coords['h']
+                elif nome == 'dragger_acordes':
+                    estado.ALTURA_ACORDES = coords['h']
 
                 if hasattr(obj, 'rect_caixa'):
                     obj.rect_caixa.x = obj.x
@@ -159,7 +152,7 @@ class GerenciadorPerfil:
             nome_arquivo += '.json'
         caminho = os.path.join(self.pasta_padrao, nome_arquivo)
         dados = {'posicoes_draggers': {}, 'estado': {'instrumento': getattr(estado, 'instrumento', 'guitarra'), 'NUM_CASAS': getattr(estado, 'NUM_CASAS', 18), 'tom_atual': getattr(estado, 'tom_atual', 'C'), 'indice_afinacao': getattr(estado, 'indice_afinacao', 0), 'indice_cor_tonica': getattr(estado, 'indice_cor_tonica', 0), 'indice_cor_terca': getattr(estado, 'indice_cor_terca', 0), 'indice_cor_quinta': getattr(estado, 'indice_cor_quinta', 0), 'afinador_suavizacao': getattr(estado, 'afinador_suavizacao', 5), 'afinador_sensibilidade': getattr(estado, 'afinador_sensibilidade', 0.5)}, 'configs': {'transparencia': getattr(configs, 'transparencia', 100), 'cor_braco': getattr(configs, 'cor_braco', (80, 40, 15)), 'cor_notas': getattr(configs, 'cor_notas', (255, 255, 255)), 'indice_modo': getattr(configs, 'indice_modo', 0), 'indice_fonte': getattr(configs, 'indice_fonte', 0), 'indice_idioma': getattr(configs, 'indice_idioma', 0)}, 'campo_harmonico': {'tonica_campo': getattr(campo, 'tonica_campo', 'C'), 'indice_escala_campo': getattr(campo, 'indice_escala_campo', 0)}, 'gravador': {'device_id': getattr(gravador, 'device_id', None)}}
-        lista_draggers = ['dragger_guitarra', 'dragger_acordes', 'dragger_controles_topo', 'dragger_painel_inferior', 'dragger_metronomo', 'dragger_cores', 'dragger_nota_atual']
+        lista_draggers = ['dragger_guitarra', 'dragger_acordes', 'dragger_controles_topo', 'dragger_painel_inferior', 'dragger_metronomo', 'dragger_cores', 'dragger_nota_atual', 'dragger_sessao']
         for nome in lista_draggers:
             if hasattr(estado, nome):
                 obj = getattr(estado, nome)

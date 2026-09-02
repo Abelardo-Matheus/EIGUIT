@@ -13,6 +13,13 @@ BPM_MIN = 40
 BPM_MAX = 300
 PRESETS_BPM = [60, 80, 100, 120, 140, 180]
 
+# Formulas de compasso oferecidas nos cartoes (batidas, figura)
+FORMULAS = [(2, 4), (3, 4), (4, 4), (6, 8)]
+
+# A partir destas medidas o widget abre no formato completo do canvas
+LARGURA_MIN_COMPLETO = 290
+ALTURA_MIN_COMPLETO = 300
+
 
 class Metronomo:
     """
@@ -62,10 +69,20 @@ class Metronomo:
         self.btn_menos_batida = pygame.Rect(0, 0, 30, 30)
         self.rects_cores_config = []
         self.rects_presets = []
+        self.rects_compasso = []
+        self.btn_bpm_menos = pygame.Rect(0, 0, 0, 0)
+        self.btn_bpm_mais = pygame.Rect(0, 0, 0, 0)
+        self._cache_fontes = {}
 
         self.som_tick = None
         self.som_acento = None
         self._carregar_sons()
+
+    def _fonte(self, tamanho):
+        """Fonte em cache: evita recriar SysFont a cada quadro."""
+        if tamanho not in self._cache_fontes:
+            self._cache_fontes[tamanho] = pygame.font.SysFont('Arial', tamanho, bold=True)
+        return self._cache_fontes[tamanho]
 
     # ------------------------------------------------------------------ sons
     def _carregar_sons(self):
@@ -134,6 +151,19 @@ class Metronomo:
 
         if not self.ativado:
             return False
+
+        for i, rect in enumerate(self.rects_compasso):
+            if rect.collidepoint(pos_mouse):
+                self.compasso = FORMULAS[i][0]
+                self.tempo_atual = 0
+                return True
+
+        if self.btn_bpm_menos.collidepoint(pos_mouse):
+            self.definir_bpm(self.bpm - 5)
+            return True
+        if self.btn_bpm_mais.collidepoint(pos_mouse):
+            self.definir_bpm(self.bpm + 5)
+            return True
 
         if self.btn_play.collidepoint(pos_mouse):
             if self.tocando:
@@ -208,7 +238,7 @@ class Metronomo:
                 self._tocar_batida(self.tempo_atual == 0)
 
     # -------------------------------------------------------------- desenhos
-    def _desenhar_batidas(self, tela, centro_x, centro_y, largura_disponivel):
+    def _desenhar_batidas(self, tela, centro_x, centro_y, largura_disponivel, numeradas=False):
         """Circulos que pulsam a cada batida do compasso."""
         espacamento = min(34, max(18, largura_disponivel // max(1, self.compasso)))
         x_inicio = centro_x - (self.compasso - 1) * espacamento // 2
@@ -231,6 +261,10 @@ class Metronomo:
                 pygame.draw.circle(tela, ds.rgb(base), (int(cx), int(centro_y)), int(raio))
                 pygame.draw.circle(tela, ds.rgb(ds.misturar(TEMA.borda, cor, 0.5)),
                                    (int(cx), int(centro_y)), int(raio), 1)
+            if numeradas:
+                cor_num = ds.contraste_texto(cor) if ativa else TEMA.texto_suave
+                ds.texto_em(tela, str(i + 1), self._fonte(12),
+                            (int(cx), int(centro_y)), cor_num, ancora='center')
 
     # -- layout completo (formato do canvas) --------------------------------
     def _desenhar_completo(self, tela, estado, fonte_ui, rect, pos_mouse):

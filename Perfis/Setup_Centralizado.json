@@ -1,46 +1,52 @@
 {
     "posicoes_draggers": {
-        "dragger_guitarra": {
-            "x": 141,
-            "y": 150,
-            "w": 1713,
-            "h": 393
-        },
-        "dragger_acordes": {
-            "x": 650,
-            "y": 556,
-            "w": 620,
-            "h": 120
-        },
         "dragger_controles_topo": {
-            "x": 610,
+            "x": 40,
             "y": 20,
             "w": 700,
-            "h": 40
+            "h": 64
         },
-        "dragger_painel_inferior": {
-            "x": 197,
-            "y": 977,
-            "w": 1526,
-            "h": 80
-        },
-        "dragger_metronomo": {
-            "x": 822,
-            "y": 721,
-            "w": 276,
-            "h": 104
+        "dragger_guitarra": {
+            "x": 40,
+            "y": 100,
+            "w": 1180,
+            "h": 280
         },
         "dragger_cores": {
-            "x": 610,
-            "y": 721,
-            "w": 180,
+            "x": 1560,
+            "y": 20,
+            "w": 320,
             "h": 150
         },
         "dragger_nota_atual": {
-            "x": 1130,
-            "y": 721,
+            "x": 1250,
+            "y": 190,
+            "w": 630,
+            "h": 300
+        },
+        "dragger_acordes": {
+            "x": 40,
+            "y": 420,
+            "w": 1180,
+            "h": 150
+        },
+        "dragger_metronomo": {
+            "x": 1250,
+            "y": 510,
+            "w": 330,
+            "h": 340
+        },
+        "dragger_sessao": {
+            "x": 1600,
+            "y": 510,
             "w": 280,
-            "h": 220
+            "h": 180
+        },
+        "dragger_painel_inferior": {
+            "x": 40,
+            "y": 960,
+            "w": 1840,
+            "h": 40
         }
     },
     "estado": {

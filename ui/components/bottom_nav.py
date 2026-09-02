@@ -6,6 +6,7 @@ from config.theme import *
 from config.ui_metrics import *
 from config.app_settings import *
 from config.design_system import TEMA, ds
+from ui.blocks.painel_caged import painel_caged
 from core.i18n import _t
 from ui.components.config_componentes import (
     BOTTOM_MARGIN_X, CONFIG_OFFSET_Y_INTERNO, ESTUDOS_OFFSET_Y_INTERNO,
@@ -367,7 +368,16 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
         scroll_atual = estado.scroll_y.get(i, 0)
         y_start = y_area - scroll_atual
 
-        if secao['conteudo'] in ('escalas', 'acordes'):
+        if secao['conteudo'] == 'acordes' and secao['memoria_sub_aba'] == 0:
+            # Tela dedicada do sistema CAGED (formato do canvas de design)
+            painel_caged.desenhar(
+                tela,
+                pygame.Rect(rect_clip.x + BOTTOM_MARGIN_X, y_area,
+                            rect_clip.width - BOTTOM_MARGIN_X * 2, altura_util),
+                fontes, estado.campo_harmonico_ref)
+            estado.max_scroll[i] = 0
+
+        elif secao['conteudo'] in ('escalas', 'acordes'):
             chaves = (['maior', 'menor', 'penta_maior', 'penta_menor', 'blues',
                        'modos', 'harmonica', 'melodica', 'exoticas']
                       if secao['conteudo'] == 'escalas'
