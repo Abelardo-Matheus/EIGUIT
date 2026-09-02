@@ -17,7 +17,8 @@ def obter_draggers_ativos(estado):
     """
     lista = []
     simples = ['dragger_controles_topo', 'dragger_cores', 'dragger_metronomo', 'dragger_acordes', 'dragger_painel_inferior', 'dragger_nota_atual', 'dragger_sessao',
-               'dragger_circulo', 'dragger_historico', 'dragger_ideias']
+               'dragger_circulo', 'dragger_historico', 'dragger_ideias',
+               'dragger_drone', 'dragger_progressoes']
     for d in simples:
         if hasattr(estado, d):
             lista.append(getattr(estado, d))
@@ -111,6 +112,8 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             if evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
                 estado.tela_jogo_ativa = False
                 meu_gerenciador_jogos.jogo_instancia = None
+            elif evento.type == pygame.KEYDOWN:
+                meu_gerenciador_jogos.tratar_tecla(evento, estado)
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                 meu_gerenciador_jogos.tratar_clique_tela_jogo(evento.pos, estado, meu_gravador)
         return
@@ -378,6 +381,43 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                         and estado.rect_btn_gravar_ideia.collidepoint(evento.pos)):
                     from ui.components.blocos_extras import alternar_gravacao_ideia
                     alternar_gravacao_ideia(estado, meu_gravador)
+                    continue
+
+                # Referencia: escolher a nota ou ligar/desligar o drone
+                from ui.components.blocos_extras import (alternar_drone,
+                                                         aplicar_progressao,
+                                                         PROGRESSOES_RAPIDAS)
+                tratou_bloco = False
+                for rect_drone, nome_drone in getattr(estado, 'rects_drone', []):
+                    if rect_drone.collidepoint(evento.pos):
+                        if getattr(estado, 'drone_ativo', False):
+                            alternar_drone(estado, nome_drone)
+                        else:
+                            estado.drone_nota = nome_drone
+                        tratou_bloco = True
+                        break
+                if tratou_bloco:
+                    continue
+                if (hasattr(estado, 'rect_btn_drone')
+                        and estado.rect_btn_drone.collidepoint(evento.pos)):
+                    alternar_drone(estado)
+                    continue
+
+                # Progressoes: joga o giro inteiro no braco
+                for rect_prog, indice_prog in getattr(estado, 'rects_progressoes', []):
+                    if rect_prog.collidepoint(evento.pos):
+                        tonica_atual = getattr(meu_campo_harmonico, 'tonica_campo', 'C')
+                        if estado.progressao_ativa == indice_prog:
+                            estado.progressao_ativa = -1
+                            estado.acordes_fixados = []
+                            estado.acordes_no_braco = []
+                        else:
+                            estado.progressao_ativa = indice_prog
+                            aplicar_progressao(estado, tonica_atual,
+                                               PROGRESSOES_RAPIDAS[indice_prog]['graus'])
+                        tratou_bloco = True
+                        break
+                if tratou_bloco:
                     continue
 
             # Pausa/retoma a contagem de tempo da sessao de estudo

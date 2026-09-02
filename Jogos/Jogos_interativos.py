@@ -74,6 +74,16 @@ class GerenciadorJogos:
             return self.jogo_instancia.tratar_clique(pos_mouse, meu_gravador)
         return False
 
+    def tratar_tecla(self, evento, estado=None):
+        """
+            Como funciona: Repassa a tecla para o jogo ativo, se ele aceitar.
+            Para que serve: Jogar de teclado quando nao ha instrumento ligado.
+            Onde é usada: Chamado pelo controlador de eventos.
+        """
+        if self.jogo_instancia and hasattr(self.jogo_instancia, 'tratar_tecla'):
+            return self.jogo_instancia.tratar_tecla(evento)
+        return False
+
     def tratar_clique_aba(self, pos_mouse, estado):
         """
             Como funciona: Verifica colisões e processa inputs do mouse/teclado.

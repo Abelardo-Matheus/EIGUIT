@@ -110,6 +110,8 @@ class EstadoGlobal:
         self.dragger_circulo = _bloco('dragger_circulo')
         self.dragger_historico = _bloco('dragger_historico')
         self.dragger_ideias = _bloco('dragger_ideias')
+        self.dragger_drone = _bloco('dragger_drone')
+        self.dragger_progressoes = _bloco('dragger_progressoes')
 
         self.atualizar_medidas()
 
@@ -120,6 +122,16 @@ class EstadoGlobal:
         # Ultimas notas captadas, usadas pelo bloco de historico
         self.historico_notas = []
         self.ultima_nota_historico = '--'
+        self.ideias_recentes = None
+        # Drone de referencia
+        self.drone_nota = 'C'
+        self.drone_ativo = False
+        self.canal_drone = None
+        self.rects_drone = []
+        self.rect_btn_drone = pygame.Rect(0, 0, 0, 0)
+        # Progressoes rapidas
+        self.progressao_ativa = -1
+        self.rects_progressoes = []
         self.ultima_ideia_salva = ''
         self.nota_selecionada_bloco = 'C'
         self.rects_notas_selecao = []

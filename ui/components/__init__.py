@@ -7,4 +7,6 @@ from .bottom_nav import desenhar_secoes_inferiores_expansiveis
 from .session_panel import desenhar_painel_sessao
 from .blocos_extras import (desenhar_bloco_circulo, desenhar_bloco_historico,
                             desenhar_bloco_ideias, registrar_nota_historico,
-                            alternar_gravacao_ideia)
+                            alternar_gravacao_ideia, desenhar_bloco_drone,
+                            alternar_drone, desenhar_bloco_progressoes,
+                            aplicar_progressao, PROGRESSOES_RAPIDAS)
