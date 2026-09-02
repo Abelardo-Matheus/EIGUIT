@@ -22,9 +22,9 @@ BLOCOS_REF = {
     'dragger_nota_atual': (1250, 190, 630, 300),
     'dragger_acordes': (40, 376, 1180, 132),
     # Faixa livre acima do painel inferior, que sobe 280px quando abre
-    'dragger_circulo': (40, 520, 180, 144),
-    'dragger_historico': (232, 520, 336, 144),
-    'dragger_ideias': (580, 520, 210, 144),
+    'dragger_circulo': (40, 520, 214, 144),
+    'dragger_historico': (266, 520, 340, 144),
+    'dragger_ideias': (618, 520, 232, 144),
     'dragger_metronomo': (1250, 510, 330, 340),
     'dragger_sessao': (1600, 510, 280, 180),
     'dragger_painel_inferior': (40, 960, 1840, 40),

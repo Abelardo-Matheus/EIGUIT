@@ -235,7 +235,7 @@ def desenhar_bloco_ideias(tela, estado, fontes, configs=None, motor_audio=None):
     else:
         ultima = getattr(estado, 'ultima_ideia_salva', '')
         texto = (f"{_t('Ultima')}: {os.path.basename(ultima)}" if ultima
-                 else _t('Grava o que entra pelo microfone'))
+                 else _t('Grava a entrada de audio'))
         ds.texto_em(tela, texto, fontes['pequena'],
                     (rect.x + pad, estado.rect_btn_gravar_ideia.bottom + 6),
                     TEMA.texto_apagado, largura_max=rect.width - pad * 2)

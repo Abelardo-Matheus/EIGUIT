@@ -27,6 +27,16 @@ AFINACOES = {
     'Bateria': [('E', 2), ('A', 2), ('D', 3), ('G', 3), ('B', 3), ('E', 4)],
 }
 
+# Clave, nota da linha de baixo e oitavas de escrita de cada instrumento.
+# Violao, guitarra e baixo soam uma oitava abaixo do que se escreve: por isso
+# a partitura sobe a oitava, senao tudo cairia longe da pauta.
+CLAVES = {
+    'Guitarra': {'simbolo': '&', 'base': ('E', 4), 'oitavas': 1},
+    'Baixo':    {'simbolo': '9', 'base': ('G', 2), 'oitavas': 1},
+    'Voz':      {'simbolo': '&', 'base': ('E', 4), 'oitavas': 0},
+    'Bateria':  {'simbolo': '&', 'base': ('E', 4), 'oitavas': 1},
+}
+
 # Passo diatonico de cada nota, para posicionar na pauta
 GRAU_DIATONICO = {'C': 0, 'C#': 0, 'D': 1, 'D#': 1, 'E': 2, 'F': 3, 'F#': 3,
                   'G': 4, 'G#': 4, 'A': 5, 'A#': 5, 'B': 6}
@@ -375,12 +385,13 @@ class EditorMusical:
         por_sistema = max(TEMPOS_POR_COMPASSO,
                           int(largura_util // self.espaco_tempos
                               // TEMPOS_POR_COMPASSO) * TEMPOS_POR_COMPASSO)
-        altura_sistema = 118
+        altura_sistema = 150
         self.altura_sistema = altura_sistema
         self.rects_celulas = []
 
-        # Referencia: a linha de baixo da pauta e o Mi da quarta oitava (clave de sol)
-        passo_base = passo_na_pauta('E', 4)
+        clave = CLAVES.get(self.instrumento, CLAVES['Guitarra'])
+        passo_base = passo_na_pauta(*clave['base'])
+        oitavas_escrita = clave['oitavas']
 
         sistemas = max(1, (self.num_tempos + por_sistema - 1) // por_sistema)
         y = rect.y - self.scroll
@@ -389,13 +400,14 @@ class EditorMusical:
                 y += altura_sistema
                 continue
             inicio = s * por_sistema
-            base_y = y + 70          # linha inferior da pauta
+            base_y = y + 92          # linha inferior da pauta
 
             for i in range(5):
                 ly = base_y - i * espaco * 2
                 pygame.draw.line(tela, ds.rgb(TEMA.corda), (rect.x + margem, ly),
                                  (rect.x + margem + por_sistema * self.espaco_tempos, ly), 1)
-            ds.texto_em(tela, '&', self._fonte(34), (rect.x + margem - 24, base_y - 18),
+            ds.texto_em(tela, clave['simbolo'], self._fonte(34),
+                        (rect.x + margem - 24, base_y - 18),
                         TEMA.texto_suave, ancora='center')
 
             for c in range(por_sistema // TEMPOS_POR_COMPASSO + 1):
@@ -413,7 +425,7 @@ class EditorMusical:
                     if valor is None:
                         continue
                     nome, oitava = altura_da_casa(self.instrumento, corda, valor)
-                    passo = passo_na_pauta(nome, oitava)
+                    passo = passo_na_pauta(nome, oitava + oitavas_escrita)
                     if passo is None:
                         continue
                     ly = base_y - (passo - passo_base) * espaco
@@ -440,7 +452,12 @@ class EditorMusical:
                     cabeca = pygame.transform.rotate(cabeca, 18)
                     tela.blit(cabeca, (int(cx - cabeca.get_width() / 2),
                                        int(ly - cabeca.get_height() / 2)))
-                    pygame.draw.line(tela, ds.rgb(cor), (cx + 6, ly), (cx + 6, ly - 26), 2)
+                    if degrau > 4:      # acima da linha do meio: haste para baixo
+                        pygame.draw.line(tela, ds.rgb(cor), (cx - 6, ly),
+                                         (cx - 6, ly + 26), 2)
+                    else:
+                        pygame.draw.line(tela, ds.rgb(cor), (cx + 6, ly),
+                                         (cx + 6, ly - 26), 2)
 
                 if self.tocando and tempo == self.playhead:
                     pygame.draw.line(tela, ds.rgb(TEMA.aviso),
@@ -471,7 +488,7 @@ class EditorMusical:
 
         editor = pygame.Rect(ds.ESPACO_LG, toolbar.bottom + ds.ESPACO_MD,
                              largura - ds.ESPACO_LG * 2,
-                             altura - toolbar.bottom - ds.ESPACO_XL)
+                             altura - toolbar.bottom - ds.ESPACO_XL - 20)
         ds.painel(tela, editor, None, None, acento=TEMA.borda, alpha=225)
         interno = editor.inflate(-ds.ESPACO_LG * 2, -ds.ESPACO_LG * 2)
 
