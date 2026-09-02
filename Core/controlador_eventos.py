@@ -475,9 +475,10 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                         clicou_conteudo = True
                     scroll_atual = estado.scroll_y.get(i, 0)
                     y_start = y_conteudo + BOTTOM_OFFSET_AREA_DESENHO - scroll_atual
-                    if secao['conteudo'] == 'acordes' and secao['memoria_sub_aba'] == 0:
-                        from ui.blocks.painel_caged import painel_caged
-                        if painel_caged.tratar_clique(evento.pos, meu_campo_harmonico):
+                    if secao['conteudo'] == 'acordes':
+                        from ui.blocks.painel_acordes import painel_da_sub_aba
+                        painel = painel_da_sub_aba(secao['memoria_sub_aba'])
+                        if painel.tratar_clique(evento.pos, meu_campo_harmonico, estado):
                             estado.tom_atual = getattr(meu_campo_harmonico, 'tonica_campo', estado.tom_atual)
                             dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
                             clicou_conteudo = True

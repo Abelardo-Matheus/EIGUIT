@@ -58,11 +58,11 @@ class EstadoGlobal:
         self.indice_cor_tonica = 0
         self.indice_cor_terca = 1
         self.indice_cor_quinta = 2
-        # Filtro do sistema CAGED aplicado ao braco principal
-        self.caged_ativo = False
-        self.caged_janela = (0, 4)
-        self.caged_notas = {}
-        self.caged_shape = 'E'
+        # Acordes desenhados sobre o braco principal.
+        # acordes_fixados: escolhidos com o botao Fixar, ficam ate serem tirados.
+        # acordes_no_braco: os fixados mais a selecao atual do painel.
+        self.acordes_fixados = []
+        self.acordes_no_braco = []
         self.dropdown_tom_aberto = False
         self.NUM_CASAS = 18
         self.NUM_CORDAS = 7

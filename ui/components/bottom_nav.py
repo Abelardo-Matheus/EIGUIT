@@ -6,7 +6,7 @@ from config.theme import *
 from config.ui_metrics import *
 from config.app_settings import *
 from config.design_system import TEMA, ds
-from ui.blocks.painel_caged import painel_caged
+from ui.blocks.painel_acordes import painel_da_sub_aba
 from core.i18n import _t
 from ui.components.config_componentes import (
     BOTTOM_MARGIN_X, CONFIG_OFFSET_Y_INTERNO, ESTUDOS_OFFSET_Y_INTERNO,
@@ -295,11 +295,11 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
         TEMA.definir_acento(configs.get_cor_tema())
 
     # O filtro do braco so vale enquanto a aba CAGED estiver aberta
-    caged_visivel = any(sec.get('expandido') and sec['conteudo'] == 'acordes'
-                        and sec['memoria_sub_aba'] == 0
-                        for sec in estado.secoes_inferiores)
-    if not caged_visivel:
-        estado.caged_ativo = False
+    acordes_visivel = any(sec.get('expandido') and sec['conteudo'] == 'acordes'
+                          for sec in estado.secoes_inferiores)
+    if not acordes_visivel:
+        # Fora da aba, so os acordes fixados continuam no braco
+        estado.acordes_no_braco = list(getattr(estado, 'acordes_fixados', []))
 
     alpha_atual = configs.get_alpha() if configs else 255
     dragger = estado.dragger_painel_inferior
@@ -375,20 +375,18 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
         scroll_atual = estado.scroll_y.get(i, 0)
         y_start = y_area - scroll_atual
 
-        if secao['conteudo'] == 'acordes' and secao['memoria_sub_aba'] == 0:
-            # Tela dedicada do sistema CAGED (formato do canvas de design)
-            painel_caged.desenhar(
+        if secao['conteudo'] == 'acordes':
+            # Todas as sub-abas de acordes usam o mesmo painel de braco
+            painel_da_sub_aba(secao['memoria_sub_aba']).desenhar(
                 tela,
                 pygame.Rect(rect_clip.x + BOTTOM_MARGIN_X, y_area,
                             rect_clip.width - BOTTOM_MARGIN_X * 2, altura_util),
                 fontes, estado.campo_harmonico_ref, estado)
             estado.max_scroll[i] = 0
 
-        elif secao['conteudo'] in ('escalas', 'acordes'):
-            chaves = (['maior', 'menor', 'penta_maior', 'penta_menor', 'blues',
-                       'modos', 'harmonica', 'melodica', 'exoticas']
-                      if secao['conteudo'] == 'escalas'
-                      else ['caged', 'triades_maior', 'triades_menor', 'setimas', 'power'])
+        elif secao['conteudo'] == 'escalas':
+            chaves = ['maior', 'menor', 'penta_maior', 'penta_menor', 'blues',
+                      'modos', 'harmonica', 'melodica', 'exoticas']
             if secao['memoria_sub_aba'] < len(chaves):
                 lista_ativa = dicionario_escalas.get(chaves[secao['memoria_sub_aba']], [])
                 altura_total = 0
