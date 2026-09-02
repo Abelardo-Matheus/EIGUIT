@@ -570,7 +570,35 @@ s.teste('gaveteiro fica calado com a tela cheia aberta',
 s.teste('bloco guardado nao deixa alvo clicavel', bloco_guardado_nao_deixa_alvo)
 s.teste('a coluna abre no hover e fecha ao sair', coluna_abre_no_hover_e_fecha)
 s.teste('as gavetas ficam dentro da coluna, sem sobrepor', gavetas_dentro_da_coluna)
+def bloco_solto_por_clique_nao_cobre_outro():
+    """Tirando gaveta por gaveta, um bloco nao cai por cima do outro.
+
+    O teste vai ate onde a tela comporta: com blocos demais nao existe canto
+    livre, e ai o gaveteiro so promete o lugar que menos cobre os outros.
+    """
+    ctx = Contexto()
+    _abrir_coluna(ctx)
+    postos = []
+    for rect, nome in list(ctx.estado.rects_gavetas)[:6]:
+        gv.tratar_evento(ctx.estado, pygame.event.Event(
+            pygame.MOUSEBUTTONDOWN, {'pos': rect.center, 'button': 1}))
+        gv.tratar_evento(ctx.estado, pygame.event.Event(
+            pygame.MOUSEBUTTONUP, {'pos': rect.center, 'button': 1}))
+        bloco = getattr(ctx.estado, nome)
+        novo = pygame.Rect(bloco.x, bloco.y, bloco.largura, bloco.altura)
+        for outro_nome, outro in postos:
+            s.checar(not novo.colliderect(outro),
+                     f'{nome} caiu por cima de {outro_nome}')
+        braco = ctx.estado.dragger_guitarra
+        s.checar(not novo.colliderect(pygame.Rect(
+            braco.x, braco.y, braco.largura, braco.altura)),
+            f'{nome} caiu por cima do braco')
+        postos.append((nome, novo))
+
+
 s.teste('clique tira o bloco e clique de novo guarda', clique_tira_e_guarda)
+s.teste('bloco solto por clique nao cobre outro',
+        bloco_solto_por_clique_nao_cobre_outro)
 s.teste('arrastar tira, largar na coluna guarda',
         arrastar_tira_o_bloco_e_largar_na_coluna_guarda)
 s.teste('a coluna nao pinta fora de si', coluna_nao_pinta_fora_de_si)

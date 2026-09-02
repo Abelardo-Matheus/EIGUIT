@@ -13,6 +13,11 @@ continuem utilizaveis em vez de colapsar.
 # Faixa reservada na esquerda para a coluna do gaveteiro fechada, para
 # nenhum bloco abrir por baixo dela
 MARGEM_ESQUERDA = 48
+MARGEM_DIREITA = 10
+
+# Respiro entre os controles do topo e o braco, e entre o braco e a barra
+ESPACO_ENTRE_FIXOS = 16
+MARGEM_INFERIOR = 10
 
 # Referencia do canvas
 LARGURA_REF = 1920
@@ -86,6 +91,44 @@ def calcular(largura_tela, altura_viewport):
         nova_y = max(10, min(nova_y, altura_viewport - nova_h - 10))
 
         layout[nome] = {'x': nova_x, 'y': nova_y, 'w': nova_w, 'h': nova_h}
+
+    _centralizar_fixos(layout, largura_tela, altura_viewport)
+    return layout
+
+
+def _centralizar_fixos(layout, largura_tela, altura_viewport):
+    """
+        Como funciona: A barra de abas vai para o rodape, ocupando a largura
+        toda menos a faixa da coluna, e o que sobra na tela principal (os
+        controles do topo e o braco) fica centrado no espaco acima dela, na
+        horizontal e na vertical.
+        Para que serve: Com os blocos guardados no gaveteiro, o instrumento e
+        o assunto da tela; centrado ele fica no lugar para onde o olho vai.
+        Onde e usada: Fim de calcular(), entao vale na abertura e no 'Voltar
+        para o Padrao'.
+    """
+    esquerda = MARGEM_ESQUERDA
+    util = max(120, largura_tela - esquerda - MARGEM_DIREITA)
+
+    barra = layout.get('dragger_painel_inferior')
+    if barra is not None:
+        barra['x'] = esquerda
+        barra['w'] = util
+        barra['y'] = max(0, altura_viewport - barra['h'] - MARGEM_INFERIOR)
+
+    topo = layout.get('dragger_controles_topo')
+    braco = layout.get('dragger_guitarra')
+    if topo is None or braco is None:
+        return
+
+    for medidas in (topo, braco):
+        medidas['w'] = min(medidas['w'], util)
+        medidas['x'] = esquerda + (util - medidas['w']) // 2
+
+    limite = barra['y'] if barra is not None else altura_viewport
+    altura_grupo = topo['h'] + ESPACO_ENTRE_FIXOS + braco['h']
+    topo['y'] = max(MARGEM_INFERIOR, (limite - altura_grupo) // 2)
+    braco['y'] = topo['y'] + topo['h'] + ESPACO_ENTRE_FIXOS
     return layout
 
 

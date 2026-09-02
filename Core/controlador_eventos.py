@@ -16,7 +16,8 @@ def obter_draggers_ativos(estado):
         Onde é usada: Chamado a partir do módulo ou classe base de 'controlador_eventos'.
     """
     lista = []
-    simples = ['dragger_controles_topo', 'dragger_cores', 'dragger_metronomo', 'dragger_acordes', 'dragger_painel_inferior', 'dragger_nota_atual', 'dragger_sessao',
+    # A barra de abas e fixa no rodape: fica de fora da lista de arrastaveis
+    simples = ['dragger_controles_topo', 'dragger_cores', 'dragger_metronomo', 'dragger_acordes', 'dragger_nota_atual', 'dragger_sessao',
                'dragger_circulo', 'dragger_historico', 'dragger_ideias',
                'dragger_drone', 'dragger_progressoes', 'dragger_graus',
                'dragger_cordas', 'dragger_capo']
@@ -153,7 +154,10 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
     bloqueio_z_index = False
     dx_inf = estado.dragger_painel_inferior.x if hasattr(estado, 'dragger_painel_inferior') else 100
     dy_inf = estado.dragger_painel_inferior.y if hasattr(estado, 'dragger_painel_inferior') else estado.ALTURA_TELA - 50
-    altura_caixa_total = 280 # Tamanho fixo independente
+    # Mesma altura que o desenho usa, para clique e scroll baterem com o que
+    # esta na tela em qualquer resolucao
+    from ui.components.bottom_nav import altura_caixa
+    altura_caixa_total = altura_caixa(estado)
     largura_conteudo = estado.dragger_painel_inferior.largura if hasattr(estado, 'dragger_painel_inferior') else estado.LARGURA_BRACO
     for secao in estado.secoes_inferiores:
         if secao['expandido']:

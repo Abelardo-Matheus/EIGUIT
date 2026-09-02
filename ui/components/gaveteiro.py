@@ -109,6 +109,76 @@ def guardar(estado, nome):
     return True
 
 
+def _ocupado(estado, ignorar):
+    """Retangulos que ja estao na tela: os fixos e os blocos que sairam."""
+    from config.layout_padrao import MARGEM_ESQUERDA
+    rects = []
+    fixos = ('dragger_guitarra', 'dragger_controles_topo',
+             'dragger_painel_inferior')
+    for nome in fixos + NOMES:
+        if nome == ignorar or (nome in NOMES and not visivel(estado, nome)):
+            continue
+        bloco = getattr(estado, nome, None)
+        if bloco is None:
+            continue
+        rects.append(pygame.Rect(bloco.x, bloco.y, bloco.largura, bloco.altura))
+    return rects
+
+
+def _sobreposicao(rect, ocupados):
+    """Area total que o retangulo cobre do que ja esta na tela."""
+    total = 0
+    for outro in ocupados:
+        corte = rect.clip(outro)
+        total += corte.width * corte.height
+    return total
+
+
+def _lugar_livre(estado, nome, bloco):
+    """
+        Como funciona: Fica com o lugar de sempre do bloco se ele estiver
+        livre; se estiver ocupado, varre a area util de cima para baixo e
+        devolve o primeiro canto onde o bloco nao encosta em nada.
+        Para que serve: Clicar na gaveta poe o bloco num lugar que da para ver,
+        em vez de empilhar tudo por cima do braco.
+        Onde e usada: soltar(), quando nao veio posicao do arrasto.
+    """
+    from config.layout_padrao import MARGEM_ESQUERDA, MARGEM_DIREITA
+    from config.ui_metrics import ALTURA_TOPBAR
+    largura = int(getattr(estado, 'LARGURA_TELA', 1920))
+    altura = int(getattr(estado, 'ALTURA_TELA', 1080)) - ALTURA_TOPBAR
+    barra = getattr(estado, 'dragger_painel_inferior', None)
+    limite_y = getattr(barra, 'y', altura) - ESPACO_GAVETA
+
+    ocupados = _ocupado(estado, nome)
+    atual = pygame.Rect(bloco.x, bloco.y, bloco.largura, bloco.altura)
+    if (atual.x >= LARGURA_FECHADO and atual.right <= largura - MARGEM_DIREITA
+            and atual.bottom <= limite_y
+            and not any(atual.colliderect(r) for r in ocupados)):
+        return atual.x, atual.y
+
+    # Com a tela cheia pode nao haver canto livre; entao fica o que menos
+    # cobre o que ja esta na tela
+    passo = 24
+    melhor, menor_sobra = (atual.x, atual.y), _sobreposicao(atual, ocupados)
+    # Primeira volta longe da coluna aberta, para o bloco nao nascer escondido
+    # atras dela; a segunda aceita a faixa que so a coluna fechada ocupa
+    for inicio in (LARGURA_ABERTO + ds.ESPACO_SM, MARGEM_ESQUERDA):
+        direita = largura - MARGEM_DIREITA - bloco.largura
+        if inicio > direita:
+            continue
+        for y in range(ds.ESPACO_SM,
+                       max(ds.ESPACO_SM + 1, limite_y - bloco.altura), passo):
+            for x in range(inicio, max(inicio + 1, direita), passo):
+                tentativa = pygame.Rect(x, y, bloco.largura, bloco.altura)
+                sobra = _sobreposicao(tentativa, ocupados)
+                if sobra == 0:
+                    return x, y
+                if sobra < menor_sobra:
+                    melhor, menor_sobra = (x, y), sobra
+    return melhor
+
+
 def soltar(estado, nome, pos=None):
     """
         Como funciona: Tira o bloco da coluna. Sem posicao, ele volta para
@@ -126,6 +196,8 @@ def soltar(estado, nome, pos=None):
     if pos is not None:
         bloco.x = int(pos[0] - bloco.largura // 2)
         bloco.y = int(pos[1] - 12)
+    else:
+        bloco.x, bloco.y = _lugar_livre(estado, nome, bloco)
     limite = LARGURA_FECHADO + ds.ESPACO_SM
     bloco.x = max(limite, int(bloco.x))
     bloco.y = max(0, int(bloco.y))

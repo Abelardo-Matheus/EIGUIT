@@ -13,12 +13,120 @@ from ui.components.config_componentes import (
     ESTUDOS_DESC_OFFSET_X, BOTTOM_OFFSET_AREA_DESENHO,
 )
 
-# Estes tres valores precisam bater exatamente com core/controlador_eventos.py,
-# que recalcula a mesma geometria para o teste de clique e de scroll.
-ALTURA_CAIXA = 280
 GAP_PAINEL = 10
-ALTURA_SUB_ABA = 30
-ALTURA_ITEM_LISTA = 44
+
+# A gaveta aberta ocupa uma fatia do viewport, entre um piso e um teto. O
+# controlador de eventos chama altura_caixa() para achar exatamente a mesma
+# geometria na hora de tratar clique e scroll.
+FRACAO_CAIXA = 0.62
+ALTURA_CAIXA_MIN = 280
+ALTURA_CAIXA_MAX = 760
+
+# Medidas base do conteudo, para a caixa de 280. Crescem junto com a gaveta.
+ALTURA_SUB_ABA_BASE = 30
+ALTURA_ITEM_LISTA_BASE = 44
+ESCALA_MINIATURA_BASE = 0.28
+FATOR_MAXIMO = 1.7
+
+# Tamanho de uma miniatura de escala em escala 1.0, e o respiro entre elas
+MINIATURA_W = 535
+MINIATURA_H = 321
+MINIATURA_GAP_X = 178
+MINIATURA_GAP_Y = 285
+
+# Medidas deste quadro, atualizadas no inicio do desenho e lidas pelas funcoes
+# de cada aba logo em seguida.
+ALTURA_SUB_ABA = ALTURA_SUB_ABA_BASE
+ALTURA_ITEM_LISTA = ALTURA_ITEM_LISTA_BASE
+
+# Barra fixa no rodape: altura e respiro ate a borda
+ALTURA_BARRA = 40
+MARGEM_BARRA = 10
+
+
+def altura_caixa(estado):
+    """
+        Como funciona: Da a altura da gaveta aberta a partir da altura do
+        viewport, presa entre o piso e o teto e limitada pelo espaco que existe
+        acima da barra.
+        Para que serve: A gaveta abrir grande em tela grande, sem nunca passar
+        por cima da barra de abas nem sair da tela.
+        Onde e usada: Desenho da barra inferior e o teste de clique e scroll no
+        controlador de eventos, que precisam da mesma geometria.
+    """
+    from config.ui_metrics import ALTURA_TOPBAR
+    viewport = max(320, int(getattr(estado, 'ALTURA_TELA', 1080)) - ALTURA_TOPBAR)
+    barra = getattr(estado, 'dragger_painel_inferior', None)
+    espaco = getattr(barra, 'y', viewport) - GAP_PAINEL - MARGEM_BARRA
+    alvo = min(viewport * FRACAO_CAIXA, ALTURA_CAIXA_MAX)
+    return int(max(ALTURA_CAIXA_MIN, min(alvo, max(ALTURA_CAIXA_MIN, espaco))))
+
+
+def _atualizar_medidas(altura):
+    """Cresce o conteudo da gaveta na mesma proporcao em que ela cresceu."""
+    global ALTURA_SUB_ABA, ALTURA_ITEM_LISTA
+    fator = min(FATOR_MAXIMO, max(1.0, altura / ALTURA_CAIXA_MIN))
+    ALTURA_SUB_ABA = int(ALTURA_SUB_ABA_BASE * fator)
+    ALTURA_ITEM_LISTA = int(ALTURA_ITEM_LISTA_BASE * fator)
+    return fator
+
+
+def arranjo_miniaturas(quantidade, largura, altura, escala_maxima=1.1):
+    """
+        Como funciona: Testa cada quantidade de colunas possivel e ve ate onde
+        as miniaturas podem crescer naquela grade, na largura e na altura.
+        Fica com a maior escala e, entre arranjos parecidos, com o que usa
+        menos linhas.
+        Para que serve: A gaveta grande mostrar as formas grandes e cheias,
+        em vez de miniaturas pequenas com meia gaveta vazia.
+        Onde e usada: Aba ESCALAS.
+
+        Devolve (escala, colunas).
+    """
+    quantidade = max(1, quantidade)
+    largura_util = max(120, largura - 40)
+    altura_util = max(80, altura - 45)
+
+    melhor = (ESCALA_MINIATURA_BASE, quantidade)
+    for colunas in range(1, quantidade + 1):
+        linhas = -(-quantidade // colunas)
+        por_largura = largura_util / (colunas * MINIATURA_W
+                                      + (colunas - 1) * MINIATURA_GAP_X)
+        por_altura = altura_util / (linhas * MINIATURA_H
+                                    + (linhas - 1) * MINIATURA_GAP_Y)
+        escala = min(por_largura, por_altura, escala_maxima)
+        if escala > melhor[0] * 1.02:
+            melhor = (escala, colunas)
+        elif escala > melhor[0] * 0.98 and linhas < -(-quantidade // melhor[1]):
+            melhor = (max(escala, melhor[0]), colunas)
+    return round(max(melhor[0], ESCALA_MINIATURA_BASE), 3), melhor[1]
+
+
+def fixar_barra(estado, largura_tela, altura_viewport):
+    """
+        Como funciona: Prende a barra de abas no rodape, com a largura toda
+        menos a faixa da coluna do gaveteiro.
+        Para que serve: A barra e o unico movel da tela que nao se move: e a
+        referencia de onde a gaveta abre.
+        Onde e usada: Inicio do desenho da barra inferior, a cada quadro.
+    """
+    from config.layout_padrao import MARGEM_ESQUERDA, MARGEM_DIREITA
+    barra = getattr(estado, 'dragger_painel_inferior', None)
+    if barra is None:
+        return None
+    barra.arrastando = False
+    barra.redimensionando = False
+    barra.x = MARGEM_ESQUERDA
+    barra.largura = max(240, largura_tela - MARGEM_ESQUERDA - MARGEM_DIREITA)
+    barra.altura = max(32, min(ALTURA_BARRA, barra.altura))
+    barra.y = max(0, altura_viewport - barra.altura - MARGEM_BARRA)
+    if hasattr(barra, 'rect_caixa'):
+        barra.rect_caixa.update(barra.x, barra.y, barra.largura, barra.altura)
+    # Mesma conta do estado inicial, para os paineis de escala continuarem
+    # sendo montados na altura certa
+    from ui.components.config_componentes import BOTTOM_Y_AREA_DESENHO_OFFSET
+    estado.Y_AREA_DESENHO = barra.y - BOTTOM_Y_AREA_DESENHO_OFFSET
+    return barra
 
 
 def quebrar_texto(texto, fonte, max_largura):
@@ -46,10 +154,13 @@ def _cartao_acao(tela, rect, titulo, descricao, fontes, largura_texto, x_desc):
     """Botao de acao a esquerda com descricao explicativa a direita."""
     ds.botao(tela, rect, titulo, fontes['ui'], variante='primario',
              hover=rect.collidepoint(pygame.mouse.get_pos()))
-    y = rect.y + 4
-    for linha in quebrar_texto(descricao, fontes['pequena'], largura_texto):
+    altura_linha = fontes['pequena'].get_height() + 3
+    linhas = quebrar_texto(descricao, fontes['pequena'], largura_texto)
+    # Descricao centrada na altura do botao, que cresce junto com a gaveta
+    y = rect.centery - (len(linhas) * altura_linha) // 2
+    for linha in linhas:
         ds.texto_em(tela, linha, fontes['pequena'], (x_desc, y), TEMA.texto_suave)
-        y += 18
+        y += altura_linha
 
 
 def _desenhar_aba_ia(tela, dx, y_start, estado, fontes, meu_processador,
@@ -84,11 +195,13 @@ def _desenhar_aba_configuracao(tela, dx, y_start, largura_conteudo, estado,
 
 
 def _desenhar_aba_estudos(tela, dx, y_start, largura_conteudo, estado, fontes,
-                          memoria_sub_aba, configs):
+                          memoria_sub_aba, configs, altura_util=None):
     """Cartoes de exercicio, um por modalidade de estudo."""
     estado.botoes_estudo.clear()
-    largura_texto = largura_conteudo - ESTUDOS_DESC_OFFSET_X - BOTTOM_MARGIN_X * 2
-    x_desc = dx + ESTUDOS_DESC_OFFSET_X
+    fator = ALTURA_ITEM_LISTA / ALTURA_ITEM_LISTA_BASE
+    largura_botao = int(178 * fator)
+    x_desc = dx + BOTTOM_MARGIN_X + largura_botao + ds.ESPACO_XL
+    largura_texto = largura_conteudo - (x_desc - dx) - BOTTOM_MARGIN_X
 
     grupos = {
         0: [
@@ -108,15 +221,23 @@ def _desenhar_aba_estudos(tela, dx, y_start, largura_conteudo, estado, fontes,
     }
 
     itens = grupos.get(memoria_sub_aba, [])
-    altura_item = 52
-    espacamento = 22
-    y = y_start + ESTUDOS_OFFSET_Y_INTERNO + 6
+    altura_item = int(52 * fator)
+    # Os cartoes se espalham pela altura da gaveta em vez de se amontoarem
+    # no topo, com um respiro maximo para nao ficarem soltos demais
+    if altura_util:
+        folga = (altura_util - len(itens) * altura_item) / (len(itens) + 1)
+        espacamento = int(min(52, max(18, folga)))
+    else:
+        espacamento = int(22 * fator)
+    y = y_start + ESTUDOS_OFFSET_Y_INTERNO + espacamento
 
     for titulo, descricao in itens:
-        rect = pygame.Rect(dx + BOTTOM_MARGIN_X, y, 178, altura_item)
+        rect = pygame.Rect(dx + BOTTOM_MARGIN_X, y, largura_botao, altura_item)
         _cartao_acao(tela, rect, titulo, descricao, fontes, largura_texto, x_desc)
         estado.botoes_estudo[titulo] = rect
         y += altura_item + espacamento
+    # Altura real dos cartoes, para so haver rolagem quando faltar espaco
+    return y - y_start
 
 
 def _linha_musica(tela, rect, titulo, subtitulo, fontes, favorita=False):
@@ -308,6 +429,10 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
         estado.acordes_no_braco = list(getattr(estado, 'acordes_fixados', []))
 
     alpha_atual = configs.get_alpha() if configs else 255
+    # A barra e fixa no rodape e a gaveta cresce com a tela
+    fixar_barra(estado, tela.get_width(), tela.get_height())
+    ALTURA_CAIXA = altura_caixa(estado)
+    _atualizar_medidas(ALTURA_CAIXA)
     dragger = estado.dragger_painel_inferior
     dx, dy = dragger.x, dragger.y
     largura_conteudo = dragger.largura
@@ -353,7 +478,9 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
         # --- Painel expandido ---------------------------------------------
         y_conteudo = dy - ALTURA_CAIXA - GAP_PAINEL
         rect_painel = pygame.Rect(dx, y_conteudo, largura_conteudo, ALTURA_CAIXA)
-        ds.painel(tela, rect_painel, None, None, acento=TEMA.acento, alpha=245)
+        # Guardado para o teste de clique conferir que a geometria bate
+        secao['rect_painel'] = rect_painel
+        ds.painel(tela, rect_painel, None, None, acento=TEMA.acento, alpha=255)
 
         # Sub-abas
         y_sub = y_conteudo + GAP_PAINEL
@@ -396,11 +523,14 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
             if secao['memoria_sub_aba'] < len(chaves):
                 lista_ativa = dicionario_escalas.get(chaves[secao['memoria_sub_aba']], [])
                 altura_total = 0
-                escala_compacta = 0.28
-                largura_bloco, altura_bloco = 150, 90
-                esp_x, esp_y = 50, 80
-
-                colunas = max(1, int((largura_conteudo - 40) // (largura_bloco + esp_x)))
+                # A maior escala em que as formas ainda cabem todas de uma vez
+                quantas = sum(1 for m in lista_ativa if m.estado == 'painel')
+                escala_compacta, colunas = arranjo_miniaturas(
+                    quantas, largura_conteudo, altura_util)
+                largura_bloco = int(MINIATURA_W * escala_compacta)
+                altura_bloco = int(MINIATURA_H * escala_compacta)
+                esp_x = int(MINIATURA_GAP_X * escala_compacta)
+                esp_y = int(MINIATURA_GAP_Y * escala_compacta)
                 largura_grade = colunas * largura_bloco + (colunas - 1) * esp_x
                 offset_x = (largura_conteudo - largura_grade) // 2
 
@@ -419,13 +549,16 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
                     col, lin = idx % colunas, idx // colunas
                     modulo.rect_painel.x = dx + offset_x + col * (largura_bloco + esp_x)
                     modulo.rect_painel.y = y_start + 45 + lin * (altura_bloco + esp_y)
+                    # Altura real do conteudo: sem respiro sobrando na ultima
+                    # linha, para nao inventar rolagem em gaveta que ja mostra
+                    # tudo
                     altura_total = max(altura_total,
-                                       (lin + 1) * (altura_bloco + esp_y) + 100)
+                                       45 + (lin + 1) * altura_bloco + lin * esp_y)
                     modulo.atualizar_e_desenhar(tela, pos_mouse, rect_braco_real,
                                                 fontes['pequena'], alpha_atual,
                                                 estado=estado)
 
-                estado.max_scroll[i] = max(0, altura_total - altura_util + 50)
+                estado.max_scroll[i] = max(0, altura_total - altura_util)
 
         elif secao['conteudo'] == 'analise_ia':
             _desenhar_aba_ia(tela, dx, y_start, estado, fontes, meu_processador,
@@ -436,8 +569,10 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
                                        fontes, configs, meu_metronomo,
                                        secao['memoria_sub_aba'], scroll_atual)
         elif secao['conteudo'] == 'estudos':
-            _desenhar_aba_estudos(tela, dx, y_start, largura_conteudo, estado,
-                                  fontes, secao['memoria_sub_aba'], configs)
+            alto = _desenhar_aba_estudos(tela, dx, y_start, largura_conteudo,
+                                         estado, fontes, secao['memoria_sub_aba'],
+                                         configs, altura_util)
+            estado.max_scroll[i] = max(0, alto - altura_util)
         elif secao['conteudo'] == 'musicas':
             _desenhar_aba_musicas(tela, dx, y_start, largura_conteudo, estado,
                                   fontes, secao['memoria_sub_aba'], configs)

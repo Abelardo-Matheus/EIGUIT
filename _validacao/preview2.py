@@ -92,6 +92,24 @@ def blocos(tema):
     salvar(tela, f'blocos_novos_{tema}.png')
 
 
+def abas_abertas(tema):
+    """A gaveta de baixo aberta, para conferir o tamanho dela e do conteudo."""
+    ctx = Contexto(1920, 1080, tema)
+    for indice, nome in ((0, 'escalas'), (3, 'estudos')):
+        for secao in ctx.estado.secoes_inferiores:
+            secao['expandido'] = False
+        ctx.estado.secoes_inferiores[indice]['expandido'] = True
+        tela = pygame.Surface((1920, 1080), pygame.SRCALPHA)
+        ds.fundo_app(tela)
+        viewport = tela.subsurface(pygame.Rect(0, ALTURA_TOPBAR, 1920,
+                                               1080 - ALTURA_TOPBAR))
+        renderizador_ui.desenhar_workspace(
+            viewport, ctx.estado, ctx.configs, ctx.escalas, ctx.fontes,
+            ctx.metronomo, ctx.processador, ctx.gravador, ctx.campo, ctx.jogos)
+        desenhar_painel_superior(tela, ctx.estado, ctx.fontes, ctx.configs)
+        salvar(tela, f'abas_{nome}_{tema}.png')
+
+
 def gaveteiro(tema):
     """A coluna aberta, com parte dos blocos ja fora da gaveta."""
     from ui.components import gaveteiro as gv
@@ -130,6 +148,7 @@ if __name__ == '__main__':
         print(f'[{tema}]')
         harness.definir_tema(tema)
         workspace(tema)
+        abas_abertas(tema)
         gaveteiro(tema)
         blocos(tema)
         ciclo(tema)
