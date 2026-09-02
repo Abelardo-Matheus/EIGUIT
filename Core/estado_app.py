@@ -107,6 +107,9 @@ class EstadoGlobal:
         self.dragger_cores = _bloco('dragger_cores')
         self.dragger_nota_atual = _bloco('dragger_nota_atual')
         self.dragger_sessao = _bloco('dragger_sessao')
+        self.dragger_circulo = _bloco('dragger_circulo')
+        self.dragger_historico = _bloco('dragger_historico')
+        self.dragger_ideias = _bloco('dragger_ideias')
 
         self.atualizar_medidas()
 
@@ -114,6 +117,10 @@ class EstadoGlobal:
         self.nota_atual_detectada = '--'
         # Preenchido por main.py com a instancia de SessaoEstudo
         self.sessao = None
+        # Ultimas notas captadas, usadas pelo bloco de historico
+        self.historico_notas = []
+        self.ultima_nota_historico = '--'
+        self.ultima_ideia_salva = ''
         self.nota_selecionada_bloco = 'C'
         self.rects_notas_selecao = []
         self.instrumento = 'guitarra'

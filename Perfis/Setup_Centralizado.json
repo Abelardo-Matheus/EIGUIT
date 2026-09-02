@@ -8,9 +8,9 @@
         },
         "dragger_guitarra": {
             "x": 40,
-            "y": 100,
+            "y": 96,
             "w": 1180,
-            "h": 280
+            "h": 264
         },
         "dragger_cores": {
             "x": 1560,
@@ -26,9 +26,27 @@
         },
         "dragger_acordes": {
             "x": 40,
-            "y": 420,
+            "y": 376,
             "w": 1180,
-            "h": 150
+            "h": 132
+        },
+        "dragger_circulo": {
+            "x": 40,
+            "y": 520,
+            "w": 180,
+            "h": 144
+        },
+        "dragger_historico": {
+            "x": 232,
+            "y": 520,
+            "w": 336,
+            "h": 144
+        },
+        "dragger_ideias": {
+            "x": 580,
+            "y": 520,
+            "w": 210,
+            "h": 144
         },
         "dragger_metronomo": {
             "x": 1250,

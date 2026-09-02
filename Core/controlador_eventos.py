@@ -16,7 +16,8 @@ def obter_draggers_ativos(estado):
         Onde é usada: Chamado a partir do módulo ou classe base de 'controlador_eventos'.
     """
     lista = []
-    simples = ['dragger_controles_topo', 'dragger_cores', 'dragger_metronomo', 'dragger_acordes', 'dragger_painel_inferior', 'dragger_nota_atual', 'dragger_sessao']
+    simples = ['dragger_controles_topo', 'dragger_cores', 'dragger_metronomo', 'dragger_acordes', 'dragger_painel_inferior', 'dragger_nota_atual', 'dragger_sessao',
+               'dragger_circulo', 'dragger_historico', 'dragger_ideias']
     for d in simples:
         if hasattr(estado, d):
             lista.append(getattr(estado, d))
@@ -359,6 +360,26 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                         dragger.arrastando = False
                 continue
             
+            # Blocos extras do workspace
+            for rect_nota, nota_circulo in getattr(estado, 'rects_circulo', []):
+                if rect_nota.collidepoint(evento.pos):
+                    meu_campo_harmonico.tonica_campo = nota_circulo
+                    estado.tom_atual = nota_circulo
+                    if meu_campo_harmonico.indice_acorde_selecionado != -1:
+                        meu_campo_harmonico.calcular_notas_acorde_selecionado()
+                    dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
+                    break
+            else:
+                if (hasattr(estado, 'rect_btn_limpar_historico')
+                        and estado.rect_btn_limpar_historico.collidepoint(evento.pos)):
+                    estado.historico_notas = []
+                    continue
+                if (hasattr(estado, 'rect_btn_gravar_ideia')
+                        and estado.rect_btn_gravar_ideia.collidepoint(evento.pos)):
+                    from ui.components.blocos_extras import alternar_gravacao_ideia
+                    alternar_gravacao_ideia(estado, meu_gravador)
+                    continue
+
             # Pausa/retoma a contagem de tempo da sessao de estudo
             if (hasattr(estado, 'rect_btn_sessao_pausa')
                     and estado.rect_btn_sessao_pausa.collidepoint(evento.pos)

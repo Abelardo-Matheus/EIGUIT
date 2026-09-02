@@ -17,7 +17,10 @@ from ui.components import (
     desenhar_bloco_nota_atual, 
     desenhar_painel_cores, 
     desenhar_secoes_inferiores_expansiveis,
-    desenhar_painel_sessao
+    desenhar_painel_sessao,
+    desenhar_bloco_circulo,
+    desenhar_bloco_historico,
+    desenhar_bloco_ideias
 )
 from ui.blocks.guitar_neck import desenhar_guitarra
 from ui.components.utils import obter_grau, equivalencia_notas
@@ -50,6 +53,9 @@ def desenhar_workspace(tela, estado, configs, dicionario_escalas, fontes, meu_me
     desenhar_painel_cores(tela, estado, fontes)
     desenhar_bloco_nota_atual(tela, estado, fontes, configs, meu_gravador)
     desenhar_painel_sessao(tela, estado, fontes, configs)
+    desenhar_bloco_circulo(tela, estado, fontes, configs, meu_campo_harmonico)
+    desenhar_bloco_historico(tela, estado, fontes, configs)
+    desenhar_bloco_ideias(tela, estado, fontes, configs, meu_gravador)
     desenhar_controles_playback(tela, estado, meu_metronomo, fontes['ui'], configs)
     
     if hasattr(estado, 'lista_tabs'):
@@ -105,8 +111,9 @@ def _desenhar_tela_criacao_tablatura(tela, largura, altura, estado, fontes, conf
     """
     global render_tab_maker
     if render_tab_maker is None:
-        render_tab_maker = RenderizadorTablatura()
-        
+        from ui.editor_musical import EditorMusical
+        render_tab_maker = EditorMusical()
+
     render_tab_maker.desenhar_interface_tab(tela, estado, fontes, largura, altura, configs, meu_campo_harmonico)
 
 def desenhar_tudo(tela, estado, configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos):

@@ -114,6 +114,8 @@ def main():
             else:
                 notas_validas = meu_campo_harmonico.notas_da_escala()
             estado.sessao.registrar(estado.nota_atual_detectada, notas_validas)
+        from ui.components.blocos_extras import registrar_nota_historico
+        registrar_nota_historico(estado, estado.nota_atual_detectada)
         pos_mouse_real = original_get_pos()
         estado.pos_mouse_real = pos_mouse_real
         pos_mouse_virtual = minha_camera.obter_mouse_virtual(pos_mouse_real)

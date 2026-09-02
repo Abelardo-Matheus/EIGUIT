@@ -17,10 +17,14 @@ ALTURA_REF = 1040  # 1080 menos a barra superior de 40
 # nome -> (x, y, largura, altura) em pixels do canvas de referencia
 BLOCOS_REF = {
     'dragger_controles_topo': (40, 20, 700, 64),
-    'dragger_guitarra': (40, 100, 1180, 280),
+    'dragger_guitarra': (40, 96, 1180, 264),
     'dragger_cores': (1560, 20, 320, 150),
     'dragger_nota_atual': (1250, 190, 630, 300),
-    'dragger_acordes': (40, 420, 1180, 150),
+    'dragger_acordes': (40, 376, 1180, 132),
+    # Faixa livre acima do painel inferior, que sobe 280px quando abre
+    'dragger_circulo': (40, 520, 180, 144),
+    'dragger_historico': (232, 520, 336, 144),
+    'dragger_ideias': (580, 520, 210, 144),
     'dragger_metronomo': (1250, 510, 330, 340),
     'dragger_sessao': (1600, 510, 280, 180),
     'dragger_painel_inferior': (40, 960, 1840, 40),
@@ -33,6 +37,9 @@ MINIMOS = {
     'dragger_cores': (170, 120),
     'dragger_nota_atual': (280, 200),
     'dragger_acordes': (420, 110),
+    'dragger_circulo': (150, 120),
+    'dragger_historico': (220, 100),
+    'dragger_ideias': (170, 96),
     'dragger_metronomo': (240, 104),
     'dragger_sessao': (200, 130),
     'dragger_painel_inferior': (600, 38),
