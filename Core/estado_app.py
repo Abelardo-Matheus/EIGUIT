@@ -148,6 +148,9 @@ class EstadoGlobal:
         # Capotraste: casa escolhida, 0 = sem capo
         self.capo_casa = 0
         self.rects_capo = []
+        # Gaveteiro lateral: todos os blocos comecam guardados na coluna
+        from ui.components.gaveteiro import preparar as preparar_gaveteiro
+        preparar_gaveteiro(self)
         self.nota_selecionada_bloco = 'C'
         self.rects_notas_selecao = []
         self.instrumento = 'guitarra'

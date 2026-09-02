@@ -3,7 +3,9 @@
 Previews do workspace e dos blocos extras.
 
 Gera, nos dois temas, em _preview_design/:
-- workspace_<tema>.png   : a tela inteira como o programa abre
+- workspace_<tema>.png   : a tela inteira como o programa abre, com a coluna
+                           das gavetas fechada e o resto guardado
+- gaveteiro_<tema>.png   : a coluna aberta e alguns blocos ja na tela
 - _z_ws_<tema>.png       : o workspace sem a barra superior, para olhar o miolo
 - blocos_novos_<tema>.png: cada bloco extra nos tres tamanhos de teste
 - ciclo_quintas_<tema>.png: o estudo do ciclo das quintas
@@ -57,6 +59,7 @@ def workspace(tema):
 
 def blocos(tema):
     ctx = Contexto(1920, 1080, tema)
+    ctx.estado.blocos_guardados = set()
     ctx.estado.historico_notas = ['C', 'D', 'F#', 'A', 'C', 'E', 'G', 'A#']
     ctx.estado.ideias_recentes = ['Ideias/ideia_2026-09-01_10-12-33.wav',
                                   'Ideias/ideia_2026-08-30_21-04-02.wav']
@@ -89,6 +92,29 @@ def blocos(tema):
     salvar(tela, f'blocos_novos_{tema}.png')
 
 
+def gaveteiro(tema):
+    """A coluna aberta, com parte dos blocos ja fora da gaveta."""
+    from ui.components import gaveteiro as gv
+    ctx = Contexto(1920, 1080, tema)
+    ctx.estado.historico_notas = ['C', 'D', 'F#', 'A', 'C', 'E', 'G', 'A#']
+    for nome in ('dragger_circulo', 'dragger_graus', 'dragger_historico',
+                 'dragger_progressoes'):
+        gv.soltar(ctx.estado, nome)
+    ctx.estado.mouse_workspace = (10, 400)
+    for _ in range(40):
+        gv.atualizar(ctx.estado, 1080 - ALTURA_TOPBAR)
+
+    tela = pygame.Surface((1920, 1080), pygame.SRCALPHA)
+    ds.fundo_app(tela)
+    viewport = tela.subsurface(pygame.Rect(0, ALTURA_TOPBAR, 1920,
+                                           1080 - ALTURA_TOPBAR))
+    renderizador_ui.desenhar_workspace(
+        viewport, ctx.estado, ctx.configs, ctx.escalas, ctx.fontes,
+        ctx.metronomo, ctx.processador, ctx.gravador, ctx.campo, ctx.jogos)
+    desenhar_painel_superior(tela, ctx.estado, ctx.fontes, ctx.configs)
+    salvar(tela, f'gaveteiro_{tema}.png')
+
+
 def ciclo(tema):
     import Estudos.estudo_ciclo_quintas as estudo_ciclo
     ctx = Contexto(1600, 900, tema)
@@ -104,6 +130,7 @@ if __name__ == '__main__':
         print(f'[{tema}]')
         harness.definir_tema(tema)
         workspace(tema)
+        gaveteiro(tema)
         blocos(tema)
         ciclo(tema)
     print('preview2 concluido')

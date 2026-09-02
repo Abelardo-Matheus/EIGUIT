@@ -20,8 +20,9 @@ def obter_draggers_ativos(estado):
                'dragger_circulo', 'dragger_historico', 'dragger_ideias',
                'dragger_drone', 'dragger_progressoes', 'dragger_graus',
                'dragger_cordas', 'dragger_capo']
+    from ui.components.gaveteiro import visivel as bloco_na_tela
     for d in simples:
-        if hasattr(estado, d):
+        if hasattr(estado, d) and bloco_na_tela(estado, d):
             lista.append(getattr(estado, d))
     if hasattr(estado, 'lista_guitarras'):
         lista.extend(reversed(estado.lista_guitarras))
@@ -275,6 +276,11 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                 except Exception as e:
                     print(f'[DROP] Erro ao copiar MIDI: {e}')
         if evento.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
+            # O gaveteiro lateral vem antes: e ele quem tira e guarda bloco
+            from ui.components.gaveteiro import tratar_evento_gaveteiro
+            if tratar_evento_gaveteiro(estado, evento):
+                continue
+
             # Prioridade para drag and drop global
             draggers = obter_draggers_ativos(estado)
             clicou_em_dragger = False
@@ -282,7 +288,8 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             # Processar eventos de mouse para todos os draggers
             for dragger in draggers:
                 pos_ref = evento.pos
-                pode_interagir = estado.drag_ativado or isinstance(dragger, BlocoTablatura)
+                pode_interagir = (estado.drag_ativado or dragger.arrastando
+                                  or isinstance(dragger, BlocoTablatura))
                 
                 if pode_interagir:
                     evt_dict = evento.dict.copy()
@@ -432,7 +439,8 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             for dragger in obter_draggers_ativos(estado):
                 is_fixo = dragger == getattr(estado, 'dragger_controles_topo', None)
                 pos_clique = pos_real if is_fixo else evento.pos
-                pode_arrastar = estado.drag_ativado or isinstance(dragger, BlocoTablatura)
+                pode_arrastar = (estado.drag_ativado or dragger.arrastando
+                                 or isinstance(dragger, BlocoTablatura))
                 if pode_arrastar:
                     margem = 20 if hasattr(dragger, 'num_cordas') else 5
                     evt_dict = evento.dict.copy()

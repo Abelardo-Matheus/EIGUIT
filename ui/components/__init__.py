@@ -14,3 +14,6 @@ from .blocos_extras import (BLOCOS_EXTRAS, PROGRESSOES_RAPIDAS,
                             desenhar_bloco_ideias, desenhar_bloco_progressoes,
                             desenhar_blocos_extras, registrar_nota_historico,
                             tratar_clique_blocos)
+from .gaveteiro import (GAVETAS as GAVETAS_LATERAIS, desenhar_gaveteiro,
+                        guardar_bloco, soltar_bloco, alternar_bloco,
+                        bloco_visivel, tratar_evento_gaveteiro)

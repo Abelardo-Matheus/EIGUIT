@@ -10,6 +10,10 @@ Cada bloco tem tambem um tamanho minimo, para que em telas pequenas os paineis
 continuem utilizaveis em vez de colapsar.
 """
 
+# Faixa reservada na esquerda para a coluna do gaveteiro fechada, para
+# nenhum bloco abrir por baixo dela
+MARGEM_ESQUERDA = 48
+
 # Referencia do canvas
 LARGURA_REF = 1920
 ALTURA_REF = 1040  # 1080 menos a barra superior de 40
@@ -74,10 +78,11 @@ def calcular(largura_tela, altura_viewport):
         nova_x = int(x * escala_x)
         nova_y = int(y * escala_y)
 
-        # Mantem o bloco inteiro dentro da area util
-        nova_w = min(nova_w, max(min_w, largura_tela - 20))
+        # Mantem o bloco inteiro dentro da area util, ja descontada a faixa
+        # que a coluna do gaveteiro ocupa na esquerda
+        nova_w = min(nova_w, max(min_w, largura_tela - MARGEM_ESQUERDA - 10))
         nova_h = min(nova_h, max(min_h, altura_viewport - 20))
-        nova_x = max(10, min(nova_x, largura_tela - nova_w - 10))
+        nova_x = max(MARGEM_ESQUERDA, min(nova_x, largura_tela - nova_w - 10))
         nova_y = max(10, min(nova_y, altura_viewport - nova_h - 10))
 
         layout[nome] = {'x': nova_x, 'y': nova_y, 'w': nova_w, 'h': nova_h}

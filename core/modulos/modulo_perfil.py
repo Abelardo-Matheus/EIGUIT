@@ -151,7 +151,7 @@ class GerenciadorPerfil:
         if not nome_arquivo.endswith('.json'):
             nome_arquivo += '.json'
         caminho = os.path.join(self.pasta_padrao, nome_arquivo)
-        dados = {'posicoes_draggers': {}, 'estado': {'instrumento': getattr(estado, 'instrumento', 'guitarra'), 'NUM_CASAS': getattr(estado, 'NUM_CASAS', 18), 'tom_atual': getattr(estado, 'tom_atual', 'C'), 'indice_afinacao': getattr(estado, 'indice_afinacao', 0), 'indice_cor_tonica': getattr(estado, 'indice_cor_tonica', 0), 'indice_cor_terca': getattr(estado, 'indice_cor_terca', 0), 'indice_cor_quinta': getattr(estado, 'indice_cor_quinta', 0), 'afinador_suavizacao': getattr(estado, 'afinador_suavizacao', 5), 'afinador_sensibilidade': getattr(estado, 'afinador_sensibilidade', 0.5), 'capo_casa': getattr(estado, 'capo_casa', 0), 'drone_nota': getattr(estado, 'drone_nota', 'C')}, 'configs': {'transparencia': getattr(configs, 'transparencia', 100), 'cor_braco': getattr(configs, 'cor_braco', (80, 40, 15)), 'cor_notas': getattr(configs, 'cor_notas', (255, 255, 255)), 'indice_modo': getattr(configs, 'indice_modo', 0), 'indice_fonte': getattr(configs, 'indice_fonte', 0), 'indice_idioma': getattr(configs, 'indice_idioma', 0)}, 'campo_harmonico': {'tonica_campo': getattr(campo, 'tonica_campo', 'C'), 'indice_escala_campo': getattr(campo, 'indice_escala_campo', 0)}, 'gravador': {'device_id': getattr(gravador, 'device_id', None)}}
+        dados = {'posicoes_draggers': {}, 'estado': {'instrumento': getattr(estado, 'instrumento', 'guitarra'), 'NUM_CASAS': getattr(estado, 'NUM_CASAS', 18), 'tom_atual': getattr(estado, 'tom_atual', 'C'), 'indice_afinacao': getattr(estado, 'indice_afinacao', 0), 'indice_cor_tonica': getattr(estado, 'indice_cor_tonica', 0), 'indice_cor_terca': getattr(estado, 'indice_cor_terca', 0), 'indice_cor_quinta': getattr(estado, 'indice_cor_quinta', 0), 'afinador_suavizacao': getattr(estado, 'afinador_suavizacao', 5), 'afinador_sensibilidade': getattr(estado, 'afinador_sensibilidade', 0.5), 'capo_casa': getattr(estado, 'capo_casa', 0), 'drone_nota': getattr(estado, 'drone_nota', 'C'), 'blocos_guardados': sorted(getattr(estado, 'blocos_guardados', []) or [])}, 'configs': {'transparencia': getattr(configs, 'transparencia', 100), 'cor_braco': getattr(configs, 'cor_braco', (80, 40, 15)), 'cor_notas': getattr(configs, 'cor_notas', (255, 255, 255)), 'indice_modo': getattr(configs, 'indice_modo', 0), 'indice_fonte': getattr(configs, 'indice_fonte', 0), 'indice_idioma': getattr(configs, 'indice_idioma', 0)}, 'campo_harmonico': {'tonica_campo': getattr(campo, 'tonica_campo', 'C'), 'indice_escala_campo': getattr(campo, 'indice_escala_campo', 0)}, 'gravador': {'device_id': getattr(gravador, 'device_id', None)}}
         lista_draggers = ['dragger_guitarra', 'dragger_acordes', 'dragger_controles_topo', 'dragger_painel_inferior', 'dragger_metronomo', 'dragger_cores', 'dragger_nota_atual', 'dragger_sessao', 'dragger_circulo', 'dragger_historico', 'dragger_ideias', 'dragger_drone', 'dragger_progressoes', 'dragger_graus', 'dragger_cordas', 'dragger_capo']
         for nome in lista_draggers:
             if hasattr(estado, nome):
@@ -216,6 +216,12 @@ class GerenciadorPerfil:
                 # Blocos extras: capotraste e nota de referencia do drone
                 estado.capo_casa = d_est.get('capo_casa', 0)
                 estado.drone_nota = d_est.get('drone_nota', 'C')
+                # Gaveteiro: quais blocos ficaram guardados na coluna
+                from ui.components.gaveteiro import NOMES as NOMES_GAVETAS
+                guardados = d_est.get('blocos_guardados')
+                if guardados is not None:
+                    estado.blocos_guardados = {n for n in guardados
+                                               if n in NOMES_GAVETAS}
                 estado.afinador_sensibilidade = d_est.get('afinador_sensibilidade', 0.5)
             if 'configs' in dados:
                 d_cfg = dados['configs']

@@ -47,6 +47,8 @@ s = Suite('teste_blocos')
 
 def _preparar(ctx):
     """Estado com conteudo em todos os blocos, para nada desenhar vazio."""
+    # Os blocos nascem guardados no gaveteiro; aqui eles precisam estar na tela
+    ctx.estado.blocos_guardados = set()
     ctx.estado.historico_notas = ['C', 'D', 'F#', 'A', 'C', 'E', 'G', 'A#']
     ctx.estado.ideias_recentes = ['Ideias/ideia_2026-09-01_10-00-00.wav',
                                   'Ideias/ideia_2026-09-01_09-00-00.wav']
@@ -385,5 +387,193 @@ s.teste('cliques no capotraste e nas cordas', clique_no_capo_e_nas_cordas)
 s.teste('botao de limpar o historico', limpar_historico_pelo_botao)
 s.teste('bloco pequeno demais nao deixa alvo clicavel', bloco_minusculo_nao_deixa_alvo)
 s.teste('blocos funcionam sem motor de audio', sem_motor_de_audio_nao_quebra)
+
+# ---------------------------------------------------------------------------
+# 5. GAVETEIRO LATERAL
+# ---------------------------------------------------------------------------
+
+from ui.components import gaveteiro as gv          # noqa: E402
+from ui import renderizador_ui                     # noqa: E402
+
+TELA_CHEIA = (1920, 1040)
+
+
+def _workspace(ctx):
+    """Desenha um quadro inteiro do workspace e devolve a superficie."""
+    tela = pygame.Surface(TELA_CHEIA, pygame.SRCALPHA)
+    renderizador_ui.desenhar_workspace(
+        tela, ctx.estado, ctx.configs, ctx.escalas, ctx.fontes, ctx.metronomo,
+        ctx.processador, ctx.gravador, ctx.campo, ctx.jogos)
+    return tela
+
+
+def _abrir_coluna(ctx):
+    """Deixa a coluna aberta, como depois de o mouse parar em cima dela."""
+    ctx.estado.mouse_workspace = (8, 300)
+    for _ in range(40):
+        gv.atualizar(ctx.estado, TELA_CHEIA[1])
+    return _workspace(ctx)
+
+
+def tudo_comeca_guardado():
+    ctx = Contexto()
+    s.checar(set(ctx.estado.blocos_guardados) == set(gv.NOMES),
+             'todo bloco do gaveteiro comeca guardado')
+    for nome in gv.NOMES:
+        s.checar(not gv.visivel(ctx.estado, nome), f'{nome} deveria estar guardado')
+    s.checar(gv.visivel(ctx.estado, 'dragger_guitarra'),
+             'o braco nao entra no gaveteiro')
+    s.checar(gv.visivel(ctx.estado, 'dragger_painel_inferior'),
+             'a barra de abas nao entra no gaveteiro')
+    s.checar(gv.visivel(ctx.estado, 'dragger_controles_topo'),
+             'os controles do topo nao entram no gaveteiro')
+
+
+def bloco_guardado_nao_deixa_alvo():
+    ctx = Contexto()
+    _workspace(ctx)
+    for nome, _fn in bx.BLOCOS_EXTRAS:
+        alvos = _rects_do_bloco(ctx.estado, nome)
+        s.checar(not alvos, f'{nome} guardado ainda deixou alvo {alvos[:1]}')
+
+
+def coluna_abre_no_hover_e_fecha():
+    ctx = Contexto()
+    _workspace(ctx)
+    s.checar(gv.largura_atual(ctx.estado) == gv.LARGURA_FECHADO,
+             'a coluna comeca fechada')
+    _abrir_coluna(ctx)
+    s.checar(gv.largura_atual(ctx.estado) == gv.LARGURA_ABERTO,
+             'a coluna abre com o mouse em cima')
+    ctx.estado.mouse_workspace = (900, 500)
+    for _ in range(40):
+        gv.atualizar(ctx.estado, TELA_CHEIA[1])
+    s.checar(gv.largura_atual(ctx.estado) == gv.LARGURA_FECHADO,
+             'a coluna fecha quando o mouse sai')
+
+
+def gavetas_dentro_da_coluna():
+    ctx = Contexto()
+    _abrir_coluna(ctx)
+    s.checar(len(ctx.estado.rects_gavetas) == len(gv.GAVETAS),
+             f'{len(ctx.estado.rects_gavetas)} gavetas desenhadas')
+    coluna = pygame.Rect(0, 0, gv.largura_atual(ctx.estado), TELA_CHEIA[1])
+    vistos = []
+    for rect, nome in ctx.estado.rects_gavetas:
+        s.checar(coluna.contains(rect), f'gaveta {nome} fora da coluna: {rect}')
+        for outro in vistos:
+            s.checar(not rect.colliderect(outro), f'gavetas sobrepostas em {nome}')
+        vistos.append(rect)
+
+
+def clique_tira_e_guarda():
+    ctx = Contexto()
+    _abrir_coluna(ctx)
+    for rect, nome in list(ctx.estado.rects_gavetas):
+        clique = pygame.event.Event(pygame.MOUSEBUTTONDOWN,
+                                    {'pos': rect.center, 'button': 1})
+        s.checar(gv.tratar_evento(ctx.estado, clique), f'clique na gaveta {nome}')
+        s.checar(gv.visivel(ctx.estado, nome), f'{nome} deveria ter saido')
+        bloco = getattr(ctx.estado, nome)
+        s.checar(bloco.x >= gv.LARGURA_FECHADO,
+                 f'{nome} saiu por baixo da coluna (x={bloco.x})')
+        gv.tratar_evento(ctx.estado, pygame.event.Event(
+            pygame.MOUSEBUTTONUP, {'pos': rect.center, 'button': 1}))
+        s.checar(gv.visivel(ctx.estado, nome), f'{nome} sumiu ao soltar o clique')
+        gv.tratar_evento(ctx.estado, clique)
+        s.checar(not gv.visivel(ctx.estado, nome), f'{nome} deveria ter voltado')
+
+
+def arrastar_tira_o_bloco_e_largar_na_coluna_guarda():
+    ctx = Contexto()
+    _abrir_coluna(ctx)
+    rect, nome = ctx.estado.rects_gavetas[0]
+    bloco = getattr(ctx.estado, nome)
+
+    gv.tratar_evento(ctx.estado, pygame.event.Event(
+        pygame.MOUSEBUTTONDOWN, {'pos': rect.center, 'button': 1}))
+    destino = (900, 420)
+    gv.tratar_evento(ctx.estado, pygame.event.Event(
+        pygame.MOUSEMOTION, {'pos': destino, 'rel': (0, 0), 'buttons': (1, 0, 0)}))
+    s.checar(bloco.arrastando, 'o bloco saiu preso ao mouse')
+    centro_x = bloco.x + bloco.largura // 2
+    s.checar(abs(centro_x - destino[0]) < 40,
+             f'o bloco nao acompanhou o mouse (centro em {centro_x})')
+    gv.tratar_evento(ctx.estado, pygame.event.Event(
+        pygame.MOUSEBUTTONUP, {'pos': destino, 'button': 1}))
+    s.checar(gv.visivel(ctx.estado, nome), 'largado na tela, o bloco fica')
+    s.checar(not bloco.arrastando, 'o arrasto terminou')
+
+    # Agora arrasta de volta para cima da coluna
+    bloco.arrastando = True
+    bloco.x, bloco.y = 4, 300
+    gv.tratar_evento(ctx.estado, pygame.event.Event(
+        pygame.MOUSEBUTTONUP, {'pos': (10, 300), 'button': 1}))
+    s.checar(not gv.visivel(ctx.estado, nome),
+             'largado na coluna, o bloco volta para a gaveta')
+
+
+def coluna_nao_pinta_fora_de_si():
+    """A coluna e desenhada com recorte: nada dela cai sobre o workspace."""
+    for tema in harness.TEMAS:
+        ctx = Contexto(tema=tema)
+        _abrir_coluna(ctx)
+        tela = pygame.Surface(TELA_CHEIA, pygame.SRCALPHA)
+        tela.fill((0, 0, 0, 0))
+        gv.desenhar(tela, ctx.estado, ctx.fontes, ctx.configs)
+        limite = gv.largura_atual(ctx.estado) + 16     # tolera a sombra
+        fora = []
+        for y in range(0, TELA_CHEIA[1], 2):
+            for x in range(limite, TELA_CHEIA[0], 2):
+                if tela.get_at((x, y))[3] != 0:
+                    fora.append((x, y))
+                    break
+            if fora:
+                break
+        s.checar(not fora, f'[{tema}] a coluna pintou em {fora[:3]}')
+
+
+def coluna_encolhida_continua_utilizavel():
+    """Em tela baixa as gavetas encolhem, mas continuam todas na coluna."""
+    ctx = Contexto(1280, 720)
+    ctx.estado.mouse_workspace = (8, 200)
+    for _ in range(40):
+        gv.atualizar(ctx.estado, 680)
+    tela = pygame.Surface((1280, 680), pygame.SRCALPHA)
+    gv.desenhar(tela, ctx.estado, ctx.fontes, ctx.configs)
+    s.checar(len(ctx.estado.rects_gavetas) == len(gv.GAVETAS),
+             f'so {len(ctx.estado.rects_gavetas)} gavetas couberam em 720p')
+    coluna = pygame.Rect(0, 0, gv.largura_atual(ctx.estado), 680)
+    for rect, nome in ctx.estado.rects_gavetas:
+        s.checar(coluna.contains(rect), f'{nome} fora da coluna em 720p')
+        s.checar(rect.height >= 20, f'{nome} virou uma gaveta clicavel demais fina')
+
+
+def gaveteiro_calado_com_tela_cheia():
+    """Com um estudo aberto, o clique nao pode cair numa gaveta antiga."""
+    ctx = Contexto()
+    _abrir_coluna(ctx)
+    rect, nome = ctx.estado.rects_gavetas[0]
+    ctx.estado.tela_estudo_ativa = True
+    clique = pygame.event.Event(pygame.MOUSEBUTTONDOWN,
+                                {'pos': rect.center, 'button': 1})
+    s.checar(gv.tratar_evento(ctx.estado, clique) is False,
+             'o gaveteiro nao deveria responder com a tela de estudo aberta')
+    s.checar(not gv.visivel(ctx.estado, nome), f'{nome} saiu sem querer')
+    ctx.estado.tela_estudo_ativa = False
+    s.checar(gv.tratar_evento(ctx.estado, clique), 'volta a responder depois')
+
+
+s.teste('todo bloco comeca guardado na coluna', tudo_comeca_guardado)
+s.teste('gaveteiro fica calado com a tela cheia aberta',
+        gaveteiro_calado_com_tela_cheia)
+s.teste('bloco guardado nao deixa alvo clicavel', bloco_guardado_nao_deixa_alvo)
+s.teste('a coluna abre no hover e fecha ao sair', coluna_abre_no_hover_e_fecha)
+s.teste('as gavetas ficam dentro da coluna, sem sobrepor', gavetas_dentro_da_coluna)
+s.teste('clique tira o bloco e clique de novo guarda', clique_tira_e_guarda)
+s.teste('arrastar tira, largar na coluna guarda',
+        arrastar_tira_o_bloco_e_largar_na_coluna_guarda)
+s.teste('a coluna nao pinta fora de si', coluna_nao_pinta_fora_de_si)
+s.teste('as gavetas cabem em tela baixa', coluna_encolhida_continua_utilizavel)
 
 s.encerrar()

@@ -215,6 +215,11 @@ def _moldura(tela, estado, nome, titulo, fontes, configs=None):
     if d is None:
         yield None
         return
+    # Bloco guardado no gaveteiro nao aparece nem deixa alvo para tras
+    from ui.components.gaveteiro import visivel as bloco_na_tela
+    if not bloco_na_tela(estado, f'dragger_{nome}'):
+        yield None
+        return
     if configs is not None:
         TEMA.definir_acento(configs.get_cor_tema())
 

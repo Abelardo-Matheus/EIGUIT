@@ -84,6 +84,7 @@ def braco_pequeno_nao_vaza():
 
 def bloco_de_cordas_segue_a_afinacao():
     ctx = Contexto()
+    ctx.estado.blocos_guardados = set()      # tira o bloco do gaveteiro
     tela = pygame.Surface((600, 400), pygame.SRCALPHA)
     for indice, afinacao in enumerate(lista_afinacoes):
         ctx.estado.indice_afinacao = indice

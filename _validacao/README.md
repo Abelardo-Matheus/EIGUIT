@@ -22,9 +22,14 @@ qualquer maquina, inclusive sem microfone.
 | `teste_estudo_notas.py` | partida completa do estudo de notas |
 | `teste_ciclo.py` | estudo do ciclo das quintas e a teoria por tras do bloco |
 | `teste_editor.py` | criacao musical: escrever, andar, exportar |
-| `teste_blocos.py` | blocos extras: valores, limites e cliques em tres tamanhos |
+| `teste_blocos.py` | blocos extras: valores, limites e cliques em tres tamanhos, mais o gaveteiro lateral |
 | `auditoria.py` | contraste, alvos da barra superior e regioes vazias |
 | `preview2/3/ritmo.py` | geram os PNGs de `_preview_design/` nos dois temas |
+
+O `teste_blocos.py` cobre tambem a coluna lateral: tudo comeca guardado, a
+coluna abre no hover, a gaveta tira e guarda o bloco por clique e por arrasto,
+largar em cima da coluna guarda de volta, e um bloco guardado nao deixa alvo
+de clique para tras.
 
 O `teste_blocos.py` prova que nenhum bloco pinta fora do proprio retangulo:
 desenha o bloco duas vezes, uma com conteudo e outra so com a moldura, e

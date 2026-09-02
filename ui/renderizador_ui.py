@@ -18,7 +18,9 @@ from ui.components import (
     desenhar_painel_cores, 
     desenhar_secoes_inferiores_expansiveis,
     desenhar_painel_sessao,
-    desenhar_blocos_extras
+    desenhar_blocos_extras,
+    desenhar_gaveteiro,
+    bloco_visivel
 )
 from ui.blocks.guitar_neck import desenhar_guitarra
 from ui.components.utils import obter_grau, equivalencia_notas
@@ -47,19 +49,28 @@ def desenhar_workspace(tela, estado, configs, dicionario_escalas, fontes, meu_me
         desenhar_guitarra(tela, estado, configs, fontes, meu_processador, meu_campo_harmonico)
     
     desenhar_controles_instrumento(tela, estado, fontes, configs)
-    desenhar_acordes_arrastaveis(tela, estado, meu_campo_harmonico, fontes)
-    desenhar_painel_cores(tela, estado, fontes)
-    desenhar_bloco_nota_atual(tela, estado, fontes, configs, meu_gravador)
-    desenhar_painel_sessao(tela, estado, fontes, configs)
+    # Os blocos guardados no gaveteiro nao sao desenhados nem recebem clique
+    if bloco_visivel(estado, 'dragger_acordes'):
+        desenhar_acordes_arrastaveis(tela, estado, meu_campo_harmonico, fontes)
+    if bloco_visivel(estado, 'dragger_cores'):
+        desenhar_painel_cores(tela, estado, fontes)
+    if bloco_visivel(estado, 'dragger_nota_atual'):
+        desenhar_bloco_nota_atual(tela, estado, fontes, configs, meu_gravador)
+    if bloco_visivel(estado, 'dragger_sessao'):
+        desenhar_painel_sessao(tela, estado, fontes, configs)
     desenhar_blocos_extras(tela, estado, fontes, configs, meu_campo_harmonico,
                            meu_gravador)
-    desenhar_controles_playback(tela, estado, meu_metronomo, fontes['ui'], configs)
+    if bloco_visivel(estado, 'dragger_metronomo'):
+        desenhar_controles_playback(tela, estado, meu_metronomo, fontes['ui'], configs)
     
     if hasattr(estado, 'lista_tabs'):
         for tab in estado.lista_tabs:
             tab.desenhar(tela, fontes)
             
     desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador, meu_gerenciador_jogos)
+
+    # A coluna das gavetas fica por cima de tudo do workspace
+    desenhar_gaveteiro(tela, estado, fontes, configs)
 
 def desenhar_ui_fixa(tela, estado, fontes, meu_gravador, configs, meu_gerenciador_jogos, meu_campo_harmonico=None):
     largura_real = tela.get_width()

@@ -78,9 +78,12 @@ def auditar_contraste(tema):
     s.checar(not problemas, 'contraste insuficiente -> ' + '; '.join(problemas))
 
 
-def _quadro(tema):
+def _quadro(tema, com_blocos_na_tela=True):
     """Desenha um quadro completo e devolve (contexto, tela)."""
     ctx = Contexto(LARGURA, ALTURA, tema)
+    if com_blocos_na_tela:
+        # A auditoria de regiao so faz sentido com os blocos fora da gaveta
+        ctx.estado.blocos_guardados = set()
     ctx.estado.historico_notas = ['C', 'D', 'F#', 'A', 'C', 'E', 'G', 'A#']
     ctx.estado.ideias_recentes = ['Ideias/ideia_2026-09-01_10-12-33.wav']
     ctx.estado.grau_selecionado = 4
@@ -96,6 +99,27 @@ def _quadro(tema):
         ctx.metronomo, ctx.processador, ctx.gravador, ctx.campo, ctx.jogos)
     desenhar_painel_superior(tela, ctx.estado, ctx.fontes, ctx.configs)
     return ctx, tela
+
+
+def auditar_gavetas(tema):
+    """As gavetas sao alvo de clique como qualquer outro: tamanho e limites."""
+    from ui.components import gaveteiro as gv
+    ctx, _tela = _quadro(tema, com_blocos_na_tela=False)
+    ctx.estado.mouse_workspace = (8, 300)
+    for _ in range(40):
+        gv.atualizar(ctx.estado, ALTURA - ALTURA_TOPBAR)
+    tela = pygame.Surface((LARGURA, ALTURA - ALTURA_TOPBAR), pygame.SRCALPHA)
+    gv.desenhar(tela, ctx.estado, ctx.fontes, ctx.configs)
+
+    problemas = []
+    s.checar(ctx.estado.rects_gavetas, 'o gaveteiro nao desenhou gaveta nenhuma')
+    coluna = pygame.Rect(0, 0, gv.largura_atual(ctx.estado), ALTURA - ALTURA_TOPBAR)
+    for rect, nome in ctx.estado.rects_gavetas:
+        if not coluna.contains(rect):
+            problemas.append(f'{nome} sai da coluna')
+        if rect.height < ALVO_MINIMO:
+            problemas.append(f'{nome} baixa demais ({rect.height}px)')
+    s.checar(not problemas, 'gavetas -> ' + '; '.join(problemas))
 
 
 def auditar_alvos_topo(tema):
@@ -143,6 +167,11 @@ def _fracao_de_conteudo(tela, rect):
 def auditar_regioes(tema):
     ctx, tela = _quadro(tema)
     problemas = []
+    from ui.components import gaveteiro as gv
+    coluna = pygame.Rect(0, ALTURA_TOPBAR, gv.largura_atual(ctx.estado),
+                         ALTURA - ALTURA_TOPBAR)
+    if _fracao_de_conteudo(tela, coluna) < 0.02:
+        problemas.append('a coluna do gaveteiro ficou vazia')
     for nome in sorted(layout.BLOCOS_REF):
         bloco = getattr(ctx.estado, nome, None)
         if bloco is None:
@@ -154,6 +183,11 @@ def auditar_regioes(tema):
         if rect.width < 12 or rect.height < 12:
             problemas.append(f'{nome} ficou sem area visivel')
             continue
+        # A parte coberta pela coluna nao conta: ali quem manda e o gaveteiro
+        if rect.right <= coluna.right:
+            continue
+        rect = pygame.Rect(max(rect.x, coluna.right), rect.y,
+                           rect.right - max(rect.x, coluna.right), rect.height)
         fracao = _fracao_de_conteudo(tela, rect)
         if fracao < 0.02:
             problemas.append(f'{nome} vazio ({fracao * 100:.1f}% de conteudo)')
@@ -168,5 +202,7 @@ if __name__ == '__main__':
                 lambda t=_tema: auditar_alvos_topo(t))
         s.teste(f'[{_tema}] nenhuma regiao do layout fica vazia',
                 lambda t=_tema: auditar_regioes(t))
+        s.teste(f'[{_tema}] alvos das gavetas laterais',
+                lambda t=_tema: auditar_gavetas(t))
 
     s.encerrar()
