@@ -62,6 +62,21 @@ def eventos_sinteticos():
                           ctx.campo, ctx.jogos)
 
 
+def mesa_virtual_como_no_main():
+    """O main.py desenha o workspace numa mesa de 4000x3000; nada pode sumir."""
+    ctx = Contexto()
+    ctx.estado.blocos_guardados = set()
+    for secao in ctx.estado.secoes_inferiores:
+        secao['expandido'] = secao['conteudo'] == 'escalas'
+    mesa = pygame.Surface((4000, 3000), pygame.SRCALPHA)
+    renderizador_ui.desenhar_workspace(
+        mesa, ctx.estado, ctx.configs, ctx.escalas, ctx.fontes, ctx.metronomo,
+        ctx.processador, ctx.gravador, ctx.campo, ctx.jogos)
+    barra = ctx.estado.dragger_painel_inferior
+    s.checar(barra.y + barra.altura <= ctx.altura,
+             f'a barra foi parar em y={barra.y}, fora da tela')
+
+
 def sem_captura_de_audio():
     """Sem PortAudio o motor sobe degradado; o loop tem de seguir mesmo assim."""
     from audio.global_audio import GlobalAudioEngine
@@ -77,5 +92,6 @@ def sem_captura_de_audio():
 
 
 s.teste('eventos sinteticos passam pelo controlador', eventos_sinteticos)
+s.teste('workspace na mesa virtual do main', mesa_virtual_como_no_main)
 s.teste('workspace roda com o motor de audio sem captura', sem_captura_de_audio)
 s.encerrar()

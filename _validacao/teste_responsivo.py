@@ -155,7 +155,47 @@ def clique_encontra_a_gaveta_desenhada():
                  f'{largura}x{altura}: desenho {desenhado} != clique {do_clique}')
 
 
+def barra_e_coluna_ficam_na_tela_na_mesa_virtual():
+    """
+    O workspace e desenhado numa mesa virtual de 4000x3000 e a camera mostra
+    so um pedaco dela. Quem se prende ao rodape tem de usar o tamanho da tela,
+    e nao o da superficie, senao vai parar fora do monitor.
+    """
+    import pygame
+    from ui import renderizador_ui
+    from ui.components import gaveteiro as gv
+    for largura, altura in ((1920, 1080), (1366, 768)):
+        ctx = Contexto(largura, altura)
+        ctx.estado.secoes_inferiores[0]['expandido'] = True
+        mesa = pygame.Surface((4000, 3000), pygame.SRCALPHA)
+        renderizador_ui.desenhar_workspace(
+            mesa, ctx.estado, ctx.configs, ctx.escalas, ctx.fontes,
+            ctx.metronomo, ctx.processador, ctx.gravador, ctx.campo, ctx.jogos)
+        viewport = pygame.Rect(0, 0, largura, max(600, altura - ALTURA_TOPBAR))
+
+        barra = ctx.estado.dragger_painel_inferior
+        rect_barra = pygame.Rect(barra.x, barra.y, barra.largura, barra.altura)
+        s.checar(viewport.contains(rect_barra),
+                 f'{largura}x{altura}: a barra caiu fora da tela em {rect_barra}')
+
+        secao = ctx.estado.secoes_inferiores[0]
+        cabecalho = secao.get('rect_cabecalho')
+        s.checar(cabecalho is not None and viewport.contains(cabecalho),
+                 f'{largura}x{altura}: a aba nao foi desenhada dentro da tela')
+        painel = secao.get('rect_painel')
+        s.checar(painel is not None and viewport.contains(painel),
+                 f'{largura}x{altura}: a gaveta aberta caiu fora da tela')
+
+        coluna = ctx.estado.rect_gaveteiro
+        s.checar(viewport.contains(coluna),
+                 f'{largura}x{altura}: a coluna caiu fora da tela em {coluna}')
+        s.checar(len(ctx.estado.rects_gavetas) == len(gv.GAVETAS),
+                 f'{largura}x{altura}: gavetas de menos na mesa virtual')
+
+
 s.teste('todo bloco do canvas tem tamanho minimo', nomes_batem)
+s.teste('barra e coluna ficam na tela mesmo na mesa virtual',
+        barra_e_coluna_ficam_na_tela_na_mesa_virtual)
 s.teste('a barra de abas fica fixa no rodape', barra_fica_fixa_no_rodape)
 s.teste('braco e controles ficam centrados', tela_principal_fica_centrada)
 s.teste('a gaveta de baixo cresce com a tela', gaveta_de_baixo_cresce_com_a_tela)

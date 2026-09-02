@@ -249,7 +249,10 @@ def desenhar(tela, estado, fontes, configs=None):
     if configs is not None:
         TEMA.definir_acento(configs.get_cor_tema())
 
-    largura_tela, altura_tela = tela.get_size()
+    # Medidas da tela, nao da superficie: o workspace e desenhado numa mesa
+    # virtual muito maior, e a coluna tem de acompanhar o monitor
+    from ui.components.bottom_nav import medidas_viewport
+    largura_tela, altura_tela = medidas_viewport(estado, tela)
     atualizar(estado, altura_tela)
     estado.rects_gavetas = []
 

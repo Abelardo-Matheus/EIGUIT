@@ -102,6 +102,22 @@ def arranjo_miniaturas(quantidade, largura, altura, escala_maxima=1.1):
     return round(max(melhor[0], ESCALA_MINIATURA_BASE), 3), melhor[1]
 
 
+def medidas_viewport(estado, tela=None):
+    """
+        Como funciona: Devolve (largura, altura) da area visivel do workspace,
+        tirada do estado; a superficie so serve de reserva.
+        Para que serve: O workspace e desenhado numa mesa virtual de milhares
+        de pixels, entao o tamanho da superficie nao diz onde e o rodape.
+        Onde e usada: Barra inferior e coluna do gaveteiro.
+    """
+    from config.ui_metrics import ALTURA_TOPBAR
+    largura_reserva = tela.get_width() if tela is not None else 1920
+    altura_reserva = tela.get_height() if tela is not None else 1080
+    largura = int(getattr(estado, 'LARGURA_TELA', largura_reserva) or largura_reserva)
+    altura = int(getattr(estado, 'ALTURA_TELA', altura_reserva) or altura_reserva)
+    return max(320, largura), max(240, altura - ALTURA_TOPBAR)
+
+
 def fixar_barra(estado, largura_tela, altura_viewport):
     """
         Como funciona: Prende a barra de abas no rodape, com a largura toda
@@ -429,8 +445,11 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
         estado.acordes_no_braco = list(getattr(estado, 'acordes_fixados', []))
 
     alpha_atual = configs.get_alpha() if configs else 255
-    # A barra e fixa no rodape e a gaveta cresce com a tela
-    fixar_barra(estado, tela.get_width(), tela.get_height())
+    # A barra e fixa no rodape e a gaveta cresce com a tela. As medidas saem
+    # do estado, e nao da superficie: o workspace e desenhado numa mesa
+    # virtual bem maior que a tela, e pelo tamanho dela a barra ia parar
+    # fora do monitor.
+    fixar_barra(estado, *medidas_viewport(estado, tela))
     ALTURA_CAIXA = altura_caixa(estado)
     _atualizar_medidas(ALTURA_CAIXA)
     dragger = estado.dragger_painel_inferior
