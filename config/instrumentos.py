@@ -137,6 +137,19 @@ def _desenhar_braco(tela, rect, cfg, destaques, fonte, mostrar_casas=True,
                     ancora='center')
 
     raio = max(6, min(16, int(min(largura_casa, espaco_corda) * 0.4)))
+
+    # Toda posicao do braco fica clicavel, nao so as destacadas: os estudos
+    # de mapeamento precisam saber onde a pessoa clicou mesmo sem marca.
+    if rects_saida is not None:
+        for corda in range(n_cordas):
+            cy_c = area.bottom - corda * espaco_corda
+            for casa_rel in range(total_casas + 1):
+                cx_c = (area.x - largura_casa * 0.5 if casa_rel == 0
+                        else area.x + casa_rel * largura_casa - largura_casa / 2)
+                rects_saida.append((
+                    pygame.Rect(int(cx_c - raio), int(cy_c - raio), raio * 2, raio * 2),
+                    (corda, casa_inicial + casa_rel)))
+
     for (corda, casa), dados in (destaques or {}).items():
         if not (0 <= corda < n_cordas):
             continue
@@ -153,9 +166,7 @@ def _desenhar_braco(tela, rect, cfg, destaques, fonte, mostrar_casas=True,
         if rotulo and raio >= 9:
             ds.texto_em(tela, str(rotulo), fonte, (int(cx), int(cy)),
                         ds.contraste_texto(cor), ancora='center')
-        if rects_saida is not None:
-            rects_saida.append((pygame.Rect(int(cx - raio), int(cy - raio),
-                                            raio * 2, raio * 2), (corda, casa)))
+
 
 
 def _desenhar_teclado(tela, rect, cfg, destaques, fonte, rects_saida=None):

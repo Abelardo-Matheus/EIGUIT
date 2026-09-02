@@ -1,292 +1,411 @@
-import pygame
-import random
-import math
-import array
+# -*- coding: utf-8 -*-
+"""
+Estudo de notas no instrumento.
+
+Tres modos:
+
+- Adivinhar: o estudo aponta uma posicao e voce diz que nota e.
+- Mapear: o estudo pede uma nota e voce acha todas as posicoes dela.
+- Ouvir: o estudo toca uma nota e voce a identifica de ouvido.
+
+Funciona em qualquer instrumento do modelo compartilhado: guitarra de 6 e 7
+cordas, baixo de 4 e 5, ukulele, cavaquinho e teclado.
+"""
 import os
-import sys
-import core.modulos.escalas as escalas
-from config.app_settings import lista_afinacoes
+import random
+
+import numpy as np
+import pygame
+
+from config.design_system import TEMA, ds
+from config.instrumentos import (ORDEM_INSTRUMENTOS, config_instrumento,
+                                 desenhar_diagrama, nota_da_casa, NOTAS)
+from core.i18n import _t
+
+MODOS = [('adivinhar', 'Adivinhar'), ('mapear', 'Mapear'), ('ouvir', 'Ouvir')]
+
+FREQUENCIAS = {
+    'C': 261.63, 'C#': 277.18, 'D': 293.66, 'D#': 311.13, 'E': 329.63,
+    'F': 349.23, 'F#': 369.99, 'G': 392.0, 'G#': 415.30, 'A': 440.0,
+    'A#': 466.16, 'B': 493.88,
+}
+
 
 class AcerteANota:
     """
-        Como funciona: Define a estrutura e estado do componente 'AcerteANota'.
-        Para que serve: Atua como o modelo principal para instâncias de 'AcerteANota'.
-        Onde é usada: Chamado a partir do módulo ou classe base de 'estudo_notas'.
+        Como funciona: Sorteia posicoes ou notas no instrumento escolhido e
+        confere a resposta, mostrando o resultado no proprio diagrama.
+        Para que serve: Aprender onde cada nota mora em cada instrumento.
+        Onde e usada: Aba Estudos, secao Notas.
     """
 
     def __init__(self):
-        """
-            Como funciona: Inicializa os atributos e o estado inicial da instância.
-            Para que serve: Prepara o objeto para ser utilizado no ciclo de vida da aplicação.
-            Onde é usada: Chamado a partir do módulo ou classe base de 'estudo_notas'.
-        """
         self.modo_jogo = 'adivinhar'
+        self.instrumento = 'guitarra'
         self.casas_estudo = 12
+        self.timbre = 'sintetizado'
+
         self.acertos = 0
         self.total = 0
         self.feedback = ''
-        self.cor_feedback = (255, 255, 255)
+        self.cor_feedback = None
         self.tempo_feedback = 0
         self.inicializado = False
+
+        # modo adivinhar / ouvir
         self.corda_alvo = 0
         self.casa_alvo = 0
+        self.tecla_alvo = 0
         self.nota_correta = ''
-        self.rects_notas = {}
+        # modo mapear
         self.nota_alvo_mapear = ''
         self.posicoes_corretas = set()
         self.posicoes_encontradas = set()
-        self.timbre = 'sintetizado'
-        self.frequencias = {'C': 261.63, 'C#': 277.18, 'Db': 277.18, 'D': 293.66, 'D#': 311.13, 'Eb': 311.13, 'E': 329.63, 'F': 349.23, 'F#': 369.99, 'Gb': 369.99, 'G': 392.0, 'G#': 415.3, 'Ab': 415.3, 'A': 440.0, 'A#': 466.16, 'Bb': 466.16, 'B': 493.88}
+
         self.sons_sintetizados = {}
         self.sons_piano = {}
-        self.rect_btn_tocar = pygame.Rect(0, 0, 120, 120)
-        self.rect_btn_timbre = pygame.Rect(0, 0, 150, 35)
+
+        self.rects_notas = {}
+        self.rects_modo = []
+        self.rects_instrumento = []
+        self.rects_posicoes = []
+        self.rect_btn_tocar = pygame.Rect(0, 0, 0, 0)
+        self.rect_btn_timbre = pygame.Rect(0, 0, 0, 0)
         self.rect_btn_menos = pygame.Rect(0, 0, 0, 0)
         self.rect_btn_mais = pygame.Rect(0, 0, 0, 0)
-        self.rect_btn_adivinhar = pygame.Rect(0, 0, 0, 0)
-        self.rect_btn_mapear = pygame.Rect(0, 0, 0, 0)
-        self.rect_btn_ouvir = pygame.Rect(0, 0, 0, 0)
-        self.x_braco = 0
-        self.y_braco = 0
-        self.largura_braco = 0
-        self.altura_braco = 0
-        self.espaco_casas = 0
-        self.espaco_cordas = 0
-        self.num_cordas = 6
+
+        self._fontes = {}
         self._carregar_sons()
 
+    # ----------------------------------------------------------- recursos --
+    def _fonte(self, tamanho):
+        if tamanho not in self._fontes:
+            self._fontes[tamanho] = pygame.font.SysFont('Arial', tamanho, bold=True)
+        return self._fontes[tamanho]
+
+    def _gerar_amostra(self, freq, duracao=1.2, sample_rate=44100):
+        """Sintetiza a nota com decaimento exponencial, de forma vetorizada."""
+        n = int(sample_rate * duracao)
+        t = np.arange(n) / sample_rate
+        envelope = np.exp(-3.0 * t)
+        onda = (np.sin(2 * np.pi * freq * t)
+                + 0.3 * np.sin(4 * np.pi * freq * t)) * envelope
+        onda = onda / max(1e-6, np.max(np.abs(onda))) * 16384 * envelope
+        return pygame.mixer.Sound(onda.astype(np.int16))
+
     def _carregar_sons(self):
-        """
-            Como funciona: Executa o fluxo lógico necessário para a operação ' carregar sons'.
-            Para que serve: Realiza as tarefas fundamentais de ' carregar sons' dentro do contexto do módulo.
-            Onde é usada: Utilizado internamente para gerenciar comportamentos de ' carregar sons'.
-        """
+        """Sintetiza as doze notas e carrega amostras de piano, se houver."""
         if not pygame.mixer.get_init():
-            pygame.mixer.init(frequency=44100, size=-16, channels=1)
-        notas = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-        for n in notas:
-            if n in self.frequencias:
-                self.sons_sintetizados[n] = self._gerar_amostra(self.frequencias[n])
             try:
-                base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                caminho = os.path.join(base, 'Audios', f'{n}.wav')
+                pygame.mixer.init(frequency=44100, size=-16, channels=1)
+            except pygame.error:
+                return
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        for nome in NOTAS:
+            if nome in FREQUENCIAS:
+                try:
+                    self.sons_sintetizados[nome] = self._gerar_amostra(FREQUENCIAS[nome])
+                except (pygame.error, ValueError):
+                    pass
+            for pasta in ('Audios', os.path.join('assets', 'audio')):
+                caminho = os.path.join(base, pasta, f'{nome}.wav')
                 if os.path.exists(caminho):
-                    self.sons_piano[n] = pygame.mixer.Sound(caminho)
-            except:
-                pass
+                    try:
+                        self.sons_piano[nome] = pygame.mixer.Sound(caminho)
+                    except pygame.error:
+                        pass
+                    break
 
-    def _gerar_amostra(self, freq, duracao=1.2):
-        """
-            Como funciona: Executa o fluxo lógico necessário para a operação ' gerar amostra'.
-            Para que serve: Realiza as tarefas fundamentais de ' gerar amostra' dentro do contexto do módulo.
-            Onde é usada: Utilizado internamente para gerenciar comportamentos de ' gerar amostra'.
-        """
-        sample_rate = 44100
-        n_samples = int(sample_rate * duracao)
-        buf = array.array('h', [0] * n_samples)
-        for i in range(n_samples):
-            t = float(i) / sample_rate
-            envelope = math.exp(-3.0 * t)
-            v = int(envelope * 16384 * math.sin(2.0 * math.pi * freq * t))
-            buf[i] = v
-        return pygame.mixer.Sound(buf)
+    # -------------------------------------------------------------- logica --
+    @property
+    def config(self):
+        return config_instrumento(self.instrumento)
 
-    def inicializar_questao(self, estado):
+    @property
+    def de_corda(self):
+        return self.config['familia'] == 'corda'
+
+    def _casas_disponiveis(self):
+        return min(self.casas_estudo, self.config.get('casas', 12))
+
+    def inicializar_questao(self, estado=None):
         """
-            Como funciona: Prepara variáveis e limpa dados de sessões anteriores.
-            Para que serve: Configura o ambiente necessário para início de uma nova tarefa.
-            Onde é usada: Chamado a partir do módulo ou classe base de 'estudo_notas'.
+            Como funciona: Sorteia a proxima pergunta conforme o modo e o
+            instrumento escolhidos.
+            Para que serve: Encadear as perguntas do estudo.
+            Onde e usada: Ao abrir, ao trocar de ajuste e apos cada resposta.
         """
-        try:
-            notas_abertas = lista_afinacoes[estado.indice_afinacao]['notas']
-        except:
-            notas_abertas = ['E', 'A', 'D', 'G', 'B', 'E', 'B']
-        instrumento = getattr(estado, 'instrumento', 'guitarra')
-        self.num_cordas = 4 if instrumento == 'baixo' else estado.NUM_CORDAS
-        notas_botoes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+        self.rects_notas.clear()
         if self.modo_jogo == 'adivinhar':
-            self.corda_alvo = random.randint(0, self.num_cordas - 1)
-            self.casa_alvo = random.randint(1, self.casas_estudo)
-            nota_aberta_atual = notas_abertas[self.corda_alvo if instrumento != 'baixo' else self.corda_alvo + 2]
-            self.nota_correta = escalas.obter_nota(nota_aberta_atual, self.casa_alvo)
+            if self.de_corda:
+                cordas = self.config['cordas']
+                self.corda_alvo = random.randrange(len(cordas))
+                self.casa_alvo = random.randint(0, self._casas_disponiveis())
+                self.nota_correta = nota_da_casa(cordas[self.corda_alvo], self.casa_alvo)
+            else:
+                total = self.config.get('num_oitavas', 2) * 12
+                self.tecla_alvo = random.randrange(total)
+                self.nota_correta = NOTAS[self.tecla_alvo % 12]
+
         elif self.modo_jogo == 'mapear':
-            self.nota_alvo_mapear = random.choice(notas_botoes)
+            self.nota_alvo_mapear = random.choice(NOTAS)
             self.posicoes_corretas.clear()
             self.posicoes_encontradas.clear()
-            for c in range(self.num_cordas):
-                nota_aberta = notas_abertas[c if instrumento != 'baixo' else c + 2]
-                for casa in range(1, self.casas_estudo + 1):
-                    n_calc = escalas.obter_nota(nota_aberta, casa)
-                    if n_calc == self.nota_alvo_mapear or (self.nota_alvo_mapear == 'C#' and n_calc == 'Db') or (self.nota_alvo_mapear == 'Db' and n_calc == 'C#'):
-                        self.posicoes_corretas.add((c, casa))
+            if self.de_corda:
+                for c, solta in enumerate(self.config['cordas']):
+                    for casa in range(self._casas_disponiveis() + 1):
+                        if nota_da_casa(solta, casa) == self.nota_alvo_mapear:
+                            self.posicoes_corretas.add((c, casa))
+            else:
+                for i in range(self.config.get('num_oitavas', 2) * 12):
+                    if NOTAS[i % 12] == self.nota_alvo_mapear:
+                        self.posicoes_corretas.add(i)
+
         elif self.modo_jogo == 'ouvir':
-            self.nota_correta = random.choice(notas_botoes)
+            self.nota_correta = random.choice(NOTAS)
             self.tocar_nota_atual()
+
         self.inicializado = True
 
     def tocar_nota_atual(self):
-        """
-            Como funciona: Executa o fluxo lógico necessário para a operação 'tocar nota atual'.
-            Para que serve: Realiza as tarefas fundamentais de 'tocar nota atual' dentro do contexto do módulo.
-            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'tocar nota atual'.
-        """
-        if self.modo_jogo == 'ouvir':
-            bib = self.sons_piano if self.timbre == 'piano' and self.nota_correta in self.sons_piano else self.sons_sintetizados
-            if self.nota_correta in bib:
-                bib[self.nota_correta].play()
+        """Toca a nota da pergunta, no timbre escolhido."""
+        biblioteca = (self.sons_piano if self.timbre == 'piano'
+                      and self.nota_correta in self.sons_piano
+                      else self.sons_sintetizados)
+        som = biblioteca.get(self.nota_correta)
+        if som:
+            som.play()
 
-    def desenhar(self, tela, estado, fontes, meio_x, meio_y, cam_x, cam_y):
+    def _avisar(self, texto, cor):
+        self.feedback = texto
+        self.cor_feedback = cor
+        self.tempo_feedback = pygame.time.get_ticks() + 1500
+
+    def verificar_resposta(self, nota, estado=None):
+        """Confere a nota respondida nos modos adivinhar e ouvir."""
+        self.total += 1
+        if nota == self.nota_correta:
+            self.acertos += 1
+            self._avisar(_t('Acertou!'), TEMA.verde)
+        else:
+            self._avisar(f"{_t('Era')} {self.nota_correta}", TEMA.alerta)
+        self.inicializar_questao(estado)
+
+    def verificar_clique_mapeamento(self, posicao, estado=None):
+        """Confere um clique no modo mapear."""
+        if posicao in self.posicoes_corretas:
+            if posicao not in self.posicoes_encontradas:
+                self.posicoes_encontradas.add(posicao)
+                if len(self.posicoes_encontradas) == len(self.posicoes_corretas):
+                    self.acertos += 1
+                    self.total += 1
+                    self._avisar(_t('Achou todas!'), TEMA.verde)
+                    self.inicializar_questao(estado)
+        else:
+            self._avisar(_t('Essa nao e a nota'), TEMA.alerta)
+
+    # ------------------------------------------------------------ desenho --
+    def _barra(self, tela, rect, fontes):
+        """Modo, instrumento, casas e placar."""
+        pos_mouse = pygame.mouse.get_pos()
+        fonte = self._fonte(12)
+        y = rect.y
+
+        self.rects_modo = []
+        x = rect.x
+        for chave, rotulo in MODOS:
+            larg = fonte.size(_t(rotulo))[0] + 22
+            r = pygame.Rect(x, y, larg, 26)
+            self.rects_modo.append((r, chave))
+            ds.chip(tela, r, _t(rotulo), fonte, ativo=chave == self.modo_jogo)
+            x += larg + 5
+
+        # Placar a direita
+        precisao = int(self.acertos / self.total * 100) if self.total else 0
+        ds.texto_em(tela, f"{self.acertos}/{self.total}  ·  {precisao}%",
+                    self._fonte(14), (rect.right, y + 5),
+                    TEMA.verde if precisao >= 70 else TEMA.texto_suave,
+                    ancora='topright')
+
+        y += 32
+        self.rects_instrumento = []
+        x = rect.x
+        for chave in ORDEM_INSTRUMENTOS:
+            nome = config_instrumento(chave)['nome'].split(' (')[0]
+            sufixo = config_instrumento(chave)['nome']
+            rotulo = nome if '(' not in sufixo else sufixo.replace('cordas', 'c.')
+            larg = self._fonte(11).size(rotulo)[0] + 16
+            r = pygame.Rect(x, y, larg, 24)
+            if r.right > rect.right - 150:
+                break
+            self.rects_instrumento.append((r, chave))
+            ds.chip(tela, r, rotulo, self._fonte(11), ativo=chave == self.instrumento)
+            x += larg + 4
+
+        if self.de_corda:
+            self.rect_btn_mais = pygame.Rect(rect.right - 30, y, 30, 24)
+            self.rect_btn_menos = pygame.Rect(rect.right - 118, y, 30, 24)
+            ds.botao(tela, self.rect_btn_menos, '-', fonte, variante='secundario',
+                     hover=self.rect_btn_menos.collidepoint(pos_mouse))
+            ds.botao(tela, self.rect_btn_mais, '+', fonte, variante='secundario',
+                     hover=self.rect_btn_mais.collidepoint(pos_mouse))
+            ds.texto_centralizado(
+                tela, f'{self._casas_disponiveis()} {_t("casas")}', self._fonte(11),
+                pygame.Rect(self.rect_btn_menos.right, y,
+                            self.rect_btn_mais.left - self.rect_btn_menos.right, 24),
+                TEMA.texto)
+        else:
+            self.rect_btn_menos = pygame.Rect(-100, -100, 0, 0)
+            self.rect_btn_mais = pygame.Rect(-100, -100, 0, 0)
+        return y + 30
+
+    def _destaques(self):
+        """O que fica marcado no diagrama, conforme o modo."""
+        destaques = {}
+        if self.modo_jogo == 'adivinhar':
+            chave = (self.corda_alvo, self.casa_alvo) if self.de_corda else self.tecla_alvo
+            destaques[chave] = (TEMA.aviso, '?')
+        elif self.modo_jogo == 'mapear':
+            for pos in self.posicoes_encontradas:
+                destaques[pos] = (TEMA.verde, self.nota_alvo_mapear)
+        return destaques
+
+    def _pergunta(self, tela, rect, fontes):
+        """Enunciado da pergunta e, no modo ouvir, o botao de tocar."""
+        pos_mouse = pygame.mouse.get_pos()
+        if self.modo_jogo == 'adivinhar':
+            if self.de_corda:
+                corda = self.config['cordas'][self.corda_alvo]
+                texto = (f"{_t('Corda')} {corda} · "
+                         f"{_t('casa')} {self.casa_alvo}" if self.casa_alvo
+                         else f"{_t('Corda solta')} {corda}")
+            else:
+                texto = _t('Qual e a tecla marcada?')
+            ds.texto_em(tela, texto, self._fonte(18), (rect.centerx, rect.y),
+                        TEMA.texto, ancora='midtop')
+            self.rect_btn_tocar = pygame.Rect(-100, -100, 0, 0)
+
+        elif self.modo_jogo == 'mapear':
+            achadas = len(self.posicoes_encontradas)
+            total = len(self.posicoes_corretas)
+            ds.texto_em(tela, f"{_t('Ache todas as posicoes de')} {self.nota_alvo_mapear}",
+                        self._fonte(18), (rect.centerx, rect.y), TEMA.texto,
+                        ancora='midtop')
+            ds.texto_em(tela, f'{achadas} / {total}', self._fonte(14),
+                        (rect.centerx, rect.y + 24),
+                        TEMA.verde if achadas == total else TEMA.texto_suave,
+                        ancora='midtop')
+            self.rect_btn_tocar = pygame.Rect(-100, -100, 0, 0)
+
+        else:  # ouvir
+            self.rect_btn_tocar = pygame.Rect(rect.centerx - 70, rect.y, 140, 38)
+            ds.botao(tela, self.rect_btn_tocar, _t('Tocar de novo'), self._fonte(14),
+                     variante='primario',
+                     hover=self.rect_btn_tocar.collidepoint(pos_mouse))
+            self.rect_btn_timbre = pygame.Rect(self.rect_btn_tocar.right + 8, rect.y,
+                                               110, 38)
+            ds.botao(tela, self.rect_btn_timbre,
+                     _t('Piano') if self.timbre == 'piano' else _t('Sintetizado'),
+                     self._fonte(12), variante='secundario',
+                     hover=self.rect_btn_timbre.collidepoint(pos_mouse))
+
+    def _teclado_resposta(self, tela, rect, fontes):
+        """Fileira com as doze notas para responder."""
+        self.rects_notas.clear()
+        largura = (rect.width - 11 * 4) / 12
+        for i, nota in enumerate(NOTAS):
+            r = pygame.Rect(int(rect.x + i * (largura + 4)), rect.y,
+                            int(largura), rect.height)
+            self.rects_notas[nota] = r
+            acidente = len(nota) > 1
+            ds.botao(tela, r, nota, self._fonte(14),
+                     variante='secundario' if acidente else 'suave')
+
+    def desenhar(self, tela, estado, fontes, meio_x, meio_y, cam_x, cam_y,
+                 motor_audio=None):
         """
-            Como funciona: Utiliza funções de renderização do Pygame para desenhar na tela.
-            Para que serve: Apresenta o elemento visual 'desenhar' na interface gráfica.
-            Onde é usada: Chamado a partir do módulo ou classe base de 'estudo_notas'.
+            Como funciona: Barra de ajustes, enunciado, diagrama do instrumento
+            e as doze notas de resposta.
+            Para que serve: Tela do estudo de notas.
+            Onde e usada: Chamada pelo gerenciador de estudos.
         """
         if not self.inicializado:
             self.inicializar_questao(estado)
-        largura_seletor = 400
-        self.rect_btn_adivinhar = pygame.Rect(meio_x - 200, cam_y + 90, 125, 35)
-        self.rect_btn_mapear = pygame.Rect(meio_x - 65, cam_y + 90, 125, 35)
-        self.rect_btn_ouvir = pygame.Rect(meio_x + 70, cam_y + 90, 125, 35)
-        for btn, modo, txt in [(self.rect_btn_adivinhar, 'adivinhar', 'Visual'), (self.rect_btn_mapear, 'mapear', 'Mapear'), (self.rect_btn_ouvir, 'ouvir', 'Ouvir (Som)')]:
-            cor = (0, 160, 255) if self.modo_jogo == modo else (60, 60, 60)
-            pygame.draw.rect(tela, cor, btn, border_radius=5)
-            t_surf = fontes['pequena'].render(txt, True, (255, 255, 255))
-            tela.blit(t_surf, (btn.centerx - t_surf.get_width() // 2, btn.centery - t_surf.get_height() // 2))
-        if self.modo_jogo != 'ouvir':
-            self.largura_braco = max(700, min(1000, 40 * self.casas_estudo))
-            self.altura_braco = 300
-            self.x_braco = meio_x - self.largura_braco // 2
-            self.y_braco = meio_y - 250
-            self.espaco_cordas = self.altura_braco / (self.num_cordas - 1) if self.num_cordas > 1 else self.altura_braco
-            self.espaco_casas = self.largura_braco / self.casas_estudo
-            pygame.draw.rect(tela, (45, 40, 45), (self.x_braco, self.y_braco, self.largura_braco, self.altura_braco), border_radius=4)
-            for casa in range(self.casas_estudo + 1):
-                x_traste = self.x_braco + casa * self.espaco_casas
-                pygame.draw.line(tela, (160, 160, 160), (x_traste, self.y_braco), (x_traste, self.y_braco + self.altura_braco), 2)
-                if casa > 0:
-                    xc = x_traste - self.espaco_casas / 2
-                    if casa in [3, 5, 7, 9, 12, 15, 17, 19, 21, 24]:
-                        pygame.draw.circle(tela, (130, 130, 130), (int(xc), int(self.y_braco + self.altura_braco / 2)), 6)
-                    txt_c = fontes['pequena'].render(str(casa), True, (150, 150, 150))
-                    tela.blit(txt_c, (xc - txt_c.get_width() // 2, self.y_braco + self.altura_braco + 8))
-            for i in range(self.num_cordas):
-                y_corda = self.y_braco + self.altura_braco - i * self.espaco_cordas
-                pygame.draw.line(tela, (220, 220, 220), (self.x_braco, y_corda), (self.x_braco + self.largura_braco, y_corda), 1)
-        y_botoes = meio_y + 130
-        notas_botoes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-        if self.modo_jogo == 'adivinhar':
-            x_alvo = self.x_braco + self.casa_alvo * self.espaco_casas - self.espaco_casas / 2
-            y_alvo = self.y_braco + self.altura_braco - self.corda_alvo * self.espaco_cordas
-            pygame.draw.circle(tela, (0, 120, 215), (int(x_alvo), int(y_alvo)), 14)
-            pygame.draw.circle(tela, (255, 255, 255), (int(x_alvo), int(y_alvo)), 14, 2)
-        elif self.modo_jogo == 'mapear':
-            for corda, casa in self.posicoes_encontradas:
-                x_enc = self.x_braco + casa * self.espaco_casas - self.espaco_casas / 2
-                y_enc = self.y_braco + self.altura_braco - corda * self.espaco_cordas
-                pygame.draw.circle(tela, (50, 220, 50), (int(x_enc), int(y_enc)), 14)
-            rect_alvo = pygame.Rect(meio_x - 50, y_botoes - 40, 100, 100)
-            pygame.draw.rect(tela, (0, 120, 215), rect_alvo, border_radius=10)
-            txt_g = fontes['titulo'].render(self.nota_alvo_mapear, True, (255, 255, 255))
-            tela.blit(txt_g, (rect_alvo.centerx - txt_g.get_width() // 2, rect_alvo.centery - txt_g.get_height() // 2))
-        elif self.modo_jogo == 'ouvir':
-            self.rect_btn_tocar.center = (meio_x, meio_y - 100)
-            pygame.draw.circle(tela, (0, 120, 215), self.rect_btn_tocar.center, 60)
-            pygame.draw.circle(tela, (255, 255, 255), self.rect_btn_tocar.center, 60, 3)
-            cx, cy = self.rect_btn_tocar.center
-            pygame.draw.polygon(tela, (255, 255, 255), [(cx - 15, cy - 20), (cx + 25, cy), (cx - 15, cy + 20)])
-            self.rect_btn_timbre.center = (meio_x, meio_y + 20)
-            pygame.draw.rect(tela, (80, 80, 80), self.rect_btn_timbre, border_radius=5)
-            txt_timb = fontes['pequena'].render(f'Timbre: {self.timbre.capitalize()}', True, (255, 255, 255))
-            tela.blit(txt_timb, (self.rect_btn_timbre.centerx - txt_timb.get_width() // 2, self.rect_btn_timbre.centery - txt_timb.get_height() // 2))
-        if self.modo_jogo in ['adivinhar', 'ouvir']:
-            self.rects_notas.clear()
-            largura_btn = 65
-            x_start = meio_x - (12 * largura_btn + 11 * 10) // 2
-            for idx, nota in enumerate(notas_botoes):
-                rect = pygame.Rect(x_start + idx * (largura_btn + 10), y_botoes + 100, largura_btn, 45)
-                self.rects_notas[nota] = rect
-                pygame.draw.rect(tela, (60, 60, 65), rect, border_radius=6)
-                t_n = fontes['ui'].render(nota, True, (255, 255, 255))
-                tela.blit(t_n, (rect.centerx - t_n.get_width() // 2, rect.centery - t_n.get_height() // 2))
-        if self.feedback and pygame.time.get_ticks() < self.tempo_feedback:
-            txt_f = fontes['titulo'].render(self.feedback, True, self.cor_feedback)
-            tela.blit(txt_f, (meio_x - txt_f.get_width() // 2, meio_y + 50))
 
-    def tratar_cliques(self, pos, estado):
-        """
-            Como funciona: Verifica colisões e processa inputs do mouse/teclado.
-            Para que serve: Mapeia ações do usuário para atualizações de estado.
-            Onde é usada: Chamado a partir do módulo ou classe base de 'estudo_notas'.
-        """
-        if self.rect_btn_adivinhar.collidepoint(pos):
-            self.modo_jogo = 'adivinhar'
-            self.inicializar_questao(estado)
-            return True
-        if self.rect_btn_mapear.collidepoint(pos):
-            self.modo_jogo = 'mapear'
-            self.inicializar_questao(estado)
-            return True
-        if self.rect_btn_ouvir.collidepoint(pos):
-            self.modo_jogo = 'ouvir'
-            self.inicializar_questao(estado)
-            return True
-        if self.modo_jogo == 'ouvir':
-            if self.rect_btn_tocar.collidepoint(pos):
-                self.tocar_nota_atual()
+        largura = getattr(estado, 'LARGURA_TELA', 1280)
+        altura = getattr(estado, 'ALTURA_TELA', 720)
+        area = pygame.Rect(int(cam_x + 40), int(cam_y + 56),
+                           int(largura - 80), int(altura - 130))
+        ds.painel(tela, area, None, None, acento=TEMA.acento, alpha=235)
+        interno = area.inflate(-ds.ESPACO_XL * 2, -ds.ESPACO_XL * 2)
+
+        y = self._barra(tela, interno, fontes)
+
+        altura_pergunta = 46
+        self._pergunta(tela, pygame.Rect(interno.x, y + ds.ESPACO_SM,
+                                         interno.width, altura_pergunta), fontes)
+        y += altura_pergunta + ds.ESPACO_MD
+
+        altura_respostas = 44 if self.modo_jogo != 'mapear' else 0
+        rect_diagrama = pygame.Rect(
+            interno.x, y, interno.width,
+            interno.bottom - y - altura_respostas - ds.ESPACO_LG * 2)
+        if rect_diagrama.height > 60:
+            self.rects_posicoes = []
+            desenhar_diagrama(tela, rect_diagrama, self.instrumento,
+                              self._destaques(), self._fonte(11),
+                              self.rects_posicoes,
+                              casas_visiveis=self._casas_disponiveis()
+                              if self.de_corda else None)
+
+        if altura_respostas:
+            self._teclado_resposta(
+                tela, pygame.Rect(interno.x, interno.bottom - altura_respostas,
+                                  interno.width, altura_respostas), fontes)
+        else:
+            self.rects_notas.clear()
+
+        if self.feedback and pygame.time.get_ticks() < self.tempo_feedback:
+            ds.texto_em(tela, self.feedback, self._fonte(22),
+                        (interno.centerx, rect_diagrama.y - 4),
+                        self.cor_feedback or TEMA.texto, ancora='midbottom')
+
+    # ------------------------------------------------------------- clique --
+    def tratar_cliques(self, pos, estado=None):
+        """Trata modo, instrumento, casas, respostas e cliques no diagrama."""
+        for r, chave in self.rects_modo:
+            if r.collidepoint(pos):
+                self.modo_jogo = chave
+                self.inicializar_questao(estado)
                 return True
-            if self.rect_btn_timbre.collidepoint(pos):
-                self.timbre = 'piano' if self.timbre == 'sintetizado' else 'sintetizado'
+        for r, chave in self.rects_instrumento:
+            if r.collidepoint(pos):
+                self.instrumento = chave
+                self.inicializar_questao(estado)
                 return True
-        if self.modo_jogo in ['adivinhar', 'ouvir']:
-            for nota, rect in self.rects_notas.items():
-                if rect.collidepoint(pos):
-                    self.verificar_resposta(nota, estado)
-                    return True
-        elif self.modo_jogo == 'mapear':
-            rect_braco = pygame.Rect(self.x_braco, self.y_braco, self.largura_braco, self.altura_braco)
-            if rect_braco.collidepoint(pos):
-                rel_x = pos[0] - self.x_braco
-                casa = int(rel_x / self.espaco_casas) + 1
-                rel_y = pos[1] - self.y_braco
-                corda = round((self.altura_braco - rel_y) / self.espaco_cordas)
-                if 0 <= corda < self.num_cordas:
-                    self.verificar_clique_mapeamento(corda, casa, estado)
+        if self.rect_btn_menos.collidepoint(pos):
+            self.casas_estudo = max(5, self.casas_estudo - 1)
+            self.inicializar_questao(estado)
+            return True
+        if self.rect_btn_mais.collidepoint(pos):
+            self.casas_estudo = min(self.config.get('casas', 12), self.casas_estudo + 1)
+            self.inicializar_questao(estado)
+            return True
+        if self.rect_btn_tocar.collidepoint(pos):
+            self.tocar_nota_atual()
+            return True
+        if self.rect_btn_timbre.collidepoint(pos):
+            self.timbre = 'piano' if self.timbre == 'sintetizado' else 'sintetizado'
+            return True
+
+        for nota, r in self.rects_notas.items():
+            if r.collidepoint(pos):
+                self.verificar_resposta(nota, estado)
+                return True
+
+        if self.modo_jogo == 'mapear':
+            for r, posicao in self.rects_posicoes:
+                if r.collidepoint(pos):
+                    self.verificar_clique_mapeamento(posicao, estado)
                     return True
         return False
-
-    def verificar_resposta(self, nota, estado):
-        """
-            Como funciona: Executa o fluxo lógico necessário para a operação 'verificar resposta'.
-            Para que serve: Realiza as tarefas fundamentais de 'verificar resposta' dentro do contexto do módulo.
-            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'verificar resposta'.
-        """
-        self.total += 1
-        if nota == self.nota_correta or (self.nota_correta == 'Db' and nota == 'C#') or (self.nota_correta == 'C#' and nota == 'Db'):
-            self.feedback = 'Acertou!'
-            self.cor_feedback = (100, 255, 100)
-            self.acertos += 1
-        else:
-            self.feedback = f'Errado! Era {self.nota_correta}'
-            self.cor_feedback = (255, 100, 100)
-        self.tempo_feedback = pygame.time.get_ticks() + 1500
-        self.inicializar_questao(estado)
-
-    def verificar_clique_mapeamento(self, corda, casa, estado):
-        """
-            Como funciona: Executa o fluxo lógico necessário para a operação 'verificar clique mapeamento'.
-            Para que serve: Realiza as tarefas fundamentais de 'verificar clique mapeamento' dentro do contexto do módulo.
-            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'verificar clique mapeamento'.
-        """
-        if (corda, casa) in self.posicoes_corretas:
-            if (corda, casa) not in self.posicoes_encontradas:
-                self.posicoes_encontradas.add((corda, casa))
-                if len(self.posicoes_encontradas) == len(self.posicoes_corretas):
-                    self.feedback = 'Excelente!'
-                    self.cor_feedback = (100, 255, 100)
-                    self.acertos += 1
-                    self.tempo_feedback = pygame.time.get_ticks() + 1500
-                    self.inicializar_questao(estado)
-        else:
-            self.feedback = 'Ops! Nota errada.'
-            self.cor_feedback = (255, 100, 100)
-            self.tempo_feedback = pygame.time.get_ticks() + 1500
