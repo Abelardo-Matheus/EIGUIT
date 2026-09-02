@@ -58,6 +58,8 @@ def main():
     meu_gravador = motor_audio
     meu_processador = modulo_processamento.ProcessadorAudio()
     estado.sessao = SessaoEstudo()
+    # Estudos que escutam o instrumento acessam o motor pelo estado
+    estado.motor_audio = motor_audio
     estado.gerenciador_perfil = GerenciadorPerfil()
     estado.gerenciador_perfil.carregar_ultimo_perfil(estado, minhas_configs, meu_campo_harmonico, meu_gravador)
     dicionario_escalas = fabrica_escalas.gerar_modulos(estado, minhas_configs)

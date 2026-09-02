@@ -9,6 +9,8 @@ import Estudos.estudo_notas as estudo_notas
 import Estudos.estudo_escalas as estudo_escalas
 import Estudos.estudo_acordes_pratico as estudo_acordes_pratico
 import Estudos.estudo_ciclo_quintas as estudo_ciclo_quintas
+import Estudos.estudo_padroes as estudo_padroes
+import Estudos.estudo_improvisacao as estudo_improvisacao
 
 class EstudoAcordes:
     """
@@ -155,6 +157,8 @@ class GerenciadorEstudos:
         self.modulo_acordes = None
         self.modulo_acordes_pratico = None
         self.modulo_ciclo = None
+        self.modulo_padroes = None
+        self.modulo_improviso = None
 
     def desenhar_tela_estudo(self, tela, largura, altura, estado, fontes):
         """
@@ -184,6 +188,11 @@ class GerenciadorEstudos:
                 elif estado.estudo_ativo == 'Notas':
                     self.modulo_notas.modo_jogo = 'adivinhar'
             self.modulo_notas.desenhar(tela, estado, fontes, meio_x, meio_y, cam_x, cam_y)
+        elif estado.estudo_ativo in ['Padroes', 'Padrões', 'Padroes Melodicos',
+                                     'Padrões Melódicos', 'Padrões e Ritmos']:
+            modulo_ativo = self.modulo_padroes
+        elif estado.estudo_ativo in ['Improvisacao', 'Improvisação']:
+            modulo_ativo = self.modulo_improviso
         elif estado.estudo_ativo in ['Escalas', 'Acerte a Escala']:
             if self.modulo_escalas is None:
                 self.modulo_escalas = estudo_escalas.EstudoEscalas()
@@ -196,6 +205,17 @@ class GerenciadorEstudos:
             if self.modulo_acordes_pratico is None:
                 self.modulo_acordes_pratico = estudo_acordes_pratico.EstudoAcordesPratico()
             self.modulo_acordes_pratico.desenhar(tela, estado, fontes, meio_x, meio_y, cam_x, cam_y)
+        elif estado.estudo_ativo in ['Padroes', 'Padrões', 'Padroes Melodicos',
+                                     'Padrões Melódicos', 'Padrões e Ritmos']:
+            if self.modulo_padroes is None:
+                self.modulo_padroes = estudo_padroes.EstudoPadroes()
+            self.modulo_padroes.desenhar(tela, estado, fontes, meio_x, meio_y,
+                                         cam_x, cam_y, getattr(estado, 'motor_audio', None))
+        elif estado.estudo_ativo in ['Improvisacao', 'Improvisação']:
+            if self.modulo_improviso is None:
+                self.modulo_improviso = estudo_improvisacao.EstudoImprovisacao()
+            self.modulo_improviso.desenhar(tela, estado, fontes, meio_x, meio_y,
+                                           cam_x, cam_y)
         elif estado.estudo_ativo == 'Ciclo de Quintas':
             if self.modulo_ciclo is None:
                 self.modulo_ciclo = estudo_ciclo_quintas.EstudoCicloQuintas()
@@ -215,6 +235,8 @@ class GerenciadorEstudos:
         self.modulo_acordes = None
         self.modulo_acordes_pratico = None
         self.modulo_ciclo = None
+        self.modulo_padroes = None
+        self.modulo_improviso = None
 
     def tratar_eventos(self, evento, pos_mouse, estado):
         """

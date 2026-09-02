@@ -99,6 +99,12 @@ def _desenhar_aba_estudos(tela, dx, y_start, largura_conteudo, estado, fontes,
         1: [(_t('Acerte a Escala'), _t('Pratique shapes e digitacoes: encontre todas as notas que pertencem a escala solicitada.'))],
         2: [(_t('Pratica de Acordes'), _t('IA em tempo real: toque o acorde completo e a IA valida se as notas estao certas.'))],
         3: [(_t('Ciclo de Quintas'), _t('Domine a harmonia: relacoes entre tonalidades, armaduras de clave e progressoes quartais.'))],
+        4: [
+            (_t('Padrões'), _t('Padroes melodicos sobre a escala (tercas, quartas, grupos de quatro, arpejos) e celulas ritmicas classicas, no andamento que voce escolher.')),
+        ],
+        5: [
+            (_t('Improvisação'), _t('Progressao rodando, notas alvo de cada acorde, escala que serve, notas a evitar e vocabulario de frases.')),
+        ],
     }
 
     itens = grupos.get(memoria_sub_aba, [])
