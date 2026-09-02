@@ -77,7 +77,9 @@ def main():
     relogio = pygame.time.Clock()
     while not estado.solicitou_saida:
         relogio.tick(60)
-        motor_audio.atualizar_analise_ia(estado.afinador_threshold)
+        # O portao de ruido do painel de audio agora controla o motor
+        motor_audio.atualizar_analise_ia(estado.afinador_threshold,
+                                         gate_db=estado.afinador_noise_gate)
         estado.freq_detectada = motor_audio.freq_detectada
         estado.notas_detectadas_ia = motor_audio.notas_polifonicas
         import math
@@ -100,12 +102,8 @@ def main():
         elif agora - estado.tempo_ultima_nota > estado.afinador_persistencia:
             estado.nota_atual_detectada = '--'
 
-        # Nivel de entrada em dBFS, usado pelo medidor do afinador
-        try:
-            rms = float(getattr(motor_audio, 'volume_atual', 0.0))
-            estado.nivel_entrada_db = 20 * math.log10(rms) if rms > 1e-6 else -60.0
-        except (ValueError, TypeError):
-            estado.nivel_entrada_db = -60.0
+        # Nivel de entrada em dBFS, calculado pelo motor de audio
+        estado.nivel_entrada_db = max(-60.0, float(getattr(motor_audio, 'nivel_db', -60.0)))
 
         # Contabiliza a nota tocada no contexto harmonico atual
         if estado.sessao is not None:
