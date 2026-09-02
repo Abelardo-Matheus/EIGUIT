@@ -73,11 +73,32 @@ class PainelCAGED:
         Onde e usada: Aba inferior ACORDES > CAGED.
     """
 
+    # Quantas casas o shape ocupa no braco
+    LARGURA_JANELA = 4
+
     def __init__(self):
         self.indice = 3  # shape de E, o mais comum para comecar
         self.rects_shapes = []
         self.rects_modos = []
+        self.rect_btn_projetar = pygame.Rect(0, 0, 0, 0)
+        self.mostrar_no_braco = True
         self._cache_fontes = {}
+
+    def aplicar_no_estado(self, estado, campo_harmonico):
+        """
+            Como funciona: Publica no estado a janela de casas do shape ativo e
+            as notas do acorde com seus graus, para o braco principal filtrar.
+            Para que serve: Ver o shape CAGED direto no instrumento.
+            Onde e usada: Ao desenhar o painel e a cada clique nele.
+        """
+        tonica = getattr(campo_harmonico, 'tonica_campo', 'C')
+        base = self.casa_base(tonica)
+        notas = self.notas_do_acorde(tonica)
+        estado.caged_janela = (base, base + self.LARGURA_JANELA)
+        estado.caged_notas = {notas[0]: GRAU_TONICA, notas[1]: GRAU_TERCA,
+                              notas[2]: GRAU_QUINTA}
+        estado.caged_shape = self.shape_atual()['nome']
+        estado.caged_ativo = self.mostrar_no_braco
 
     # ------------------------------------------------------------- calculos
     def _fonte(self, tamanho):
@@ -113,8 +134,12 @@ class PainelCAGED:
         y = rect.y + fontes['pequena'].get_height() + ds.ESPACO_SM
 
         self.rects_shapes = []
-        altura = max(46, (rect.bottom - y - ds.ESPACO_SM * 4) // len(SHAPES))
+        disponivel = max(20, rect.bottom - y)
+        altura = max(20, (disponivel - ds.ESPACO_SM * (len(SHAPES) - 1)) // len(SHAPES))
+        altura = min(altura, 58)
         for i, shape in enumerate(SHAPES):
+            if y + altura > rect.bottom:
+                break
             card = pygame.Rect(rect.x, y, rect.width, altura)
             self.rects_shapes.append(card)
             ativo = i == self.indice
@@ -136,7 +161,7 @@ class PainelCAGED:
                         (card.x + ds.ESPACO_MD, card.y + ds.ESPACO_SM),
                         TEMA.texto if ativo else TEMA.texto_suave,
                         largura_max=card.width - ds.ESPACO_LG)
-            if altura >= 42:
+            if altura >= 40 and card.bottom - card.y > fontes['pequena'].get_height() + 18:
                 ds.texto_em(tela, _t(shape['descricao']), self._fonte(11),
                             (card.x + ds.ESPACO_MD,
                              card.y + ds.ESPACO_SM + fontes['pequena'].get_height() + 2),
@@ -153,10 +178,14 @@ class PainelCAGED:
         ds.superficie_translucida(tela, rect, TEMA.fundo, 170, ds.RAIO_MD,
                                   TEMA.borda, 1)
 
-        margem = ds.ESPACO_LG
-        area = pygame.Rect(rect.x + margem, rect.y + margem,
-                           rect.width - margem * 2, rect.height - margem * 2 - 14)
-        if area.width < 40 or area.height < 40:
+        margem_x, margem_y = ds.ESPACO_MD, ds.ESPACO_SM
+        altura_num = 13 if rect.height >= 74 else 0
+        area = pygame.Rect(rect.x + margem_x, rect.y + margem_y,
+                           rect.width - margem_x * 2,
+                           rect.height - margem_y * 2 - altura_num)
+        if area.width < 40 or area.height < 26:
+            ds.texto_centralizado(tela, _t('Amplie o painel para ver o shape'),
+                                  self._fonte(11), rect, TEMA.texto_apagado)
             return
 
         largura_casa = area.width / num_casas
@@ -168,9 +197,9 @@ class PainelCAGED:
             largura_linha = 3 if (base == 0 and c == 0) else 1
             pygame.draw.line(tela, ds.rgb(TEMA.traste), (x, area.y),
                              (x, area.bottom), largura_linha)
-            if c < num_casas:
+            if c < num_casas and altura_num:
                 ds.texto_em(tela, str(base + c), self._fonte(10),
-                            (x + largura_casa / 2, area.bottom + 3),
+                            (x + largura_casa / 2, area.bottom + 2),
                             TEMA.texto_apagado, ancora='midtop')
 
         # cordas
@@ -192,7 +221,7 @@ class PainelCAGED:
             ds.texto_em(tela, grau, self._fonte(max(9, raio)),
                         (int(cx), int(cy)), ds.contraste_texto(cor), ancora='center')
 
-    def _desenhar_info(self, tela, rect, fontes, tonica):
+    def _desenhar_info(self, tela, rect, fontes, tonica, empilhado=False):
         """Bloco com nome, notas, intervalos e dificuldade do shape ativo."""
         shape = self.shape_atual()
         notas = self.notas_do_acorde(tonica)
@@ -209,21 +238,49 @@ class PainelCAGED:
             (_t('Dificuldade'), _t(shape['dificuldade'])),
             (_t('Casa inicial'), str(self.casa_base(tonica))),
         ]
-        passo = max(14, (rect.height - ds.ESPACO_SM * 2) // len(linhas))
+        alt_rotulo = self._fonte(11).get_height()
+        alt_valor = self._fonte(12).get_height()
+        altura_linha = (alt_rotulo + alt_valor + 3) if empilhado else (alt_valor + 2)
+        cabem = max(1, (rect.height - ds.ESPACO_SM) // altura_linha)
+        linhas = linhas[:cabem]
+        passo = max(altura_linha, (rect.height - ds.ESPACO_SM) // len(linhas))
+
         for rotulo, valor in linhas:
-            if y + passo > rect.bottom:
+            if y + altura_linha > rect.bottom + 2:
                 break
-            ds.texto_em(tela, rotulo, self._fonte(11), (rect.x + pad, y),
-                        TEMA.texto_apagado, largura_max=rect.width // 2)
-            ds.texto_em(tela, valor, self._fonte(12), (rect.right - pad, y),
-                        TEMA.texto, ancora='topright',
-                        largura_max=rect.width * 2 // 3)
+            if empilhado:
+                # Coluna estreita: rotulo acima, valor embaixo
+                ds.texto_em(tela, rotulo, self._fonte(11), (rect.x + pad, y),
+                            TEMA.texto_apagado, largura_max=rect.width - pad * 2)
+                ds.texto_em(tela, valor, self._fonte(12),
+                            (rect.x + pad, y + alt_rotulo + 1), TEMA.texto,
+                            largura_max=rect.width - pad * 2)
+            else:
+                ds.texto_em(tela, rotulo, self._fonte(11), (rect.x + pad, y),
+                            TEMA.texto_apagado, largura_max=rect.width // 2)
+                ds.texto_em(tela, valor, self._fonte(12), (rect.right - pad, y),
+                            TEMA.texto, ancora='topright',
+                            largura_max=rect.width * 2 // 3)
             y += passo
 
     def _desenhar_modos(self, tela, rect, fontes, campo_harmonico):
-        """Fileira com os sete modos gregos do campo harmonico."""
+        """Fileira com os sete modos gregos e o botao de projecao no braco."""
         self.rects_modos = []
         escalas = campo_harmonico.escalas_campo
+
+        # Botao que liga/desliga o shape no braco principal
+        largura_btn = min(180, max(120, int(rect.width * 0.2)))
+        self.rect_btn_projetar = pygame.Rect(rect.right - largura_btn, rect.y,
+                                             largura_btn, rect.height)
+        ds.botao(tela, self.rect_btn_projetar,
+                 _t('No braco: ligado') if self.mostrar_no_braco
+                 else _t('No braco: desligado'),
+                 self._fonte(11),
+                 variante='primario' if self.mostrar_no_braco else 'secundario',
+                 hover=self.rect_btn_projetar.collidepoint(pygame.mouse.get_pos()))
+
+        rect = pygame.Rect(rect.x, rect.y,
+                           rect.width - largura_btn - ds.ESPACO_SM, rect.height)
         gap = ds.ESPACO_XS
         largura = (rect.width - gap * (len(escalas) - 1)) / len(escalas)
         for i, escala in enumerate(escalas):
@@ -233,46 +290,76 @@ class PainelCAGED:
             ds.chip(tela, r, _t(escala['nome']), self._fonte(11),
                     ativo=campo_harmonico.indice_escala_campo == i)
 
-    def desenhar(self, tela, rect, fontes, campo_harmonico):
+    estado_ref = None
+
+    def desenhar(self, tela, rect, fontes, campo_harmonico, estado=None):
         """
-            Como funciona: Divide a area em coluna de shapes a esquerda e
-            braco + informacoes a direita, com os modos numa faixa embaixo.
+            Como funciona: Divide a area em tres colunas (shapes, braco do shape
+            e informacao do acorde) com uma faixa de modos embaixo. Em painel
+            estreito a coluna de informacao sai e o braco ocupa o lugar dela.
             Para que serve: Tela principal de estudo do sistema CAGED.
             Onde e usada: Chamada pelo painel inferior na aba ACORDES > CAGED.
         """
+        if estado is not None:
+            self.estado_ref = estado
         tonica = getattr(campo_harmonico, 'tonica_campo', 'C')
 
         altura_modos = 26
         area = pygame.Rect(rect.x, rect.y, rect.width,
-                           rect.height - altura_modos - ds.ESPACO_MD)
+                           rect.height - altura_modos - ds.ESPACO_SM)
 
-        largura_esq = max(180, int(area.width * 0.34))
-        col_esq = pygame.Rect(area.x, area.y, largura_esq, area.height)
-        col_dir = pygame.Rect(area.x + largura_esq + ds.ESPACO_LG, area.y,
-                              area.width - largura_esq - ds.ESPACO_LG, area.height)
+        # Tres colunas: lista | braco | informacao
+        tem_info = area.width >= 760
+        largura_lista = max(170, int(area.width * (0.26 if tem_info else 0.34)))
+        largura_info = int(area.width * 0.24) if tem_info else 0
+        gap = ds.ESPACO_LG
+        largura_braco = area.width - largura_lista - largura_info - gap * (2 if tem_info else 1)
 
-        self._desenhar_lista(tela, col_esq, fontes, tonica)
+        col_lista = pygame.Rect(area.x, area.y, largura_lista, area.height)
+        col_braco = pygame.Rect(col_lista.right + gap, area.y, largura_braco, area.height)
+        col_info = pygame.Rect(col_braco.right + gap, area.y, largura_info, area.height)
 
-        ds.rotulo_secao(tela, col_dir.x, col_dir.y,
+        self._desenhar_lista(tela, col_lista, fontes, tonica)
+
+        # --- Coluna do braco ------------------------------------------------
+        ds.rotulo_secao(tela, col_braco.x, col_braco.y,
                         f"{_t('Shape')} {self.shape_atual()['nome']} - {tonica}",
-                        fontes['pequena'], TEMA.acento, largura_max=col_dir.width)
-        y_dir = col_dir.y + fontes['pequena'].get_height() + ds.ESPACO_SM
+                        fontes['pequena'], TEMA.acento, largura_max=col_braco.width)
+        y_braco = col_braco.y + fontes['pequena'].get_height() + ds.ESPACO_SM
 
-        altura_info = min(96, max(70, int(col_dir.height * 0.38)))
-        rect_braco = pygame.Rect(col_dir.x, y_dir, col_dir.width,
-                                 col_dir.bottom - y_dir - altura_info - ds.ESPACO_SM)
-        if rect_braco.height > 60:
-            self._desenhar_braco(tela, rect_braco, fontes, tonica)
-            rect_info = pygame.Rect(col_dir.x, rect_braco.bottom + ds.ESPACO_SM,
-                                    col_dir.width, altura_info)
+        if tem_info:
+            rect_braco = pygame.Rect(col_braco.x, y_braco, col_braco.width,
+                                     col_braco.bottom - y_braco)
         else:
-            rect_info = pygame.Rect(col_dir.x, y_dir, col_dir.width,
-                                    col_dir.bottom - y_dir)
-        self._desenhar_info(tela, rect_info, fontes, tonica)
+            alt_linha = self._fonte(12).get_height() + 2
+            altura_info = min(alt_linha * 3 + ds.ESPACO_SM,
+                              max(alt_linha * 2, int(col_braco.height * 0.34)))
+            rect_braco = pygame.Rect(col_braco.x, y_braco, col_braco.width,
+                                     col_braco.bottom - y_braco - altura_info - ds.ESPACO_SM)
+            col_info = pygame.Rect(col_braco.x, rect_braco.bottom + ds.ESPACO_SM,
+                                   col_braco.width, altura_info)
+
+        if rect_braco.height >= 40:
+            self._desenhar_braco(tela, rect_braco, fontes, tonica)
+
+        # --- Coluna de informacao -------------------------------------------
+        if col_info.width > 60 and col_info.height > 20:
+            if tem_info:
+                ds.rotulo_secao(tela, col_info.x, col_info.y, _t('Acorde'),
+                                fontes['pequena'], TEMA.acento,
+                                largura_max=col_info.width)
+                col_info = pygame.Rect(
+                    col_info.x, col_info.y + fontes['pequena'].get_height() + ds.ESPACO_SM,
+                    col_info.width, col_info.height - fontes['pequena'].get_height() - ds.ESPACO_SM)
+            self._desenhar_info(tela, col_info, fontes, tonica, empilhado=tem_info)
 
         self._desenhar_modos(
             tela, pygame.Rect(rect.x, rect.bottom - altura_modos, rect.width,
                               altura_modos), fontes, campo_harmonico)
+
+        # Mantem o braco principal em sincronia com o shape mostrado aqui
+        if self.estado_ref is not None:
+            self.aplicar_no_estado(self.estado_ref, campo_harmonico)
 
     # --------------------------------------------------------------- clique
     def tratar_clique(self, pos, campo_harmonico):
@@ -281,9 +368,17 @@ class PainelCAGED:
             Para que serve: Trocar o shape estudado e o modo do campo harmonico.
             Onde e usada: Chamada pelo controlador de eventos.
         """
+        if self.rect_btn_projetar.collidepoint(pos):
+            self.mostrar_no_braco = not self.mostrar_no_braco
+            if self.estado_ref is not None:
+                self.aplicar_no_estado(self.estado_ref, campo_harmonico)
+            return True
+
         for i, rect in enumerate(self.rects_shapes):
             if rect.collidepoint(pos):
                 self.indice = i
+                if self.estado_ref is not None:
+                    self.aplicar_no_estado(self.estado_ref, campo_harmonico)
                 return True
         for i, rect in enumerate(self.rects_modos):
             if rect.collidepoint(pos):
@@ -291,6 +386,8 @@ class PainelCAGED:
                 campo_harmonico.tipo_escala = campo_harmonico.escalas_campo[i]['nome']
                 if campo_harmonico.indice_acorde_selecionado != -1:
                     campo_harmonico.calcular_notas_acorde_selecionado()
+                if self.estado_ref is not None:
+                    self.aplicar_no_estado(self.estado_ref, campo_harmonico)
                 return True
         return False
 

@@ -23,9 +23,12 @@ def desenhar_acordes_arrastaveis(tela, estado, meu_campo_harmonico, fontes):
     rect = pygame.Rect(d.x, d.y, d.largura, estado.ALTURA_ACORDES)
     ds.painel(tela, rect, None, None, acento=TEMA.acento)
 
+    # O conteudo recebe a altura util do bloco e se adapta a ela
+    pad = ds.ESPACO_MD
     meu_campo_harmonico.desenhar(
-        tela, rect.x, rect.y + CHORD_OFFSET_Y_INTERNO, rect.width,
-        fontes['titulo'], fontes['ui'], fontes['pequena'])
+        tela, rect.x + pad, rect.y + pad, rect.width - pad * 2,
+        fontes['titulo'], fontes['ui'], fontes['pequena'],
+        altura=rect.height - pad * 2)
 
     if estado.drag_ativado:
         d.desenhar_caixa_selecao(tela, margem=8)

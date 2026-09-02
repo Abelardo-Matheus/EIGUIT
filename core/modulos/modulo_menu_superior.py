@@ -31,6 +31,9 @@ class MenuSuperior:
         self.rects_principais = {}
         self.rects_dropdown = []
         self.largura_dropdown = 220
+        # Espaco reservado a esquerda para a marca desenhada pela barra superior
+        self.offset_x = 0
+        self.largura_disponivel = 0
 
 
     # As cores sao propriedades para acompanhar a troca de tema em tempo real.
@@ -62,13 +65,23 @@ class MenuSuperior:
         """
             Como funciona: Define posições fixas e compactas para os menus superiores.
         """
+        largura_total = largura_total or self.largura_disponivel
+        n_menus = len(self.ordem_menus)
+
+        # Encolhe os itens quando sobra pouco espaco entre a marca e os botoes
         largura_item = 120
-        x_atual = 10
+        if largura_total:
+            espaco = largura_total - self.offset_x - 150
+            if espaco > 0:
+                largura_item = max(64, min(120, espaco // n_menus))
+
+        x_atual = self.offset_x + 10
         self.rects_principais.clear()
         for menu in self.ordem_menus:
             self.rects_principais[menu] = pygame.Rect(x_atual, 0, largura_item, self.altura_barra)
             x_atual += largura_item
         self.largura_total_menu = x_atual
+        self.largura_dropdown = max(160, min(230, largura_item * 2))
 
     def tratar_eventos(self, evento, pos_mouse, estado, configs=None, campo=None, gravador=None):
         """

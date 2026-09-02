@@ -351,64 +351,83 @@ def desenhar_bloco_nota_atual(tela, estado, fontes, configs, motor_audio=None):
 
 
 def _desenhar_compacto(tela, estado, fontes, interno, nota, oitava, cents, detectando):
-    """Layout de uma coluna, usado quando o painel esta estreito."""
+    """Layout de uma coluna. Cada parte so aparece se couber na altura util."""
+    fora = pygame.Rect(-100, -100, 0, 0)
+    estado.rect_barra_noise_gate = fora.copy()
+    estado.rect_alca_noise_gate = fora.copy()
+    estado.rect_btn_calibrar = fora.copy()
+    estado.rect_btn_reset_audio = fora.copy()
+    estado.rect_barra_persistencia = fora.copy()
+    estado.rect_alca_persistencia = fora.copy()
+    estado.rect_barra_threshold = fora.copy()
+    estado.rect_alca_threshold = fora.copy()
+    estado.rects_notas_selecao.clear()
+
     x, largura = interno.x, interno.width
     y = interno.y
+    alt_p = fontes['pequena'].get_height()
 
+    def cabe(altura_necessaria):
+        return y + altura_necessaria <= interno.bottom
+
+    # --- Nota detectada -----------------------------------------------------
     rotulo = f'{nota}{oitava}' if (detectando and oitava is not None) else nota
-    ds.texto_em(tela, rotulo, fontes['titulo'], (x, y),
+    fonte_nota = fontes['titulo'] if cabe(fontes['titulo'].get_height()) else fontes['pequena']
+    ds.texto_em(tela, rotulo, fonte_nota, (x, y),
                 TEMA.verde if detectando else TEMA.texto_apagado)
-    largura_nota = fontes['titulo'].size(rotulo)[0]
+    largura_nota = fonte_nota.size(rotulo)[0]
     if detectando:
         try:
             ds.texto_em(tela, f'{float(estado.freq_detectada):.1f} Hz',
                         fontes['pequena'],
                         (x + largura_nota + ds.ESPACO_SM,
-                         y + fontes['titulo'].get_height() - ds.ESPACO_SM),
-                        TEMA.texto_apagado)
+                         y + fonte_nota.get_height() - ds.ESPACO_SM),
+                        TEMA.texto_apagado,
+                        largura_max=max(10, largura - largura_nota - ds.ESPACO_SM))
         except (TypeError, ValueError):
             pass
     ds.texto_em(tela, _nome_afinacao(estado), fontes['pequena'],
                 (interno.right, y + 2), TEMA.texto_apagado, ancora='topright',
-                largura_max=largura // 2)
-    y += fontes['titulo'].get_height() + ds.ESPACO_MD
+                largura_max=max(20, largura // 2))
+    y += fonte_nota.get_height() + ds.ESPACO_SM
 
-    rect_medidor = pygame.Rect(x, y, largura, 8)
-    if detectando:
-        ds.medidor_desvio(tela, rect_medidor, cents, 50.0, fontes['pequena'])
-    else:
-        pygame.draw.rect(tela, ds.rgb(TEMA.trilho), rect_medidor, border_radius=4)
-        pygame.draw.line(tela, ds.rgb(TEMA.borda),
-                         (rect_medidor.centerx, rect_medidor.y - 3),
-                         (rect_medidor.centerx, rect_medidor.bottom + 3), 2)
-        ds.texto_em(tela, _t('Toque uma nota'), fontes['pequena'],
-                    (rect_medidor.centerx, rect_medidor.bottom + ds.ESPACO_SM),
-                    TEMA.texto_apagado, ancora='midtop')
-    y += 8 + ds.ESPACO_SM + fontes['pequena'].get_height() + ds.ESPACO_MD
+    # --- Medidor de desvio --------------------------------------------------
+    if cabe(8 + ds.ESPACO_SM + alt_p):
+        rect_medidor = pygame.Rect(x, y, largura, 8)
+        if detectando:
+            ds.medidor_desvio(tela, rect_medidor, cents, 50.0, fontes['pequena'])
+        else:
+            pygame.draw.rect(tela, ds.rgb(TEMA.trilho), rect_medidor, border_radius=4)
+            pygame.draw.line(tela, ds.rgb(TEMA.borda),
+                             (rect_medidor.centerx, rect_medidor.y - 3),
+                             (rect_medidor.centerx, rect_medidor.bottom + 3), 2)
+            ds.texto_em(tela, _t('Toque uma nota'), fontes['pequena'],
+                        (rect_medidor.centerx, rect_medidor.bottom + ds.ESPACO_XS),
+                        TEMA.texto_apagado, ancora='midtop')
+        y += 8 + ds.ESPACO_SM + alt_p + ds.ESPACO_SM
 
-    altura_celula = min(26, max(18, int(largura / 12 * 1.15)))
-    _seletor_cromatico(tela, estado, fontes,
-                       pygame.Rect(x, y, largura, altura_celula), nota, detectando)
-    y += altura_celula + ds.ESPACO_LG + fontes['pequena'].get_height()
+    # --- Seletor cromatico --------------------------------------------------
+    altura_celula = min(26, max(16, int(largura / 12 * 1.15)))
+    if cabe(altura_celula + ds.ESPACO_SM) and largura >= 150:
+        _seletor_cromatico(tela, estado, fontes,
+                           pygame.Rect(x, y, largura, altura_celula), nota, detectando)
+        y += altura_celula + ds.ESPACO_MD
 
-    espaco = max(28, (interno.bottom - y) // 2)
-    pct_pers = (estado.afinador_persistencia - 100) / 2900
-    barra, alca = ds.slider(tela, pygame.Rect(x, y, largura, ds.ALTURA_TRILHO),
-                            pct_pers, rotulo=_t('Persistencia'),
-                            valor=f'{estado.afinador_persistencia} ms',
-                            fonte=fontes['pequena'])
-    estado.rect_barra_persistencia, estado.rect_alca_persistencia = barra, alca
+    # --- Sliders: entram apenas se houver espaco de verdade -----------------
+    altura_slider = alt_p + ds.ESPACO_SM + ds.ALTURA_TRILHO + 6
+    if cabe(altura_slider):
+        pct = (estado.afinador_persistencia - 100) / 2900
+        barra, alca = ds.slider(
+            tela, pygame.Rect(x, y + alt_p + ds.ESPACO_SM, largura, ds.ALTURA_TRILHO),
+            pct, rotulo=_t('Persistencia'),
+            valor=f'{estado.afinador_persistencia} ms', fonte=fontes['pequena'])
+        estado.rect_barra_persistencia, estado.rect_alca_persistencia = barra, alca
+        y += altura_slider + ds.ESPACO_SM
 
-    y += espaco
-    pct_sens = (estado.afinador_threshold - 0.1) / 0.7
-    barra_t, alca_t = ds.slider(tela, pygame.Rect(x, y, largura, ds.ALTURA_TRILHO),
-                                pct_sens, rotulo=_t('Sensibilidade'),
-                                valor=f'{estado.afinador_threshold:.2f}',
-                                fonte=fontes['pequena'])
-    estado.rect_barra_threshold, estado.rect_alca_threshold = barra_t, alca_t
-
-    # Sem espaco para o portao de ruido e as acoes no modo compacto
-    estado.rect_barra_noise_gate = pygame.Rect(-100, -100, 0, 0)
-    estado.rect_alca_noise_gate = pygame.Rect(-100, -100, 0, 0)
-    estado.rect_btn_calibrar = pygame.Rect(-100, -100, 0, 0)
-    estado.rect_btn_reset_audio = pygame.Rect(-100, -100, 0, 0)
+    if cabe(altura_slider):
+        pct = (estado.afinador_threshold - 0.1) / 0.7
+        barra, alca = ds.slider(
+            tela, pygame.Rect(x, y + alt_p + ds.ESPACO_SM, largura, ds.ALTURA_TRILHO),
+            pct, rotulo=_t('Sensibilidade'),
+            valor=f'{estado.afinador_threshold:.2f}', fonte=fontes['pequena'])
+        estado.rect_barra_threshold, estado.rect_alca_threshold = barra, alca

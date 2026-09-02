@@ -9,8 +9,8 @@ from config.design_system import TEMA, ds
 from core.i18n import _t
 
 
-def _desenhar_marca(tela, fontes, altura_barra):
-    """Logotipo compacto no canto esquerdo."""
+def _desenhar_marca(tela, fontes, altura_barra, largura_tela):
+    """Logotipo no canto esquerdo. Devolve onde a marca termina."""
     tam = 22
     y = (altura_barra - tam) // 2
     rect_logo = pygame.Rect(ds.ESPACO_MD, y, tam, tam)
@@ -18,10 +18,16 @@ def _desenhar_marca(tela, fontes, altura_barra):
                           ds.RAIO_MD)
     ds.texto_centralizado(tela, 'E', fontes['pequena'], rect_logo,
                           TEMA.texto_sobre_cor)
-    ds.texto_em(tela, 'EIGUIT Studio', fontes['pequena'],
-                (rect_logo.right + ds.ESPACO_SM, altura_barra // 2),
-                TEMA.texto, ancora='midleft')
-    return rect_logo.right + ds.ESPACO_SM + fontes['pequena'].size('EIGUIT Studio')[0]
+
+    # O nome so aparece quando ha folga; em telas estreitas fica so o simbolo
+    nome = 'EIGUIT Studio'
+    largura_nome = fontes['pequena'].size(nome)[0]
+    if largura_tela >= 1100:
+        ds.texto_em(tela, nome, fontes['pequena'],
+                    (rect_logo.right + ds.ESPACO_SM, altura_barra // 2),
+                    TEMA.texto, ancora='midleft')
+        return rect_logo.right + ds.ESPACO_SM + largura_nome
+    return rect_logo.right
 
 
 def _desenhar_status_ia(tela, estado, fontes, x_limite, altura_barra):
@@ -122,10 +128,14 @@ def desenhar_painel_superior(tela, estado, fontes, configs):
                      (0, altura_barra - 1), (largura_tela, altura_barra - 1), 1)
 
     # 2. Marca
-    x_apos_marca = _desenhar_marca(tela, fontes, altura_barra)
+    x_apos_marca = _desenhar_marca(tela, fontes, altura_barra, largura_tela)
 
-    # 3. Menus (Arquivo, Perfil, ...)
+    # 3. Menus (Arquivo, Perfil, ...) comecam depois da marca
     if hasattr(estado, 'menu_superior'):
+        estado.menu_superior.offset_x = x_apos_marca
+        estado.menu_superior.largura_disponivel = largura_tela
+        if hasattr(estado.menu_superior, 'recalcular_posicoes'):
+            estado.menu_superior.recalcular_posicoes(largura_tela)
         estado.menu_superior.desenhar(tela, fontes['ui'], estado)
 
     # 4. Botoes de sistema, montados da direita para a esquerda

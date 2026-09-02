@@ -54,9 +54,15 @@ class EstadoGlobal:
         self.slider_audio_ativo = None
         self.tempo_ultima_nota = 0
         self.historico_freqs = []
+        # Cores distintas por padrao: branco, vermelho e verde-agua
         self.indice_cor_tonica = 0
-        self.indice_cor_terca = 0
-        self.indice_cor_quinta = 0
+        self.indice_cor_terca = 1
+        self.indice_cor_quinta = 2
+        # Filtro do sistema CAGED aplicado ao braco principal
+        self.caged_ativo = False
+        self.caged_janela = (0, 4)
+        self.caged_notas = {}
+        self.caged_shape = 'E'
         self.dropdown_tom_aberto = False
         self.NUM_CASAS = 18
         self.NUM_CORDAS = 7

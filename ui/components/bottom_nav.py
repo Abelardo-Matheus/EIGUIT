@@ -294,6 +294,13 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
     if configs is not None:
         TEMA.definir_acento(configs.get_cor_tema())
 
+    # O filtro do braco so vale enquanto a aba CAGED estiver aberta
+    caged_visivel = any(sec.get('expandido') and sec['conteudo'] == 'acordes'
+                        and sec['memoria_sub_aba'] == 0
+                        for sec in estado.secoes_inferiores)
+    if not caged_visivel:
+        estado.caged_ativo = False
+
     alpha_atual = configs.get_alpha() if configs else 255
     dragger = estado.dragger_painel_inferior
     dx, dy = dragger.x, dragger.y
@@ -374,7 +381,7 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
                 tela,
                 pygame.Rect(rect_clip.x + BOTTOM_MARGIN_X, y_area,
                             rect_clip.width - BOTTOM_MARGIN_X * 2, altura_util),
-                fontes, estado.campo_harmonico_ref)
+                fontes, estado.campo_harmonico_ref, estado)
             estado.max_scroll[i] = 0
 
         elif secao['conteudo'] in ('escalas', 'acordes'):

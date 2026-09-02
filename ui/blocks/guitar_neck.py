@@ -66,18 +66,58 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador,
     instrumento = getattr(estado, 'instrumento', 'guitarra')
     num_cordas = 4 if instrumento == 'baixo' else estado.NUM_CORDAS
 
-    largura = alvo.largura
     altura = alvo.altura - 2 * estado.ESPACO_CORDAS if instrumento == 'baixo' else alvo.altura
     y_base = alvo.y + estado.ESPACO_CORDAS if instrumento == 'baixo' else alvo.y
-    rect_braco = pygame.Rect(alvo.x, y_base, largura, altura)
-    espaco_casas = largura / estado.NUM_CASAS
+
+    # Calha a esquerda da pestana, onde ficam as notas das cordas soltas.
+    # Sem ela as bolinhas da casa 0 eram desenhadas fora do bloco.
+    calha = int(max(26, min(44, alvo.largura * 0.028)))
+    rect_braco = pygame.Rect(alvo.x + calha, y_base, alvo.largura - calha, altura)
+    espaco_casas = rect_braco.width / estado.NUM_CASAS
 
     # --- Madeira e marcadores ---------------------------------------------
     _desenhar_base_braco(tela, rect_braco, cor_madeira)
     _desenhar_marcadores(tela, rect_braco, estado.NUM_CASAS, espaco_casas,
                          ds.com_alpha(ds.clarear(cor_madeira, 0.55), 200)[:3])
 
+    # --- Realce da janela do shape CAGED ----------------------------------
+    if getattr(estado, 'caged_ativo', False):
+        ini, fim = getattr(estado, 'caged_janela', (0, 4))
+        # A janela cobre as CASAS ini..fim; a casa N ocupa a faixa (N-1, N)
+        borda_esq = max(0, min(ini - 1, estado.NUM_CASAS))
+        borda_dir = max(0, min(fim, estado.NUM_CASAS))
+        if borda_dir > borda_esq:
+            x_ini = rect_braco.x + borda_esq * espaco_casas
+            largura_janela = (borda_dir - borda_esq) * espaco_casas
+            realce = pygame.Surface((int(largura_janela), rect_braco.height),
+                                    pygame.SRCALPHA)
+            realce.fill(ds.com_alpha(TEMA.acento, 52))
+            tela.blit(realce, (int(x_ini), rect_braco.y))
+            pygame.draw.rect(tela, ds.rgb(TEMA.acento),
+                             (int(x_ini), rect_braco.y, int(largura_janela),
+                              rect_braco.height), 2, border_radius=ds.RAIO_SM)
+
+            # Etiqueta com fundo proprio, para nao se perder sobre as cordas
+            etiqueta = f"CAGED {getattr(estado, 'caged_shape', '')}".strip()
+            fonte_etq = fontes['pequena']
+            larg_etq = fonte_etq.size(etiqueta)[0] + ds.ESPACO_MD
+            if larg_etq < largura_janela:
+                # A etiqueta monta sobre a borda superior da janela, para nao
+                # cobrir a nota da primeira corda
+                rect_etq = pygame.Rect(int(x_ini) + 4, 0,
+                                       larg_etq, fonte_etq.get_height() + 4)
+                rect_etq.centery = rect_braco.y
+                pygame.draw.rect(tela, ds.rgb(TEMA.acento), rect_etq,
+                                 border_radius=ds.RAIO_SM)
+                ds.texto_centralizado(tela, etiqueta, fonte_etq, rect_etq,
+                                      TEMA.texto_sobre_cor)
+
     # --- Trastes e numeracao ----------------------------------------------
+    # A numeracao some quando as casas ficam estreitas demais para o texto
+    fonte_casas = fontes['pequena']
+    mostrar_numeros = espaco_casas >= 16
+    if mostrar_numeros and espaco_casas < 24:
+        fonte_casas = fontes.get('micro') or fontes['pequena']
     cor_traste = ds.clarear(TEMA.traste, 0.1)
     for casa in range(estado.NUM_CASAS + 1):
         x = rect_braco.x + casa * espaco_casas
@@ -88,12 +128,13 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador,
         else:
             pygame.draw.line(tela, ds.rgb(cor_traste),
                              (x, rect_braco.y), (x, rect_braco.bottom), 2)
-            x_num = x - espaco_casas / 2
-            marcada = casa in CASAS_MARCADAS or casa in CASAS_DUPLO_MARCADOR
-            ds.texto_em(tela, str(casa), fontes['pequena'],
-                        (x_num, rect_braco.bottom + 34),
-                        TEMA.acento if marcada else TEMA.texto_apagado,
-                        ancora='center')
+            if mostrar_numeros:
+                x_num = x - espaco_casas / 2
+                marcada = casa in CASAS_MARCADAS or casa in CASAS_DUPLO_MARCADOR
+                ds.texto_em(tela, str(casa), fonte_casas,
+                            (x_num, rect_braco.bottom + 9),
+                            TEMA.acento if marcada else TEMA.texto_apagado,
+                            ancora='midtop')
 
     # --- Contexto harmonico -----------------------------------------------
     modo_texto = configs.get_modo_texto() if configs else 'letras'
@@ -114,7 +155,21 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador,
     tom_ref = notas_acorde[0] if acorde_ativo else tom_global
     nota_microfone = estado.nota_atual_detectada
 
+    # --- Filtro CAGED (definido pelo painel da aba ACORDES) ----------------
+    caged_ativo = bool(getattr(estado, 'caged_ativo', False))
+    caged_ini, caged_fim = getattr(estado, 'caged_janela', (0, 4))
+    caged_notas = getattr(estado, 'caged_notas', {}) or {}
+    CORES_CAGED = {'R': TEMA.acento, '3': TEMA.verde, '5': TEMA.ciano}
+
     # --- Cordas e notas ----------------------------------------------------
+    # As bolinhas acompanham o tamanho do bloco: nunca maiores que a casa
+    # nem que o espaco entre cordas.
+    escala_nota = configs.get_escala_nota() if configs else 1.0
+    raio_base = int(min(espaco_casas * 0.42, estado.ESPACO_CORDAS * 0.46,
+                        GUITAR_RAIO_NOTA) * escala_nota)
+    raio_base = max(5, raio_base)
+    mostrar_rotulo = raio_base >= 8
+
     for i in range(num_cordas):
         if instrumento == 'baixo':
             y = rect_braco.bottom - 15 - i * estado.ESPACO_CORDAS
@@ -132,17 +187,29 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador,
         for casa in range(estado.NUM_CASAS + 1):
             nota = escalas.obter_nota(nota_aberta, casa)
             no_acorde = True
-            alpha, raio = GUITAR_ALPHA_NORMAL, GUITAR_RAIO_NOTA
+            alpha, raio = GUITAR_ALPHA_NORMAL, raio_base
 
             if acorde_ativo and nota not in notas_acorde:
                 no_acorde = False
-                alpha, raio = GUITAR_ALPHA_INATIVO, 12
+                alpha, raio = GUITAR_ALPHA_INATIVO, max(6, int(raio_base * 0.75))
 
-            x_nota = (rect_braco.x - 35 if casa == 0
+            # Filtro do sistema CAGED: so a janela de casas do shape escolhido
+            grau_caged = None
+            if caged_ativo:
+                dentro = caged_ini <= casa <= caged_fim
+                grau_caged = caged_notas.get(nota)
+                if not dentro or grau_caged is None:
+                    no_acorde = False
+                    grau_caged = None
+                    alpha, raio = GUITAR_ALPHA_INATIVO, max(5, int(raio_base * 0.6))
+
+            x_nota = (rect_braco.x - calha / 2 if casa == 0
                       else rect_braco.x + casa * espaco_casas - espaco_casas / 2)
 
             cor_fundo = cor_base_escala
-            if no_acorde:
+            if grau_caged is not None:
+                cor_fundo = CORES_CAGED[grau_caged]
+            elif no_acorde:
                 ref_tonica = notas_acorde[0] if acorde_ativo else tom_global
                 ref_terca = (notas_acorde[1] if acorde_ativo and len(notas_acorde) > 1
                              else terca_global)
@@ -158,7 +225,7 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador,
             tocando = bool(nota_microfone and equivalencia_notas(nota_microfone, nota))
             if tocando:
                 cor_fundo = TEMA.aviso
-                raio = GUITAR_RAIO_DETECTADA
+                raio = int(raio_base * 1.25)
                 alpha = GUITAR_ALPHA_NORMAL
 
             lado = raio * 2 + 8
@@ -177,7 +244,7 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador,
                                raio, 3 if tocando else 1)
             tela.blit(s, (int(x_nota - centro), int(y - centro)))
 
-            if modo_texto != 'vazio':
+            if modo_texto != 'vazio' and mostrar_rotulo:
                 rotulo = nota if modo_texto == 'letras' else obter_grau(tom_ref, nota)
                 fonte = fontes['pequena' if raio < 15 else 'notas']
                 surf = fonte.render(rotulo, True, ds.contraste_texto(cor_fundo))
