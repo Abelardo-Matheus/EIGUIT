@@ -47,6 +47,11 @@ class EstadoGlobal:
         self.afinador_sensibilidade = 0.5
         self.afinador_persistencia = 1000
         self.afinador_threshold = 0.3
+        # Portao de ruido em dB: abaixo disso a entrada e ignorada visualmente
+        self.afinador_noise_gate = -45.0
+        self.nivel_entrada_db = -60.0
+        # Slider do painel de audio em arrasto ('threshold', 'noise_gate', ...)
+        self.slider_audio_ativo = None
         self.tempo_ultima_nota = 0
         self.historico_freqs = []
         self.indice_cor_tonica = 0
@@ -67,6 +72,8 @@ class EstadoGlobal:
         self.ALTURA_BLOCO_NOTA = 220
         self.LARGURA_METRONOMO = 276
         self.ALTURA_METRONOMO = 104
+        self.LARGURA_SESSAO = 240
+        self.ALTURA_SESSAO = 150
         
         from config.ui_metrics import ALTURA_TOPBAR
         alt_viewport = max(600, self.ALTURA_TELA - ALTURA_TOPBAR)
@@ -89,11 +96,14 @@ class EstadoGlobal:
         self.dragger_metronomo = ElementoArrastavel(centro_x - 138, y_terc, self.LARGURA_METRONOMO, self.ALTURA_METRONOMO)
         self.dragger_cores = ElementoArrastavel(centro_x - 350, y_terc, 180, 150)
         self.dragger_nota_atual = ElementoArrastavel(centro_x + 200, y_terc, self.LARGURA_BLOCO_NOTA, self.ALTURA_BLOCO_NOTA)
+        self.dragger_sessao = ElementoArrastavel(centro_x + 200 + self.LARGURA_BLOCO_NOTA + 15, y_terc, self.LARGURA_SESSAO, self.ALTURA_SESSAO)
 
         self.atualizar_medidas()
 
         self.Y_AREA_DESENHO = self.dragger_painel_inferior.y - BOTTOM_Y_AREA_DESENHO_OFFSET
         self.nota_atual_detectada = '--'
+        # Preenchido por main.py com a instancia de SessaoEstudo
+        self.sessao = None
         self.nota_selecionada_bloco = 'C'
         self.rects_notas_selecao = []
         self.instrumento = 'guitarra'

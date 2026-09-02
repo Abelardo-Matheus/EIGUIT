@@ -14,6 +14,7 @@ import core.modulos.modulo_camera as modulo_camera
 from audio.global_audio import GlobalAudioEngine
 from ui import tela_login
 from config.design_system import TEMA, ds
+from core.sessao_estudo import SessaoEstudo
 
 def main():
     """
@@ -56,6 +57,7 @@ def main():
     motor_audio = GlobalAudioEngine()
     meu_gravador = motor_audio
     meu_processador = modulo_processamento.ProcessadorAudio()
+    estado.sessao = SessaoEstudo()
     estado.gerenciador_perfil = GerenciadorPerfil()
     estado.gerenciador_perfil.carregar_ultimo_perfil(estado, minhas_configs, meu_campo_harmonico, meu_gravador)
     dicionario_escalas = fabrica_escalas.gerar_modulos(estado, minhas_configs)
@@ -89,6 +91,21 @@ def main():
             estado.tempo_ultima_nota = agora
         elif agora - estado.tempo_ultima_nota > estado.afinador_persistencia:
             estado.nota_atual_detectada = '--'
+
+        # Nivel de entrada em dBFS, usado pelo medidor do afinador
+        try:
+            rms = float(getattr(motor_audio, 'volume_atual', 0.0))
+            estado.nivel_entrada_db = 20 * math.log10(rms) if rms > 1e-6 else -60.0
+        except (ValueError, TypeError):
+            estado.nivel_entrada_db = -60.0
+
+        # Contabiliza a nota tocada no contexto harmonico atual
+        if estado.sessao is not None:
+            if meu_campo_harmonico.indice_acorde_selecionado != -1:
+                notas_validas = meu_campo_harmonico.notas_acorde_selecionado
+            else:
+                notas_validas = meu_campo_harmonico.notas_da_escala()
+            estado.sessao.registrar(estado.nota_atual_detectada, notas_validas)
         pos_mouse_real = original_get_pos()
         estado.pos_mouse_real = pos_mouse_real
         pos_mouse_virtual = minha_camera.obter_mouse_virtual(pos_mouse_real)

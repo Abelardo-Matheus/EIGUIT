@@ -16,7 +16,7 @@ def obter_draggers_ativos(estado):
         Onde é usada: Chamado a partir do módulo ou classe base de 'controlador_eventos'.
     """
     lista = []
-    simples = ['dragger_controles_topo', 'dragger_cores', 'dragger_metronomo', 'dragger_acordes', 'dragger_painel_inferior', 'dragger_nota_atual']
+    simples = ['dragger_controles_topo', 'dragger_cores', 'dragger_metronomo', 'dragger_acordes', 'dragger_painel_inferior', 'dragger_nota_atual', 'dragger_sessao']
     for d in simples:
         if hasattr(estado, d):
             lista.append(getattr(estado, d))
@@ -313,7 +313,25 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
             if clicou_em_dragger:
                 continue
 
+        if evento.type == pygame.MOUSEMOTION and getattr(estado, 'slider_audio_ativo', None):
+            # Arrasto continuo dos sliders do painel de audio
+            mapa = {
+                'persistencia': ('rect_barra_persistencia', 100.0, 3000.0, 'afinador_persistencia', True),
+                'threshold': ('rect_barra_threshold', 0.1, 0.8, 'afinador_threshold', False),
+                'noise_gate': ('rect_barra_noise_gate', -70.0, -10.0, 'afinador_noise_gate', False),
+            }
+            entrada = mapa.get(estado.slider_audio_ativo)
+            if entrada:
+                nome_rect, minimo, maximo, atributo, inteiro = entrada
+                barra = getattr(estado, nome_rect, None)
+                if barra is not None and barra.width > 0:
+                    rel = max(0, min(barra.width, evento.pos[0] - barra.x)) / barra.width
+                    valor = minimo + rel * (maximo - minimo)
+                    setattr(estado, atributo, int(valor) if inteiro else valor)
+            continue
+
         if evento.type == pygame.MOUSEBUTTONUP:
+            estado.slider_audio_ativo = None
             # Garantir limpeza de estados de drag
             for dragger in obter_draggers_ativos(estado):
                 dragger.arrastando = False
@@ -338,6 +356,13 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                         dragger.arrastando = False
                 continue
             
+            # Pausa/retoma a contagem de tempo da sessao de estudo
+            if (hasattr(estado, 'rect_btn_sessao_pausa')
+                    and estado.rect_btn_sessao_pausa.collidepoint(evento.pos)
+                    and getattr(estado, 'sessao', None) is not None):
+                estado.sessao.alternar_pausa()
+                continue
+
             # Cliques nos novos botões de controle de instrumento (usam evento.pos virtual)
             if hasattr(estado, 'btn_guit') and estado.btn_guit.collidepoint(evento.pos):
                 estado.instrumento = 'guitarra'
@@ -622,11 +647,29 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                     barra = estado.rect_barra_persistencia
                     rel_x = max(0, min(barra.width, evento.pos[0] - barra.x))
                     estado.afinador_persistencia = int(100 + rel_x / barra.width * 2900)
+                    estado.slider_audio_ativo = 'persistencia'
                     continue
                 if hasattr(estado, 'rect_barra_threshold') and estado.rect_barra_threshold.collidepoint(evento.pos):
                     barra = estado.rect_barra_threshold
                     rel_x = max(0, min(barra.width, evento.pos[0] - barra.x))
                     estado.afinador_threshold = 0.1 + rel_x / barra.width * 0.7
+                    estado.slider_audio_ativo = 'threshold'
+                    continue
+                if hasattr(estado, 'rect_barra_noise_gate') and estado.rect_barra_noise_gate.collidepoint(evento.pos):
+                    barra = estado.rect_barra_noise_gate
+                    rel_x = max(0, min(barra.width, evento.pos[0] - barra.x))
+                    estado.afinador_noise_gate = -70.0 + rel_x / barra.width * 60.0
+                    estado.slider_audio_ativo = 'noise_gate'
+                    continue
+                if hasattr(estado, 'rect_btn_calibrar') and estado.rect_btn_calibrar.collidepoint(evento.pos):
+                    # Usa o nivel do ambiente como piso de ruido, com folga de 6 dB
+                    nivel = float(getattr(estado, 'nivel_entrada_db', -60.0))
+                    estado.afinador_noise_gate = max(-70.0, min(-10.0, nivel + 6.0))
+                    continue
+                if hasattr(estado, 'rect_btn_reset_audio') and estado.rect_btn_reset_audio.collidepoint(evento.pos):
+                    estado.afinador_threshold = 0.3
+                    estado.afinador_persistencia = 1000
+                    estado.afinador_noise_gate = -45.0
                     continue
             if hasattr(estado, 'dragger_acordes') and meu_campo_harmonico.tratar_clique(evento.pos):
                 estado.tom_atual = getattr(meu_campo_harmonico, 'tom', getattr(meu_campo_harmonico, 'tonica', estado.tom_atual))

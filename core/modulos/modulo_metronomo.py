@@ -232,24 +232,104 @@ class Metronomo:
                 pygame.draw.circle(tela, ds.rgb(ds.misturar(TEMA.borda, cor, 0.5)),
                                    (int(cx), int(centro_y)), int(raio), 1)
 
-    def desenhar_mini_metronomo(self, tela, estado, fonte_ui, configs=None):
-        """
-            Como funciona: Widget compacto com batidas, play/stop, slider de BPM
-            e campo numerico editavel.
-            Para que serve: Controle do tempo sem sair do workspace.
-            Onde e usada: Chamado por desenhar_controles_playback.
-        """
-        if not self.ativado:
-            return
-        if configs is not None:
-            TEMA.definir_acento(configs.get_cor_tema())
+    # -- layout completo (formato do canvas) --------------------------------
+    def _desenhar_completo(self, tela, estado, fonte_ui, rect, pos_mouse):
+        """BPM em destaque, formula de compasso, transporte e batidas numeradas."""
+        pad = ds.ESPACO_LG
+        x = rect.x + pad
+        largura = rect.width - pad * 2
+        y = rect.y + ds.ESPACO_MD
 
-        dragger = estado.dragger_metronomo
-        rect = pygame.Rect(dragger.x, dragger.y, dragger.largura, dragger.altura)
-        ds.painel(tela, rect, None, None, acento=TEMA.acento)
+        ds.rotulo_secao(tela, x, y, _t('Metronomo'), fonte_ui, TEMA.acento,
+                        largura_max=largura)
+        y += fonte_ui.get_height() + ds.ESPACO_SM
 
+        # --- Caixa de BPM ---------------------------------------------------
+        altura_caixa = 84
+        caixa = pygame.Rect(x, y, largura, altura_caixa)
+        ds.superficie_translucida(tela, caixa,
+                                  ds.misturar(TEMA.superficie, TEMA.acento, 0.12),
+                                  225, ds.RAIO_LG, TEMA.acento, 2)
+        ds.texto_em(tela, _t('Tempo atual'), self._fonte(14),
+                    (caixa.centerx, caixa.y + ds.ESPACO_SM), TEMA.texto_suave,
+                    ancora='midtop')
+        ds.texto_em(tela, str(self.bpm), self._fonte(40),
+                    (caixa.centerx, caixa.centery + 4), TEMA.primaria_clara,
+                    ancora='center')
+        ds.texto_em(tela, _t('BPM'), self._fonte(12),
+                    (caixa.centerx, caixa.bottom - ds.ESPACO_SM), TEMA.acento,
+                    ancora='midbottom')
+        y = caixa.bottom + ds.ESPACO_LG
+
+        # --- Slider de BPM --------------------------------------------------
+        ds.texto_em(tela, f'{BPM_MIN}', self._fonte(12), (x, y), TEMA.texto_apagado)
+        ds.texto_em(tela, f'{BPM_MAX}', self._fonte(12), (x + largura, y),
+                    TEMA.texto_apagado, ancora='topright')
+        y += self._fonte(12).get_height() + ds.ESPACO_SM
+        barra = pygame.Rect(x, y, largura, ds.ALTURA_TRILHO)
+        pct = (self.bpm - BPM_MIN) / (BPM_MAX - BPM_MIN)
+        self.rect_slider_barra, self.rect_alca = ds.slider(tela, barra, pct)
+        self.slider_largura = largura
+        y += ds.ALTURA_TRILHO + ds.ESPACO_LG
+
+        # --- Formula de compasso -------------------------------------------
+        ds.texto_em(tela, _t('Formula de compasso'), self._fonte(12), (x, y),
+                    TEMA.texto_suave, largura_max=largura)
+        y += self._fonte(12).get_height() + ds.ESPACO_SM
+        self.rects_compasso = []
+        gap = ds.ESPACO_SM
+        largura_card = (largura - gap * (len(FORMULAS) - 1)) // len(FORMULAS)
+        altura_card = 42
+        for i, (batidas, figura) in enumerate(FORMULAS):
+            card = pygame.Rect(x + i * (largura_card + gap), y,
+                               largura_card, altura_card)
+            self.rects_compasso.append(card)
+            ativo = self.compasso == batidas
+            if ativo:
+                ds.gradiente_vertical(tela, card, ds.clarear(TEMA.acento, 0.2),
+                                      TEMA.acento, ds.RAIO_MD)
+                cor_num, cor_fig = TEMA.texto_sobre_cor, TEMA.texto_sobre_cor
+            else:
+                ds.superficie_translucida(tela, card, TEMA.superficie_alt, 225,
+                                          ds.RAIO_MD, TEMA.borda, 1)
+                cor_num, cor_fig = TEMA.texto, TEMA.texto_apagado
+            ds.texto_em(tela, str(batidas), self._fonte(17),
+                        (card.centerx, card.y + 4), cor_num, ancora='midtop')
+            ds.texto_em(tela, f'/{figura}', self._fonte(11),
+                        (card.centerx, card.bottom - 4), cor_fig, ancora='midbottom')
+        y += altura_card + ds.ESPACO_LG
+
+        # --- Transporte -----------------------------------------------------
+        altura_btn = 36
+        largura_btn = (largura - gap * 2) // 3
+        self.btn_bpm_menos = pygame.Rect(x, y, largura_btn, altura_btn)
+        self.btn_play = pygame.Rect(x + largura_btn + gap, y, largura_btn, altura_btn)
+        self.btn_bpm_mais = pygame.Rect(x + (largura_btn + gap) * 2, y,
+                                        largura - (largura_btn + gap) * 2, altura_btn)
+        ds.botao(tela, self.btn_bpm_menos, '-5', fonte_ui, variante='secundario',
+                 hover=self.btn_bpm_menos.collidepoint(pos_mouse))
+        ds.botao(tela, self.btn_play, _t('STOP') if self.tocando else _t('PLAY'),
+                 fonte_ui, variante='perigo' if self.tocando else 'primario',
+                 hover=self.btn_play.collidepoint(pos_mouse))
+        ds.botao(tela, self.btn_bpm_mais, '+5', fonte_ui, variante='secundario',
+                 hover=self.btn_bpm_mais.collidepoint(pos_mouse))
+        y += altura_btn + ds.ESPACO_LG
+
+        # --- Batidas numeradas ----------------------------------------------
+        if y + 34 <= rect.bottom - ds.ESPACO_SM:
+            ds.texto_em(tela, _t('Batida atual'), self._fonte(12), (x, y),
+                        TEMA.texto_apagado)
+            y += self._fonte(12).get_height() + ds.ESPACO_SM
+            self._desenhar_batidas(tela, rect.centerx, y + 15, largura,
+                                   numeradas=True)
+
+        # O campo de BPM digitavel nao existe neste layout
+        self.rect_input = pygame.Rect(-100, -100, 0, 0)
+
+    # -- layout compacto -----------------------------------------------------
+    def _desenhar_compacto(self, tela, estado, fonte_ui, rect, pos_mouse):
+        """Versao reduzida para quando o widget esta pequeno."""
         pad = ds.ESPACO_MD
-        # Cabecalho: rotulo e BPM atual
         ds.texto_em(tela, _t('Metronomo').upper(), fonte_ui,
                     (rect.x + pad, rect.y + ds.ESPACO_SM), TEMA.acento,
                     largura_max=rect.width // 2)
@@ -260,20 +340,16 @@ class Metronomo:
         y_batidas = rect.y + ds.ESPACO_SM + fonte_ui.get_height() + 16
         self._desenhar_batidas(tela, rect.centerx, y_batidas, rect.width - pad * 2)
 
-        # Linha de controles
         altura_btn = 30
         y_ctrl = min(rect.bottom - altura_btn - ds.ESPACO_MD, y_batidas + 24)
-        largura_play = 56
-        largura_input = 50
-        gap = ds.ESPACO_SM
+        largura_play, largura_input, gap = 56, 50, ds.ESPACO_SM
 
         self.btn_play = pygame.Rect(rect.x + pad, y_ctrl, largura_play, altura_btn)
         self.rect_input = pygame.Rect(rect.right - pad - largura_input, y_ctrl,
                                       largura_input, altura_btn)
-
         ds.botao(tela, self.btn_play, _t('STOP') if self.tocando else _t('PLAY'),
                  fonte_ui, variante='perigo' if self.tocando else 'primario',
-                 hover=self.btn_play.collidepoint(pygame.mouse.get_pos()))
+                 hover=self.btn_play.collidepoint(pos_mouse))
 
         largura_slider = max(40, self.rect_input.left - self.btn_play.right - gap * 2)
         self.slider_largura = largura_slider
@@ -282,9 +358,34 @@ class Metronomo:
                             largura_slider, ds.ALTURA_TRILHO)
         pct = (self.bpm - BPM_MIN) / (BPM_MAX - BPM_MIN)
         self.rect_slider_barra, self.rect_alca = ds.slider(tela, barra, pct)
-
         ds.caixa_texto(tela, self.rect_input, self.bpm_texto, fonte_ui,
                        focado=self.foco_input)
+
+        self.rects_compasso = []
+        self.btn_bpm_menos = pygame.Rect(-100, -100, 0, 0)
+        self.btn_bpm_mais = pygame.Rect(-100, -100, 0, 0)
+
+    def desenhar_mini_metronomo(self, tela, estado, fonte_ui, configs=None):
+        """
+            Como funciona: Escolhe entre o layout completo (formato do canvas)
+            e o compacto conforme o tamanho do widget arrastavel.
+            Para que serve: Controle do tempo direto no workspace.
+            Onde e usada: Chamado por desenhar_controles_playback.
+        """
+        if not self.ativado:
+            return
+        if configs is not None:
+            TEMA.definir_acento(configs.get_cor_tema())
+
+        dragger = estado.dragger_metronomo
+        rect = pygame.Rect(dragger.x, dragger.y, dragger.largura, dragger.altura)
+        ds.painel(tela, rect, None, None, acento=TEMA.acento)
+        pos_mouse = pygame.mouse.get_pos()
+
+        if rect.width >= LARGURA_MIN_COMPLETO and rect.height >= ALTURA_MIN_COMPLETO:
+            self._desenhar_completo(tela, estado, fonte_ui, rect, pos_mouse)
+        else:
+            self._desenhar_compacto(tela, estado, fonte_ui, rect, pos_mouse)
 
         if estado.drag_ativado:
             dragger.desenhar_caixa_selecao(tela, margem=5)

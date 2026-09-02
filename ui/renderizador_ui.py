@@ -16,7 +16,8 @@ from ui.components import (
     desenhar_controles_playback, 
     desenhar_bloco_nota_atual, 
     desenhar_painel_cores, 
-    desenhar_secoes_inferiores_expansiveis
+    desenhar_secoes_inferiores_expansiveis,
+    desenhar_painel_sessao
 )
 from ui.blocks.guitar_neck import desenhar_guitarra
 from ui.components.utils import obter_grau, equivalencia_notas
@@ -44,7 +45,8 @@ def desenhar_workspace(tela, estado, configs, dicionario_escalas, fontes, meu_me
     desenhar_controles_instrumento(tela, estado, fontes, configs)
     desenhar_acordes_arrastaveis(tela, estado, meu_campo_harmonico, fontes)
     desenhar_painel_cores(tela, estado, fontes)
-    desenhar_bloco_nota_atual(tela, estado, fontes, configs)
+    desenhar_bloco_nota_atual(tela, estado, fontes, configs, meu_gravador)
+    desenhar_painel_sessao(tela, estado, fontes, configs)
     desenhar_controles_playback(tela, estado, meu_metronomo, fontes['ui'], configs)
     
     if hasattr(estado, 'lista_tabs'):

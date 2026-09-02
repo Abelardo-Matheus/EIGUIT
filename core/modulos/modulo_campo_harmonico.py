@@ -28,6 +28,16 @@ class CampoHarmonico:
         self.rect_escala_esq = pygame.Rect(0, 0, 0, 0)
         self.rect_escala_dir = pygame.Rect(0, 0, 0, 0)
 
+    def notas_da_escala(self):
+        """
+            Como funciona: Devolve as sete notas da tonalidade ativa.
+            Para que serve: Saber se uma nota tocada pertence ao contexto atual.
+            Onde e usada: Rastreamento de precisao da sessao de estudo.
+        """
+        escala = self.escalas_campo[self.indice_escala_campo]
+        idx = self.notas_base.index(self.tonica_campo)
+        return [self.notas_base[(idx + i) % 12] for i in escala['int']]
+
     def calcular_notas_acorde_selecionado(self):
         """
             Como funciona: Executa o fluxo lógico necessário para a operação 'calcular notas acorde selecionado'.
