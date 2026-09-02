@@ -18,7 +18,8 @@ def obter_draggers_ativos(estado):
     lista = []
     simples = ['dragger_controles_topo', 'dragger_cores', 'dragger_metronomo', 'dragger_acordes', 'dragger_painel_inferior', 'dragger_nota_atual', 'dragger_sessao',
                'dragger_circulo', 'dragger_historico', 'dragger_ideias',
-               'dragger_drone', 'dragger_progressoes']
+               'dragger_drone', 'dragger_progressoes', 'dragger_graus',
+               'dragger_cordas', 'dragger_capo']
     for d in simples:
         if hasattr(estado, d):
             lista.append(getattr(estado, d))
@@ -363,62 +364,18 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                         dragger.arrastando = False
                 continue
             
-            # Blocos extras do workspace
-            for rect_nota, nota_circulo in getattr(estado, 'rects_circulo', []):
-                if rect_nota.collidepoint(evento.pos):
-                    meu_campo_harmonico.tonica_campo = nota_circulo
-                    estado.tom_atual = nota_circulo
-                    if meu_campo_harmonico.indice_acorde_selecionado != -1:
-                        meu_campo_harmonico.calcular_notas_acorde_selecionado()
-                    dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
-                    break
-            else:
-                if (hasattr(estado, 'rect_btn_limpar_historico')
-                        and estado.rect_btn_limpar_historico.collidepoint(evento.pos)):
-                    estado.historico_notas = []
-                    continue
-                if (hasattr(estado, 'rect_btn_gravar_ideia')
-                        and estado.rect_btn_gravar_ideia.collidepoint(evento.pos)):
-                    from ui.components.blocos_extras import alternar_gravacao_ideia
-                    alternar_gravacao_ideia(estado, meu_gravador)
-                    continue
-
-                # Referencia: escolher a nota ou ligar/desligar o drone
-                from ui.components.blocos_extras import (alternar_drone,
-                                                         aplicar_progressao,
-                                                         PROGRESSOES_RAPIDAS)
-                tratou_bloco = False
-                for rect_drone, nome_drone in getattr(estado, 'rects_drone', []):
-                    if rect_drone.collidepoint(evento.pos):
-                        if getattr(estado, 'drone_ativo', False):
-                            alternar_drone(estado, nome_drone)
-                        else:
-                            estado.drone_nota = nome_drone
-                        tratou_bloco = True
-                        break
-                if tratou_bloco:
-                    continue
-                if (hasattr(estado, 'rect_btn_drone')
-                        and estado.rect_btn_drone.collidepoint(evento.pos)):
-                    alternar_drone(estado)
-                    continue
-
-                # Progressoes: joga o giro inteiro no braco
-                for rect_prog, indice_prog in getattr(estado, 'rects_progressoes', []):
-                    if rect_prog.collidepoint(evento.pos):
-                        tonica_atual = getattr(meu_campo_harmonico, 'tonica_campo', 'C')
-                        if estado.progressao_ativa == indice_prog:
-                            estado.progressao_ativa = -1
-                            estado.acordes_fixados = []
-                            estado.acordes_no_braco = []
-                        else:
-                            estado.progressao_ativa = indice_prog
-                            aplicar_progressao(estado, tonica_atual,
-                                               PROGRESSOES_RAPIDAS[indice_prog]['graus'])
-                        tratou_bloco = True
-                        break
-                if tratou_bloco:
-                    continue
+            # Blocos extras do workspace.
+            # Todo o teste e feito contra os retangulos que os blocos
+            # guardaram durante o desenho; nada de geometria recalculada aqui.
+            from ui.components.blocos_extras import tratar_clique_blocos
+            acao_bloco = tratar_clique_blocos(estado, evento.pos,
+                                              meu_campo_harmonico, meu_gravador)
+            if acao_bloco:
+                if acao_bloco == 'tonalidade':
+                    estado.tonica_campo = meu_campo_harmonico.tonica_campo
+                    dicionario_escalas.update(
+                        fabrica_escalas.gerar_modulos(estado, configs))
+                continue
 
             # Pausa/retoma a contagem de tempo da sessao de estudo
             if (hasattr(estado, 'rect_btn_sessao_pausa')

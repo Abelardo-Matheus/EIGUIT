@@ -5,8 +5,12 @@ from .playback_controls import desenhar_controles_playback
 from .audio_sidebar import desenhar_painel_cores, desenhar_bloco_nota_atual
 from .bottom_nav import desenhar_secoes_inferiores_expansiveis
 from .session_panel import desenhar_painel_sessao
-from .blocos_extras import (desenhar_bloco_circulo, desenhar_bloco_historico,
-                            desenhar_bloco_ideias, registrar_nota_historico,
-                            alternar_gravacao_ideia, desenhar_bloco_drone,
-                            alternar_drone, desenhar_bloco_progressoes,
-                            aplicar_progressao, PROGRESSOES_RAPIDAS)
+from .blocos_extras import (BLOCOS_EXTRAS, PROGRESSOES_RAPIDAS,
+                            alternar_drone, alternar_gravacao_ideia,
+                            aplicar_grau, aplicar_progressao,
+                            desenhar_bloco_capo, desenhar_bloco_circulo,
+                            desenhar_bloco_cordas, desenhar_bloco_drone,
+                            desenhar_bloco_graus, desenhar_bloco_historico,
+                            desenhar_bloco_ideias, desenhar_bloco_progressoes,
+                            desenhar_blocos_extras, registrar_nota_historico,
+                            tratar_clique_blocos)

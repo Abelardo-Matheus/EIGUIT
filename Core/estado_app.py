@@ -112,6 +112,9 @@ class EstadoGlobal:
         self.dragger_ideias = _bloco('dragger_ideias')
         self.dragger_drone = _bloco('dragger_drone')
         self.dragger_progressoes = _bloco('dragger_progressoes')
+        self.dragger_graus = _bloco('dragger_graus')
+        self.dragger_cordas = _bloco('dragger_cordas')
+        self.dragger_capo = _bloco('dragger_capo')
 
         self.atualizar_medidas()
 
@@ -129,10 +132,22 @@ class EstadoGlobal:
         self.canal_drone = None
         self.rects_drone = []
         self.rect_btn_drone = pygame.Rect(0, 0, 0, 0)
+        self.rects_circulo = []
+        self.rect_btn_limpar_historico = pygame.Rect(0, 0, 0, 0)
+        self.rect_btn_gravar_ideia = pygame.Rect(0, 0, 0, 0)
+        self.inicio_gravacao_ideia = 0.0
         # Progressoes rapidas
         self.progressao_ativa = -1
         self.rects_progressoes = []
         self.ultima_ideia_salva = ''
+        # Graus do campo harmonico desenhados no braco pelo bloco de graus
+        self.grau_selecionado = -1
+        self.rects_graus = []
+        # Cordas soltas da afinacao em uso
+        self.rects_cordas = []
+        # Capotraste: casa escolhida, 0 = sem capo
+        self.capo_casa = 0
+        self.rects_capo = []
         self.nota_selecionada_bloco = 'C'
         self.rects_notas_selecao = []
         self.instrumento = 'guitarra'

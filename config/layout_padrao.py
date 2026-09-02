@@ -25,10 +25,13 @@ BLOCOS_REF = {
     'dragger_circulo': (40, 508, 214, 168),
     'dragger_historico': (266, 520, 340, 144),
     'dragger_ideias': (618, 520, 232, 144),
+    'dragger_graus': (862, 508, 356, 156),
     'dragger_drone': (40, 684, 296, 156),
     'dragger_progressoes': (352, 684, 434, 196),
+    'dragger_capo': (862, 684, 356, 120),
     'dragger_metronomo': (1250, 510, 330, 340),
     'dragger_sessao': (1600, 510, 280, 180),
+    'dragger_cordas': (1600, 700, 280, 150),
     'dragger_painel_inferior': (40, 960, 1840, 40),
 }
 
@@ -42,10 +45,13 @@ MINIMOS = {
     'dragger_circulo': (150, 120),
     'dragger_historico': (220, 100),
     'dragger_ideias': (170, 96),
+    'dragger_graus': (230, 110),
     'dragger_drone': (180, 120),
     'dragger_progressoes': (240, 120),
+    'dragger_capo': (190, 96),
     'dragger_metronomo': (240, 104),
     'dragger_sessao': (200, 130),
+    'dragger_cordas': (180, 100),
     'dragger_painel_inferior': (600, 38),
 }
 

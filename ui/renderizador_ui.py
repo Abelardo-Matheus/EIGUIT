@@ -18,11 +18,7 @@ from ui.components import (
     desenhar_painel_cores, 
     desenhar_secoes_inferiores_expansiveis,
     desenhar_painel_sessao,
-    desenhar_bloco_circulo,
-    desenhar_bloco_historico,
-    desenhar_bloco_ideias,
-    desenhar_bloco_drone,
-    desenhar_bloco_progressoes
+    desenhar_blocos_extras
 )
 from ui.blocks.guitar_neck import desenhar_guitarra
 from ui.components.utils import obter_grau, equivalencia_notas
@@ -55,11 +51,8 @@ def desenhar_workspace(tela, estado, configs, dicionario_escalas, fontes, meu_me
     desenhar_painel_cores(tela, estado, fontes)
     desenhar_bloco_nota_atual(tela, estado, fontes, configs, meu_gravador)
     desenhar_painel_sessao(tela, estado, fontes, configs)
-    desenhar_bloco_circulo(tela, estado, fontes, configs, meu_campo_harmonico)
-    desenhar_bloco_historico(tela, estado, fontes, configs, meu_campo_harmonico)
-    desenhar_bloco_ideias(tela, estado, fontes, configs, meu_gravador)
-    desenhar_bloco_drone(tela, estado, fontes, configs, meu_campo_harmonico)
-    desenhar_bloco_progressoes(tela, estado, fontes, configs, meu_campo_harmonico)
+    desenhar_blocos_extras(tela, estado, fontes, configs, meu_campo_harmonico,
+                           meu_gravador)
     desenhar_controles_playback(tela, estado, meu_metronomo, fontes['ui'], configs)
     
     if hasattr(estado, 'lista_tabs'):
