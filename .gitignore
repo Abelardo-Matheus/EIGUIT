@@ -200,3 +200,10 @@ __pycache__/
 .env
 node_modules/
 temp_audio/
+
+# Pacotes de atualizacao entregues fora do git (nao versionar)
+*.bundle
+ATUALIZAR.bat
+atualizar.ps1
+APLICAR.bat
+aplicar_e_unificar.ps1
