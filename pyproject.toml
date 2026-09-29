@@ -23,6 +23,7 @@ dependencies = [
     "requests>=2.33.1",
     "rich>=13.7.0",
     "scipy>=1.17.1",
+    "soundfile>=0.12.1",
     "sounddevice>=0.5.5",
     "tinysoundfont>=0.3.7",
     "tkvideoplayer>=2.8",

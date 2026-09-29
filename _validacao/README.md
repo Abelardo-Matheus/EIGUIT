@@ -27,6 +27,9 @@ qualquer maquina, inclusive sem microfone.
 | `auditoria.py` | contraste, alvos da barra superior e regioes vazias |
 | `preview2/3/ritmo.py` | geram os PNGs de `_preview_design/` nos dois temas |
 | `preview_pedais.py` | PNGs do estudo de pedais (lista, pedais abertos, 720p e a sub-aba) |
+| `teste_estudo_tempo.py` | estudo de tempo pelo gerenciador (cartao, sub-aba, clique, loop, ESC, PDF) em tres resolucoes e dois temas, mais o motor da tablatura (modos, instrumentos, botao de som, leitura da celula) |
+| `teste_leitor_tempo.py` | leitura ritmica: MIDI -> compassos/tempos/subdivisoes, quialteras, bend, digitacao sugerida, JSON do PDF, soma que nao fecha, audio |
+| `demo_timbres.py` | gera `_validacao/previews/demo_timbres.wav` com o mesmo riff em cada timbre |
 
 O `teste_blocos.py` cobre tambem a coluna lateral: tudo comeca guardado, a
 coluna abre no hover, a gaveta tira e guarda o bloco por clique e por arrasto,

@@ -289,6 +289,9 @@ def _desenhar_aba_estudos(tela, dx, y_start, largura_conteudo, estado, fontes,
         7: [
             (_t('Pedais de Efeito'), _t('Aprenda o que faz cada pedal, do boost ao whammy: explicacao simples, o que muda cada botao (drive, tone, time, mix...) e um audio de exemplo que muda na hora enquanto voce mexe.')),
         ],
+        8: [
+            (_t('Estudo de Tempo'), _t('Abra um MIDI ou PDF de partitura/tablatura: cada compasso separado em tempos e subdivisoes, selecione um trecho e toque em loop com metronomo no andamento da musica, com som de guitarra real.')),
+        ],
     }
 
     itens = grupos.get(memoria_sub_aba, [])

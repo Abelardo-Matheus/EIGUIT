@@ -13,9 +13,12 @@ import Estudos.estudo_padroes as estudo_padroes
 import Estudos.estudo_improvisacao as estudo_improvisacao
 import Estudos.estudo_aulas as estudo_aulas
 import Estudos.estudo_pedais as estudo_pedais
+import Estudos.estudo_tempo as estudo_tempo
 
 # Nomes pelos quais o estudo de pedais pode ser aberto (cartao e sub-aba)
 NOMES_PEDAIS = ('Pedais', 'Pedais de Efeito')
+# Idem para o estudo de tempo (partitura/tablatura separada em tempos, com loop e metronomo)
+NOMES_TEMPO = ('Tempo', 'Estudo de Tempo')
 
 
 class EstudoAcordes:
@@ -167,6 +170,7 @@ class GerenciadorEstudos:
         self.modulo_improviso = None
         self.modulo_aulas = None
         self.modulo_pedais = None
+        self.modulo_tempo = None
 
     def desenhar_tela_estudo(self, tela, largura, altura, estado, fontes):
         """
@@ -227,6 +231,10 @@ class GerenciadorEstudos:
             if self.modulo_pedais is None:
                 self.modulo_pedais = estudo_pedais.EstudoPedais()
             self.modulo_pedais.desenhar(tela, estado, fontes, meio_x, meio_y, cam_x, cam_y)
+        elif estado.estudo_ativo in NOMES_TEMPO:
+            if self.modulo_tempo is None:
+                self.modulo_tempo = estudo_tempo.EstudoTempo()
+            self.modulo_tempo.desenhar(tela, estado, fontes, meio_x, meio_y, cam_x, cam_y)
         elif estado.estudo_ativo == 'Ciclo de Quintas':
             if self.modulo_ciclo is None:
                 self.modulo_ciclo = estudo_ciclo_quintas.EstudoCicloQuintas()
@@ -252,6 +260,9 @@ class GerenciadorEstudos:
         if self.modulo_pedais is not None:
             self.modulo_pedais.parar()
         self.modulo_pedais = None
+        if self.modulo_tempo is not None:
+            self.modulo_tempo.parar()
+        self.modulo_tempo = None
 
     def tratar_eventos(self, evento, pos_mouse, estado):
         """
@@ -291,6 +302,8 @@ class GerenciadorEstudos:
             modulo_ativo = self.modulo_aulas
         elif estado.estudo_ativo in NOMES_PEDAIS:
             modulo_ativo = self.modulo_pedais
+        elif estado.estudo_ativo in NOMES_TEMPO:
+            modulo_ativo = self.modulo_tempo
 
         if modulo_ativo and hasattr(modulo_ativo, 'tratar_eventos'):
             if modulo_ativo.tratar_eventos(evento, pos_mouse_virtual, estado):

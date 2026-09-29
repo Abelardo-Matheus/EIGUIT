@@ -32,7 +32,7 @@ class RenderizadorCriadorTablatura:
         self.altura = altura
         
         self.dados = GerenciadorDadosTablatura()
-        self.synth = MotorAudioDual(modo="sintetico")
+        self.synth = MotorAudioDual()   # começa no melhor som disponível (profissional)
         
         # Cores legadas
         self.COR_FUNDO = COR_FUNDO
@@ -222,11 +222,17 @@ class RenderizadorCriadorTablatura:
 
         # --- Toggle Dual-Engine ---
         self.rect_toggle_audio = pygame.Rect(self.largura - 460, 15, 180, 36)
-        cor_toggle = (50, 150, 255) if self.synth.modo == "realista" else (100, 100, 120)
+        cor_toggle = (100, 100, 120) if self.synth.modo == "sintetico" else (50, 150, 255)
         pygame.draw.rect(self.tela, cor_toggle, self.rect_toggle_audio, border_radius=18)
-        txt_modo = "Modo de Som: Realista" if self.synth.modo == "realista" else "Modo de Som: Sintético"
+        txt_modo = self.synth.rotulo_som()
         txt_t = self.fonte_ui.render(txt_modo, True, BRANCO)
         self.tela.blit(txt_t, (self.rect_toggle_audio.centerx - txt_t.get_width()//2, self.rect_toggle_audio.centery - txt_t.get_height()//2))
+
+    def _tocar(self):
+        """Prepara as notas no sintetizador e começa a reprodução da grade."""
+        if hasattr(self.synth, 'preparar_grade'):
+            self.synth.preparar_grade(self.dados.grade, 60.0 / max(1, self.dados.bpm) / 4.0)
+        self.dados.play(self.synth.reproduzir_nota)
 
     def _desenhar_status_ia(self):
         if self.status_ia:
@@ -316,7 +322,7 @@ class RenderizadorCriadorTablatura:
                 return True
             elif evento.key == pygame.K_SPACE:
                 if self.dados.playing: self.dados.stop()
-                else: self.dados.play(self.synth.reproduzir_nota)
+                else: self._tocar()
                 return True
         elif evento.type == pygame.MOUSEBUTTONDOWN:
             if evento.button == 1:
@@ -328,12 +334,11 @@ class RenderizadorCriadorTablatura:
                             self.synth.alternar_instrumento_synth(key)
                             return True
                     if hasattr(self, 'rect_toggle_audio') and self.rect_toggle_audio.collidepoint(evento.pos):
-                        novo_modo = "realista" if self.synth.modo == "sintetico" else "sintetico"
-                        self.synth.alternar_modo(novo_modo)
+                        self.synth.proximo_som()   # Clean > Crunch > Drive > High gain > Realista > Sintético
                         return True
                     if self.rect_play.collidepoint(evento.pos):
                         if self.dados.playing: self.dados.stop()
-                        else: self.dados.play(self.synth.reproduzir_nota)
+                        else: self._tocar()
                         return True
                     elif self.rect_stop.collidepoint(evento.pos): 
                         self.dados.stop()

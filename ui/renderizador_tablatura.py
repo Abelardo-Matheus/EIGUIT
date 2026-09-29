@@ -13,7 +13,7 @@ class RenderizadorTablatura:
     Utiliza GerenciadorDadosTablatura para lógica de dados.
     """
     def __init__(self):
-        self.synth = MotorAudioDual(modo="sintetico")
+        self.synth = MotorAudioDual()   # começa no melhor som disponível (profissional)
         self.dados = GerenciadorDadosTablatura()
         self.largura_coluna = 60
         self.altura_linha = 20
@@ -178,6 +178,9 @@ class RenderizadorTablatura:
         ms_por_coluna = ms_por_beat
 
         if not hasattr(estado, 'tempo_proximo_tick'):
+            # Deixa todas as notas da música renderizando em segundo plano
+            if hasattr(self.synth, 'preparar_grade'):
+                self.synth.preparar_grade(self.dados.grade, ms_por_coluna / 1000.0)
             # Acabou de dar play. Toca a coluna inicial IMEDIATAMENTE e agenda a próxima.
             self._tocar_notas_da_coluna(estado, ms_por_coluna)
             estado.tempo_proximo_tick = agora + ms_por_coluna
@@ -202,24 +205,10 @@ class RenderizadorTablatura:
         for corda_idx in range(num_cordas):
             celula = self.dados.grade[corda_idx][estado.tab_coluna_atual]
             if celula != '-':
-                # Tocar nota com fidelidade máxima
-                match = re.match(r"(\d+)", str(celula))
-                if match:
-                    casa = int(match.group(1))
-                    
-                    # Extração de Fidelidade (Expressão)
-                    vol_match = re.search(r"v(\d+)", str(celula))
-                    volume = int(vol_match.group(1)) if vol_match else 100
-                    
-                    dur_cols = 1
-                    d_match = re.search(r"d(\d+)", str(celula))
-                    if d_match: dur_cols = int(d_match.group(1))
-                    
-                    tecnica = ""
-                    if 'b' in str(celula): tecnica += 'b'
-                    if '/' in str(celula): tecnica += '/'
-                    if '~' in str(celula): tecnica += '~'
-                    
+                # Tocar nota com fidelidade máxima (casa, técnicas b / h p ~, dN, vNN)
+                lida = self.synth.ler_celula(celula)
+                if lida:
+                    casa, tecnica, dur_cols, volume = lida
                     dur_seg = (dur_cols * ms_por_coluna / 1000.0) * 1.5 # Sustain estendido para realismo
                     self.synth.reproduzir_nota(corda_idx + 1, casa, tecnica, duracao=dur_seg, volume=volume)
 
@@ -406,9 +395,9 @@ class RenderizadorTablatura:
 
         # NOVO: Botão Toggle Audio (Dual-Engine)
         estado.rect_tab_toggle_audio = pygame.Rect(960, y_ctrl, 140, 30)
-        cor_toggle_audio = (50, 150, 255) if self.synth.modo == "realista" else (100, 100, 120)
+        cor_toggle_audio = (100, 100, 120) if self.synth.modo == "sintetico" else (50, 150, 255)
         pygame.draw.rect(tela, cor_toggle_audio, estado.rect_tab_toggle_audio, border_radius=5)
-        txt_modo = "Som: Realista" if self.synth.modo == "realista" else "Som: Sintético"
+        txt_modo = self.synth.rotulo_som()
         txt_t_audio = fontes['pequena'].render(txt_modo, True, BRANCO)
         tela.blit(txt_t_audio, (estado.rect_tab_toggle_audio.centerx - txt_t_audio.get_width() // 2, y_ctrl + 7))
 
@@ -497,8 +486,7 @@ class RenderizadorTablatura:
                         self._alternar_gravacao(estado, motor_audio)
                     return True
                 if hasattr(estado, 'rect_tab_toggle_audio') and estado.rect_tab_toggle_audio.collidepoint(evento.pos):
-                    novo_modo = "realista" if self.synth.modo == "sintetico" else "sintetico"
-                    self.synth.alternar_modo(novo_modo)
+                    self.synth.proximo_som()   # Clean > Crunch > Drive > High gain > Realista > Sintético
                     return True
 
                 # 3. Cliques em Seletor de Instrumentos

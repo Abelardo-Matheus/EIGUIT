@@ -1,0 +1,15 @@
+{
+ "nome": "Emilyguitar (Karoryfer, CC0) — Epiphone, captação direta",
+ "sfz": "guitarra.sfz",
+ "teclas_abafadas": [
+  91,
+  92,
+  93,
+  94,
+  95
+ ],
+ "teclas_ruido": [
+  90,
+  96
+ ]
+}

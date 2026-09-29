@@ -218,7 +218,9 @@ class GerenciadorDadosTablatura:
             if self.on_note_trigger:
                 # O callback agora aceita volume e duração
                 try:
-                    self.on_note_trigger(corda, casa, tecnicas, dur_cols, volume)
+                    # duração em SEGUNDOS (1 coluna = 1 semicolcheia), com sustain para soar natural
+                    dur_seg = dur_cols * (60.0 / max(1, self.bpm) / 4.0) * 1.5
+                    self.on_note_trigger(corda, casa, tecnicas, dur_seg, volume)
                 except TypeError:
                     # Fallback para o callback antigo se ainda não atualizado
                     self.on_note_trigger(corda, casa, tecnicas)

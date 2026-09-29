@@ -94,6 +94,18 @@ by `ui/fabrica_escalas.py` from the `modulos_escala_*` / `modulos_modos` / `modu
 data files.
 
 ### Other subsystems
+- **Guitar sound stack** — `audio/sintetizador.py → render_notas()` is the single entry point
+  (backends: `sampler` = DI guitar samples `audio/sampler_guitarra.py` + amp/cab/room
+  `audio/amp_guitarra.py`; `soundfont` = TinySoundFont; `sintetico` = numpy fallback).
+  Assets in `assets/audio/guitarra_di/` (Karoryfer Emilyguitar, CC0, FLAC) and
+  `assets/audio/soundfonts/` (GeneralUser GS; `padrao.txt` picks the default).
+  `audio/tab_synth.py → MotorAudioDual` (tablature screens) keeps its old API and adds the
+  `profissional` mode (default), per-note cache + background HQ render, `preparar_grade()`,
+  `ler_celula()` and `proximo_som()` for the "Som:" button.
+- **ESTUDOS > Tempo** — `Estudos/estudo_tempo.py` (screen, registered in
+  `core/modulos/modulos_estudos.py` via `NOMES_TEMPO`), `Estudos/leitor_partitura.py`
+  (MIDI parser + rhythm analysis per measure/beat; PDF via Anthropic API, needs
+  `ANTHROPIC_API_KEY`), `audio/motor_tempo.py` (loop render with metronome, mixer channel 60).
 - **`audio/global_audio.py → GlobalAudioEngine`** — mic capture + continuous polyphonic pitch
   analysis; `main.py` reads `freq_detectada` / `notas_polifonicas` from it every frame.
 - **`Jogos/`** — gamification (`Jogos_interativos.py` manager + `acerte_a_nota.py` etc.).
