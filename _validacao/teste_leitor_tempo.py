@@ -31,8 +31,11 @@ def _trilha(eventos):
     return b"MTrk" + struct.pack(">I", len(out)) + out
 
 
-def gerar_midi(caminho):
+def gerar_midi(caminho, jitter=0):
+    import random
+    rnd = random.Random(5)
     q = lambda x: int(round(x * PPQ))
+    qh = lambda x: max(0, q(x) + (rnd.randint(-jitter, jitter) if jitter else 0))
     meta = [(0, 0, b"\xff\x03\x05Tempo"),
             (0, 0, b"\xff\x51\x03" + (600000).to_bytes(3, "big")),     # 100 BPM
             (0, 0, b"\xff\x58\x04\x04\x02\x18\x08"),                     # 4/4
@@ -74,8 +77,9 @@ def gerar_midi(caminho):
 
     gtr = [(0, 0, b"\xff\x03\x08Guitarra"), (0, 1, b"\xc0\x1d")]
     for ini, dur, p in notas:
-        gtr.append((q(ini), 3, bytes([0x90, p, 96])))
-        gtr.append((q(ini + dur), 2, bytes([0x80, p, 0])))
+        a = qh(ini)
+        gtr.append((a, 3, bytes([0x90, p, 96])))
+        gtr.append((max(a + 10, qh(ini + dur) - (jitter * 3 if jitter else 0)), 2, bytes([0x80, p, 0])))
     # bend de +2 semitons (alcance padrão 2) na nota do C3 t2
     gtr.append((q(F(9)) + 120, 4, bytes([0xE0, 0x7F, 0x7F])))
     gtr.append((q(F(10)), 1, bytes([0xE0, 0x00, 0x40])))
@@ -182,6 +186,18 @@ def testar():
         ok(os.path.exists(cache), "cache .tempo.json não foi salvo")
     except ImportError:
         pass
+
+    # MIDI "tocado ao vivo": ataques fora da grade (±20 ticks) e notas mais curtas
+    tmp_h = os.path.join(tempfile.gettempdir(), "teste_tempo_humano.mid")
+    gerar_midi(tmp_h, jitter=20)
+    ph = lp.ler_midi(tmp_h)
+    ch = ph.compassos
+    ok(any("humano" in a for a in ph.avisos), "MIDI humano deveria ser quantizado")
+    ok([t.descricao for t in ch[0].tempos] == ["2 colcheias"] * 4, f"humano C1: {[t.descricao for t in ch[0].tempos]}")
+    ok(ch[1].tempos[0].descricao == "4 semicolcheias", f"humano C2t1: {ch[1].tempos[0].descricao}")
+    ok(ch[1].tempos[1].quialtera == "tercina", f"humano C2t2: {ch[1].tempos[1].descricao}")
+    ok(ch[1].tempos[3].descricao == "colcheia pontuada + semicolcheia", f"humano C2t4: {ch[1].tempos[3].descricao}")
+    ok(all(t.grade <= 12 for c in ch for t in c.tempos), "humano: sobrou grade estranha")
 
     md = lp.relatorio_markdown(p)
     ok("### Compasso 2" in md and "fusa + semicolcheia + 5 fusas" in md, "relatório")

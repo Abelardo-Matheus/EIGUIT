@@ -411,12 +411,107 @@ def ler_midi(caminho: str, faixa: Optional[int] = None,
     if not bruto["tempos"]:
         p.avisos.append("O MIDI não informa o andamento; usei 120 BPM.")
     p.avisos.append("MIDI não traz corda/casa: a digitação mostrada é SUGERIDA.")
-    sugerir_digitacao(p.notas, p.afinacao)
-    p.eventos = _agrupar_eventos(p.notas)
     fim = max((n.fim for n in notas), default=Fraction(4))
     p.compassos = _montar_compassos(formulas, fim, p)
+    limpeza = _proporcao_limpa(p.notas)
+    # Encaixa cada ataque na grade musical mais simples que explica o tempo.
+    # MIDI de editor (Guitar Pro, MuseScore) já vem exato e passa intacto,
+    # inclusive quintinas/septinas; MIDI tocado ao vivo ou "humanizado" é corrigido.
+    antes = {(n.inicio, n.altura) for n in p.notas}
+    p.notas = quantizar(p.notas, p.compassos, exato=limpeza >= 0.97)
+    movidas = sum(1 for n in p.notas if (n.inicio, n.altura) not in antes)
+    if movidas > 0.03 * max(1, len(p.notas)):
+        p.avisos.append(f"MIDI com tempo 'humano' ({limpeza:.0%} das notas na grade): "
+                        f"{movidas} ataques foram encaixados na subdivisão mais próxima.")
+        fim = max((n.fim for n in p.notas), default=Fraction(4))
+        if fim > p.compassos[-1].fim:
+            p.compassos = _montar_compassos(formulas, fim, p)
+    sugerir_digitacao(p.notas, p.afinacao)
+    p.eventos = _agrupar_eventos(p.notas)
     analisar(p)
     return p
+
+
+_DENS_LIMPOS = {1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 24}
+
+
+def _proporcao_limpa(notas: List[Nota]) -> float:
+    """Quanto das notas já cai numa grade musical (MIDI exportado de editor ~ 100%)."""
+    if not notas:
+        return 1.0
+    ok = sum(1 for n in notas if (n.inicio - math.floor(n.inicio)).denominator in _DENS_LIMPOS)
+    return ok / len(notas)
+
+
+# grades candidatas por tempo, da mais simples para a mais fina
+_GRADES_QUANT = (1, 2, 4, 3, 6, 8, 12)
+_NIVEIS_QUANT = ((1,), (2,), (3, 4), (6, 8), (12,))
+TOLERANCIA_QUANT = Fraction(1, 11)   # fração do tempo (~45 ms a 120 BPM)
+# grades aceitas sem mexer quando os ataques já caem exatamente nelas
+_GRADES_EXATAS = (1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 24)
+
+
+def quantizar(notas: List[Nota], compassos: List["Compasso"], exato: bool = True) -> List[Nota]:
+    """Encaixa os ataques de cada tempo na grade mais simples que os explica.
+    A duração que soa é preservada (desloca junto com o ataque)."""
+    tempos = []                      # (inicio, dur) de todos os tempos da música
+    for c in compassos:
+        for k in range(c.num):
+            tempos.append((c.inicio + c.dur_tempo * k, c.dur_tempo))
+    if not tempos:
+        return notas
+    inicios = [t[0] for t in tempos]
+
+    def tempo_de(q):
+        import bisect
+        i = max(0, bisect.bisect_right(inicios, q) - 1)
+        return i
+
+    # agrupa por tempo, considerando que um ataque um pouco antes do tempo pertence a ele
+    grupos: dict = {}
+    for n in notas:
+        i = tempo_de(n.inicio)
+        b0, dt = tempos[i]
+        if i + 1 < len(tempos) and (tempos[i + 1][0] - n.inicio) <= dt * TOLERANCIA_QUANT:
+            i += 1
+        grupos.setdefault(i, []).append(n)
+    saida = []
+    for i, ns in grupos.items():
+        b0, dt = tempos[i]
+        offs = [(n.inicio - b0) / dt for n in ns]
+        escolhida = None
+        for g in (_GRADES_EXATAS if exato else ()):   # MIDI de editor: respeita o exato
+            if all((o * g).denominator == 1 for o in offs if 0 <= o < 1):
+                escolhida = g
+                break
+        if escolhida is None:
+            # Sobe de nível de complexidade até alguma grade explicar todos os ataques.
+            # Dentro do mesmo nível (ex.: 3 contra 4) vence o menor erro MÉDIO: uma
+            # tercina tocada um pouco torta ainda erra menos na grade de 3 que na de 4.
+            escolhida = _GRADES_QUANT[-1]
+            for nivel in _NIVEIS_QUANT:
+                aceitas = []
+                for g in nivel:
+                    erros = [abs(float(o * g) - round(float(o * g))) / g for o in offs]
+                    if max(erros) <= TOLERANCIA_QUANT:
+                        aceitas.append((sum(erros) / len(erros), g))
+                if aceitas:
+                    escolhida = min(aceitas)[1]
+                    break
+        for n, o in zip(ns, offs):
+            novo = b0 + Fraction(round(o * escolhida), escolhida) * dt
+            desloc = novo - n.inicio
+            fim = max(novo + Fraction(1, 32), n.fim + desloc)
+            saida.append(Nota(novo, fim - novo, n.altura, n.corda, n.casa, n.tecnica,
+                              n.velocidade, n.bend_semitons))
+    # mesma nota duplicada no mesmo ataque (dobra de gravação) vira uma só
+    vistos, limpas = set(), []
+    for n in sorted(saida, key=lambda n: (n.inicio, n.altura or 0)):
+        chave = (n.inicio, n.altura)
+        if chave not in vistos:
+            vistos.add(chave)
+            limpas.append(n)
+    return limpas
 
 
 def trocar_faixa(p: Partitura, idx: int) -> Partitura:
@@ -583,6 +678,37 @@ def nome_figura(valor_semibreve: Fraction) -> Tuple[str, int, str]:
     return f"valor {v} de semibreve", 3, "irregular"
 
 
+def _figuras_simples() -> List[Fraction]:
+    vals = set()
+    for base, _ in _BASES:
+        vals.add(base)
+        vals.add(base * Fraction(3, 2))
+        vals.add(base * Fraction(2, 3))
+    return sorted(vals, reverse=True)
+
+
+_SIMPLES = _figuras_simples()
+
+
+def nome_figura_composta(valor_semibreve: Fraction) -> Tuple[str, int, str]:
+    """Como nome_figura, mas um valor que não é uma figura só vira figuras ligadas
+    (ex.: 5/6 do tempo = semínima de tercina ligada a semicolcheia de tercina)."""
+    nome, niv, q = nome_figura(valor_semibreve)
+    if not nome.startswith("valor "):
+        return nome, niv, q
+    resto, partes = valor_semibreve, []
+    for v in _SIMPLES:
+        while v <= resto and len(partes) < 4:
+            partes.append(v)
+            resto -= v
+        if resto == 0:
+            break
+    if resto != 0 or not partes:
+        return nome, niv, q
+    nomes = [nome_figura(v) for v in partes]
+    return " ligada a ".join(n for n, _, _ in nomes), nomes[0][1], nomes[0][2]
+
+
 def _plural(nome: str, n: int) -> str:
     if n == 1:
         return nome
@@ -617,7 +743,7 @@ def analisar(p: Partitura) -> None:
                 primeiro = onsets[0] if onsets else b1
                 soando = any(n.inicio < b0 < n.fim for n in todas)
                 ligado = any(e.ligadura and b0 <= e.inicio < primeiro for e in eventos)
-                fig = nome_figura((primeiro - b0) / 4)[0]
+                fig = nome_figura_composta((primeiro - b0) / 4)[0]
                 desc.append(("continua" if (soando or ligado) else "pausa de " + fig))
             for k, e in enumerate(na):
                 if e.duracao_notada is not None:
@@ -628,16 +754,19 @@ def analisar(p: Partitura) -> None:
                 if valor <= 0:
                     valor = min(Fraction(1, 32), b1 - e.inicio)
                 tp.ataques.append(((e.inicio - b0) / dt, e.notas, valor / dt))
-                desc.append(nome_figura(valor / 4)[0])
+                desc.append(nome_figura_composta(valor / 4)[0])
                 # pausa entre o fim notado (PDF) e o próximo ataque
                 if e.duracao_notada is not None:
                     fim_n = e.inicio + e.duracao_notada
                     prox_on = onsets[k + 1] if k + 1 < len(na) else b1
                     if fim_n < prox_on and fim_n < b1:
-                        desc.append("pausa de " + nome_figura((min(prox_on, b1) - fim_n) / 4)[0])
+                        desc.append("pausa de " + nome_figura_composta((min(prox_on, b1) - fim_n) / 4)[0])
             # grade = mmc dos denominadores de ataques e fins dentro do tempo
             pts = [(x - b0) / dt for x in onsets]
-            pts += [(n.fim - b0) / dt for e in na for n in e.notas if n.fim < b1]
+            if p.fonte != "midi":
+                # no PDF o fim notado define a grade; no MIDI o fim é só o quanto a nota
+                # soa (gate) e criaria subdivisões falsas
+                pts += [(n.fim - b0) / dt for e in na for n in e.notas if n.fim < b1]
             pts += [(e.inicio - b0) / dt for e in eventos if (e.pausa or e.ligadura) and b0 <= e.inicio < b1]
             grade = reduce(_lcm, [f.denominator for f in pts], 1)
             if grade > 48:

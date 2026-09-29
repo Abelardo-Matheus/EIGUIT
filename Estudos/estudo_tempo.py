@@ -324,6 +324,15 @@ def _desenhar_ritmo(surf, d: Diagramacao, cl: dict, c: lp.Compasso, ox, oy, T, F
     grossa = max(2, int(3 * s))
     bx = ox + cl["x"] + cl["pad"]
     eventos_pausa = [e for e in d.p.eventos if e.pausa and c.inicio <= e.inicio < c.fim]
+    vazio = all(not tp.ataques for tp in c.tempos) and not any(
+        n.inicio < c.fim and n.fim > c.inicio for n in d.p.notas)
+    if vazio:
+        largura = sum(cl["bw"])
+        cx = bx + largura / 2
+        ym = (y_barra + y_pe) / 2
+        pygame.draw.rect(surf, T["fraco"], (cx - 9 * s, ym - 3 * s, 18 * s, 6 * s))
+        _txt(surf, F.peq, "compasso em pausa", T["fraco"], (cx, ym + 6 * s), "midtop")
+        return
     for tp, bw in zip(c.tempos, cl["bw"]):
         hastes = []
         for off, notas, val in tp.ataques:
@@ -641,6 +650,11 @@ class EstudoTempo:
         self._render_ok = None
         self._atual = None
         self.avisar(f"{p.titulo}: {len(p.compassos)} compassos, BPM {p.bpm_inicial:g} (metrônomo ajustado)")
+        if p.notas:
+            primeira = p.compasso_em(min(n.inicio for n in p.notas))
+            if primeira:
+                self.foco = primeira
+                self._rolar_para = primeira
 
     def proxima_faixa(self):
         if not self.p or self.p.fonte != "midi" or len(self.p.faixas) < 2:
@@ -1019,6 +1033,10 @@ class EstudoTempo:
         if self.diag is None or self._largura_diag != largura or self.diag.p is not self.p:
             self.diag = Diagramacao(self.p, largura)
             self._largura_diag = largura
+        if getattr(self, "_rolar_para", None) is not None and self._rolar_para in self.diag.onde:
+            si, _ = self.diag.onde[self._rolar_para]
+            self.scroll = max(0, min(self.diag.sistemas[si]["y"] - 10, self.diag.altura - vista.h + 40))
+            self._rolar_para = None
         d = self.diag
         clip_ant = tela.get_clip()
         tela.set_clip(vista)
