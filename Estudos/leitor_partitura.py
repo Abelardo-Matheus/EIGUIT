@@ -20,6 +20,7 @@ Regras de honestidade (iguais às do prompt de análise):
 from __future__ import annotations
 
 import base64
+import functools
 import json
 import math
 import os
@@ -273,6 +274,22 @@ def ler_midi_bruto(caminho: str) -> dict:
 
 def _limpar(q: Fraction, ppq: int) -> Fraction:
     """Encaixa a posição na fração musical mais simples compatível com o tick."""
+    return _limpar_frac(q, ppq)
+
+
+@functools.lru_cache(maxsize=65536)
+def _limpar_tick(tick: int, ppq: int) -> Fraction:
+    """Versão rápida, em inteiros: tick -> fração de semínima (com cache por tick)."""
+    inteiro, resto = divmod(tick, ppq)
+    tol2 = 3                                  # 1,5 tick, em meio-ticks
+    for dn in _DENOMS:
+        k = (2 * resto * dn + ppq) // (2 * ppq)       # round(resto*dn/ppq)
+        if abs(2 * (resto * dn - k * ppq)) <= tol2 * dn:
+            return inteiro + Fraction(k, dn)
+    return inteiro + Fraction(resto, ppq).limit_denominator(64)
+
+
+def _limpar_frac(q: Fraction, ppq: int) -> Fraction:
     inteiro = math.floor(q)
     frac = q - inteiro
     tol = max(Fraction(3, 2 * ppq), Fraction(1, 1000))
@@ -312,8 +329,8 @@ def _notas_da_faixa(bruto: dict, chave) -> List[Nota]:
     notas.sort()
     saida = []
     for t0, t1, p, vel, canal in notas:
-        q0 = _limpar(Fraction(t0, ppq), ppq)
-        q1 = _limpar(Fraction(t1, ppq), ppq)
+        q0 = _limpar_tick(t0, ppq)
+        q1 = _limpar_tick(t1, ppq)
         if q1 <= q0:
             q1 = q0 + Fraction(1, 16)
         bmax = 0.0
@@ -382,7 +399,7 @@ def ler_midi(caminho: str, faixa: Optional[int] = None,
 
     mapa = []
     for tick, uspq in bruto["tempos"]:
-        q = _limpar(Fraction(tick, ppq), ppq)
+        q = _limpar_tick(tick, ppq)
         bpm = round(60_000_000 / uspq, 2)
         if mapa and mapa[-1][0] == q:
             mapa[-1] = (q, bpm)
@@ -393,7 +410,7 @@ def ler_midi(caminho: str, faixa: Optional[int] = None,
 
     formulas = []
     for tick, num, den in bruto["formulas"]:
-        q = _limpar(Fraction(tick, ppq), ppq)
+        q = _limpar_tick(tick, ppq)
         if formulas and formulas[-1][0] == q:
             formulas[-1] = (q, num, den)
         else:
@@ -723,9 +740,22 @@ def _plural(nome: str, n: int) -> str:
 
 def analisar(p: Partitura) -> None:
     """Preenche compasso.tempos com grade, descrição, células e alertas."""
+    import bisect
     eventos = p.eventos
-    ataques = [e for e in eventos if e.notas and not e.pausa]
-    todas = p.notas
+    ataques = sorted((e for e in eventos if e.notas and not e.pausa), key=lambda e: e.inicio)
+    ini_ataques = [e.inicio for e in ataques]
+    especiais = sorted((e for e in eventos if e.pausa or e.ligadura), key=lambda e: e.inicio)
+    ini_especiais = [e.inicio for e in especiais]
+    todas = sorted(p.notas, key=lambda n: n.inicio)
+    ini_notas = [n.inicio for n in todas]
+    dur_max = max((n.duracao for n in todas), default=Fraction(0))
+
+    def notas_soando(b0, b1):
+        """Só as notas que se sobrepõem a [b0, b1) — busca binária, não a música inteira."""
+        lo = bisect.bisect_left(ini_notas, b0 - dur_max)
+        hi = bisect.bisect_left(ini_notas, b1)
+        return [n for n in todas[lo:hi] if n.fim > b0]
+
     for c in p.compassos:
         c.tempos = []
         dt = c.dur_tempo
@@ -733,16 +763,20 @@ def analisar(p: Partitura) -> None:
             b0 = c.inicio + dt * t
             b1 = b0 + dt
             tp = Tempo(t + 1, b0, dt)
-            na = [e for e in ataques if b0 <= e.inicio < b1]
+            i0 = bisect.bisect_left(ini_ataques, b0)
+            i1 = bisect.bisect_left(ini_ataques, b1)
+            na = ataques[i0:i1]
             # próximo ataque (para o valor notado da última nota)
             onsets = [e.inicio for e in na]
-            prox = [e.inicio for e in ataques if e.inicio >= b1][:1]
+            prox = ini_ataques[i1:i1 + 1]
+            locais = notas_soando(b0, b1)
+            esp = especiais[bisect.bisect_left(ini_especiais, b0):bisect.bisect_left(ini_especiais, b1)]
             desc = []
             # início do tempo sem ataque: continuação ou pausa
             if not onsets or onsets[0] > b0:
                 primeiro = onsets[0] if onsets else b1
-                soando = any(n.inicio < b0 < n.fim for n in todas)
-                ligado = any(e.ligadura and b0 <= e.inicio < primeiro for e in eventos)
+                soando = any(n.inicio < b0 < n.fim for n in locais)
+                ligado = any(e.ligadura and e.inicio < primeiro for e in esp)
                 fig = nome_figura_composta((primeiro - b0) / 4)[0]
                 desc.append(("continua" if (soando or ligado) else "pausa de " + fig))
             for k, e in enumerate(na):
@@ -767,7 +801,7 @@ def analisar(p: Partitura) -> None:
                 # no PDF o fim notado define a grade; no MIDI o fim é só o quanto a nota
                 # soa (gate) e criaria subdivisões falsas
                 pts += [(n.fim - b0) / dt for e in na for n in e.notas if n.fim < b1]
-            pts += [(e.inicio - b0) / dt for e in eventos if (e.pausa or e.ligadura) and b0 <= e.inicio < b1]
+            pts += [(e.inicio - b0) / dt for e in esp]
             grade = reduce(_lcm, [f.denominator for f in pts], 1)
             if grade > 48:
                 grade = 48
@@ -778,7 +812,7 @@ def analisar(p: Partitura) -> None:
             tp.quialtera = {1: "", 3: "tercina", 5: "quintina", 7: "septina", 9: "nonina"}.get(impar, "quiáltera")
             tp.grupos_quialtera = _grupos_quialtera(tp.ataques, dt)
             tp.descricao = _compactar(desc)
-            _celulas(tp, todas, b0, b1)
+            _celulas(tp, locais, b0, b1)
             c.tempos.append(tp)
         _conferir_soma(c, eventos)
 
@@ -829,8 +863,7 @@ def _celulas(tp: Tempo, todas: List[Nota], b0: Fraction, b1: Fraction) -> None:
             tp.celulas_corda.append("/".join(str(x.corda) if x.corda else "?" for x in ns))
             tp.celulas_tecnica.append(", ".join(sorted({x.tecnica for x in ns if x.tecnica})))
         else:
-            soa = any(x.inicio < pos < x.fim or (x.inicio < pos and x.fim > pos) for x in todas
-                      if x.inicio < b1 and x.fim > b0)
+            soa = any(x.inicio < pos < x.fim for x in todas)
             tp.celulas.append("—" if soa else "·")
             tp.celulas_corda.append("")
             tp.celulas_tecnica.append("")

@@ -12,6 +12,8 @@ Controles
   botão direito / Esc ............... limpa a seleção (volta a tocar tudo)
   Espaço ............................ play / pause
   L / M / G / T ..................... loop / metrônomo / guitarra / timbre
+  B ................................. biblioteca (partituras já abertas nesta conta)
+  Ctrl + roda  /  Ctrl + / Ctrl - ... tamanho da tablatura (zoom)
   arrastar um .sf2/.sf3 .............. instala outro SoundFont (assets/audio/soundfonts/)
   + / -  (Shift = de 5 em 5) ........ BPM
   roda do mouse ..................... rolar (no painel de detalhes: para os lados)
@@ -45,10 +47,12 @@ except Exception:
 if __package__ in (None, ""):
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
     from Estudos import leitor_partitura as lp          # type: ignore
+    from Estudos import biblioteca_partituras as bib_mod  # type: ignore
     from audio import motor_tempo as mt                  # type: ignore
     from audio import sintetizador as sint               # type: ignore
 else:
     from . import leitor_partitura as lp
+    from . import biblioteca_partituras as bib_mod
     try:
         from ..audio import motor_tempo as mt
         from ..audio import sintetizador as sint
@@ -113,7 +117,7 @@ class Fontes:
         nome = "segoeui,arial,dejavusans,liberationsans"
         mono = "consolas,dejavusansmono,couriernew,liberationmono"
         s = lambda v: max(8, int(v * esc))
-        self.casa = pygame.font.SysFont(nome, s(14), bold=True)
+        self.casa = pygame.font.SysFont(nome, s(15), bold=True)
         self.peq = pygame.font.SysFont(nome, s(11))
         self.peq_b = pygame.font.SysFont(nome, s(11), bold=True)
         self.med = pygame.font.SysFont(nome, s(13))
@@ -123,6 +127,11 @@ class Fontes:
         self.formula = pygame.font.SysFont(nome, s(19), bold=True)
         self.mono = pygame.font.SysFont(mono, s(13))
         self.mono_b = pygame.font.SysFont(mono, s(13), bold=True)
+        # nem toda fonte tem o símbolo ♩; se não tiver, escreve "BPM"
+        try:
+            self.tem_seminima = self.peq_b.metrics("♩")[0] is not None
+        except Exception:
+            self.tem_seminima = False
 
 
 def _txt(surf, fonte, texto, cor, pos, ancora="topleft"):
@@ -135,16 +144,31 @@ def _txt(surf, fonte, texto, cor, pos, ancora="topleft"):
 # ----------------------------------------------------------------------------
 # Diagramação (serve para a tela e para a impressão)
 # ----------------------------------------------------------------------------
+# Papel claro no estilo Songsterr (fundo branco, números grandes e escuros)
+TEMA_PAPEL = dict(
+    TEMA_CLARO,
+    fundo=(255, 255, 255), linha=(182, 186, 194), barra=(55, 58, 66), texto=(22, 24, 30),
+    fraco=(128, 132, 142), destaque=(240, 108, 0), sel=(222, 234, 255), foco=(64, 124, 238),
+    alt=(249, 250, 252), sustain=(205, 223, 247), aviso=(205, 118, 0), cursor=(240, 108, 0),
+    nota_bg=(255, 255, 255), quialtera=(38, 88, 196), tocando=(240, 108, 0),
+)
+
+
 class Diagramacao:
+    """Posição de cada compasso/tempo na tela. Layout no estilo Songsterr:
+    tablatura em cima, figuras rítmicas com hastes para baixo logo abaixo dela
+    e, por último, a contagem dos tempos."""
+
     def __init__(self, p: lp.Partitura, largura: int, esc: float = 1.0):
         self.p, self.esc, self.largura = p, esc, largura
         s = esc
-        self.head = int(26 * s)
-        self.ritmo = int(58 * s)
-        self.ls = int(13 * s)
-        self.baixo = int(30 * s)
-        self.gap = int(16 * s)
-        self.alt_sist = self.head + self.ritmo + 5 * self.ls + self.baixo + self.gap
+        self.head = int(24 * s)            # número do compasso / BPM
+        self.ls = int(15 * s)              # distância entre as cordas
+        self.abaixo_tab = int(9 * s)
+        self.ritmo = int(38 * s)           # hastes e barras
+        self.baixo = int(30 * s)           # quiálteras + contagem
+        self.gap = int(22 * s)
+        self.alt_sist = self.head + 5 * self.ls + self.abaixo_tab + self.ritmo + self.baixo + self.gap
         self.sistemas: List[dict] = []
         self.onde: dict = {}
         medidas = []
@@ -152,14 +176,13 @@ class Diagramacao:
         for i, c in enumerate(p.compassos):
             mostra_formula = ant is None or (c.num, c.den) != ant
             ant = (c.num, c.den)
-            pad_l = int((14 + (24 if mostra_formula else 0)) * s)
-            pad_r = int(6 * s)
+            pad_l = int((16 + (26 if mostra_formula else 0)) * s)
+            pad_r = int(8 * s)
             bws = []
             for t in c.tempos:
                 g = min(t.grade, 16)
-                bws.append(max(58, 17 * g) * s)
+                bws.append(max(54, 18 * g) * s)
             medidas.append([i, pad_l, pad_r, bws, mostra_formula])
-        # quebra de linha
         linha, larg = [], 0
         linhas = []
         for m in medidas:
@@ -190,9 +213,25 @@ class Diagramacao:
             self.sistemas.append(dict(y=li * self.alt_sist, comps=comps, q0=c0.inicio, q1=c1.fim))
         self.altura = len(self.sistemas) * self.alt_sist
 
-    # --- geometria ---
-    def tab_y(self, corda: int) -> int:        # relativo ao topo do sistema
-        return self.head + self.ritmo + (corda - 1) * self.ls
+    # --- geometria (relativa ao topo do sistema) ---
+    def tab_y(self, corda: int) -> int:
+        return self.head + (corda - 1) * self.ls
+
+    @property
+    def y_haste(self) -> int:              # onde as hastes começam (logo abaixo da 6ª corda)
+        return self.head + 5 * self.ls + self.abaixo_tab
+
+    @property
+    def y_barra(self) -> int:              # linha das barras de colcheia/semicolcheia
+        return self.y_haste + self.ritmo
+
+    @property
+    def y_contagem(self) -> int:
+        return self.y_barra + int(14 * self.esc)
+
+    @property
+    def y_fim(self) -> int:                # fim da área desenhada do sistema
+        return self.alt_sist - self.gap
 
     def x_de_q(self, q: Fraction, fim: bool = False) -> Tuple[int, float]:
         p = self.p
@@ -219,7 +258,7 @@ class Diagramacao:
         si = int(y // self.alt_sist)
         if not 0 <= si < len(self.sistemas):
             return None
-        if y - si * self.alt_sist > self.alt_sist - self.gap:
+        if y - si * self.alt_sist > self.y_fim:
             return None
         for cl in self.sistemas[si]["comps"]:
             if cl["x"] <= x < cl["x"] + cl["w"]:
@@ -228,110 +267,114 @@ class Diagramacao:
 
 
 def desenhar_sistema(surf, d: Diagramacao, si: int, ox: int, oy: int, T: dict, F: Fontes,
-                     sel: Optional[Tuple[int, int]] = None, foco: Optional[int] = None) -> None:
+                     sel: Optional[Tuple[int, int]] = None, foco: Optional[int] = None,
+                     q_atual: Optional[Fraction] = None, mostrar_duracao: bool = True) -> None:
     p, s = d.p, d.esc
     sist = d.sistemas[si]
-    y_r0 = oy + d.head                     # topo da faixa rítmica
     y_t0 = oy + d.tab_y(1)                 # 1ª corda
     y_t5 = oy + d.tab_y(6)                 # 6ª corda
-    y_cont = y_t5 + int(14 * s)            # contagem
-    x0s = ox + sist["comps"][0]["x"]
+    y_cont = oy + d.y_contagem
     x1s = ox + sist["comps"][-1]["x"] + sist["comps"][-1]["w"]
+    grossa_barra = max(1, int(1.6 * s))
 
     for cl in sist["comps"]:
         c = p.compassos[cl["i"]]
         cx = ox + cl["x"]
-        # fundo: seleção e tempos alternados
-        if sel and sel[0] <= cl["i"] <= sel[1]:
-            pygame.draw.rect(surf, T["sel"], (cx, oy + 2, cl["w"], d.alt_sist - d.gap - 2))
-        bx = cx + cl["pad"]
-        for k, bw in enumerate(cl["bw"]):
-            if k % 2 == 1 and not (sel and sel[0] <= cl["i"] <= sel[1]):
-                pygame.draw.rect(surf, T["alt"], (bx, y_r0, bw, y_cont - y_r0 + int(12 * s)))
-            bx += bw
-        # cabeçalho
-        _txt(surf, F.peq_b, c.numero, T["fraco"], (cx + 3, oy + 4))
+        selecionado = sel and sel[0] <= cl["i"] <= sel[1]
+        if selecionado:
+            pygame.draw.rect(surf, T["sel"], (cx, oy + 2, cl["w"], d.y_fim - 2), border_radius=int(4 * s))
+        else:
+            bx = cx + cl["pad"]
+            for k, bw in enumerate(cl["bw"]):
+                if k % 2 == 1:
+                    pygame.draw.rect(surf, T["alt"], (bx, y_t0 - 6 * s, bw, oy + d.y_barra - y_t0 + 10 * s))
+                bx += bw
+        # cabeçalho: número do compasso, BPM, alerta
+        _txt(surf, F.peq_b, c.numero, T["fraco"], (cx + 3, oy + 3))
         if cl["i"] == 0 or c.bpm != p.compassos[cl["i"] - 1].bpm:
-            _txt(surf, F.peq_b, f"BPM {c.bpm:g}", T["destaque"],
-                 (cx + int(26 * s), oy + 4))
+            _txt(surf, F.peq_b, f"♩ = {c.bpm:g}" if F.tem_seminima else f"BPM {c.bpm:g}", T["destaque"],
+                 (cx + int(24 * s), oy + 3))
         if c.alertas:
-            ax = cx + cl["w"] - int(14 * s)
-            pygame.draw.polygon(surf, T["aviso"], [(ax, oy + 16 * s), (ax + 6 * s, oy + 4 * s), (ax + 12 * s, oy + 16 * s)])
-            _txt(surf, F.peq_b, "!", T["fundo"], (ax + 6 * s, oy + 11 * s), "center")
+            ax = cx + cl["w"] - int(16 * s)
+            pygame.draw.polygon(surf, T["aviso"], [(ax, oy + 17 * s), (ax + 7 * s, oy + 4 * s), (ax + 14 * s, oy + 17 * s)])
+            _txt(surf, F.peq_b, "!", T["fundo"], (ax + 7 * s, oy + 12 * s), "center")
         if c.legato_total:
-            _txt(surf, F.peq, "legato", T["quialtera"], (cx + cl["w"] - 50 * s, oy + 4))
+            _txt(surf, F.peq, "legato", T["quialtera"], (cx + cl["w"] - 56 * s, oy + 3))
         # linhas da tablatura
         for corda in range(1, 7):
             y = oy + d.tab_y(corda)
             pygame.draw.line(surf, T["linha"], (cx, y), (cx + cl["w"], y), 1)
-        pygame.draw.line(surf, T["barra"], (cx, y_t0), (cx, y_t5), max(1, int(2 * s)))
+        pygame.draw.line(surf, T["barra"], (cx, y_t0), (cx, y_t5), grossa_barra)
         if cl["formula"]:
-            fx = cx + int(18 * s)
-            _txt(surf, F.formula, c.num, T["texto"], (fx, y_t0 + 1.4 * d.ls), "center")
-            _txt(surf, F.formula, c.den, T["texto"], (fx, y_t0 + 3.6 * d.ls), "center")
-        # contagem + marcas de subdivisão
+            fx = cx + int(20 * s)
+            _txt(surf, F.formula, c.num, T["texto"], (fx, y_t0 + 1.35 * d.ls), "center")
+            _txt(surf, F.formula, c.den, T["texto"], (fx, y_t0 + 3.65 * d.ls), "center")
+        # contagem + marcas de subdivisão (abaixo das figuras)
         bx = cx + cl["pad"]
         for tp, bw in zip(c.tempos, cl["bw"]):
-            pygame.draw.line(surf, T["fraco"], (bx, y_cont - 5 * s), (bx, y_cont + 3 * s), 1)
-            _txt(surf, F.med_b, tp.indice, T["texto"], (bx + 2, y_cont + 3 * s))
+            _txt(surf, F.med_b, tp.indice, T["texto"], (bx, y_cont), "midtop")
             if tp.grade <= 16:
                 for k in range(1, tp.grade):
                     xx = bx + bw * k / tp.grade
                     meio = tp.grade % 2 == 0 and k == tp.grade // 2 and not tp.quialtera
-                    pygame.draw.line(surf, T["fraco"], (xx, y_cont - (4 if meio else 2) * s), (xx, y_cont), 1)
                     if meio:
-                        _txt(surf, F.peq, "e", T["fraco"], (xx + 1, y_cont + 3 * s))
+                        _txt(surf, F.peq, "e", T["fraco"], (xx, y_cont + 2 * s), "midtop")
+                    else:
+                        pygame.draw.line(surf, T["linha"], (xx, y_cont + 4 * s), (xx, y_cont + 8 * s), 1)
             bx += bw
         _desenhar_ritmo(surf, d, cl, c, ox, oy, T, F)
 
-    # barra final do sistema
-    pygame.draw.line(surf, T["barra"], (x1s - 1, y_t0), (x1s - 1, y_t5), max(1, int(2 * s)))
+    pygame.draw.line(surf, T["barra"], (x1s - 1, y_t0), (x1s - 1, y_t5), grossa_barra)
 
-    # notas: barras de sustentação e depois as casas
+    # notas: duração (discreta) e depois os números das casas, grandes
     q0, q1 = sist["q0"], sist["q1"]
     vis = [n for n in p.notas if n.inicio < q1 and n.fim > q0]
-    alt_s = max(3, int(d.ls * 0.42))
-    for n in vis:
-        if not n.corda:
-            continue
-        a, b = max(n.inicio, q0), min(n.fim, q1)
-        _, xa = d.x_de_q(a)
-        _, xb = d.x_de_q(b, fim=True)
-        y = oy + d.tab_y(n.corda)
-        pygame.draw.rect(surf, T["sustain"], (ox + xa, y - alt_s // 2, max(2, xb - xa - 2), alt_s),
-                         border_radius=2)
+    if mostrar_duracao:
+        alt_s = max(3, int(d.ls * 0.30))
+        for n in vis:
+            if not n.corda:
+                continue
+            a, b = max(n.inicio, q0), min(n.fim, q1)
+            _, xa = d.x_de_q(a)
+            _, xb = d.x_de_q(b, fim=True)
+            y = oy + d.tab_y(n.corda)
+            pygame.draw.rect(surf, T["sustain"], (ox + xa, y - alt_s // 2, max(2, xb - xa - 2), alt_s),
+                             border_radius=2)
     for n in vis:
         if n.inicio < q0:
             continue
         _, xa = d.x_de_q(n.inicio)
         corda = n.corda or 1
         y = oy + d.tab_y(corda)
-        rot = "x" if n.tecnica == "dead note" else n.rotulo()
-        img = (F.casa if n.casa is not None else F.peq_b).render(rot, True, T["texto"] if n.corda else T["aviso"])
-        r = img.get_rect(midleft=(ox + xa - 1, y))
-        pygame.draw.rect(surf, T["nota_bg"], r.inflate(4, 0))
+        rot = "x" if "dead note" in n.tecnica else n.rotulo()
+        tocando = q_atual is not None and n.inicio <= q_atual < n.fim
+        cor = T.get("tocando", T["destaque"]) if tocando else (T["texto"] if n.corda else T["aviso"])
+        img = (F.casa if n.casa is not None else F.peq_b).render(rot, True, cor)
+        r = img.get_rect(center=(ox + xa + img.get_width() / 2 - 1, y))
+        pygame.draw.rect(surf, T["nota_bg"], r.inflate(int(4 * s), -int(2 * s)), border_radius=int(3 * s))
         surf.blit(img, r)
         ab = ABREV.get(n.tecnica, n.tecnica[:3] if n.tecnica else "")
         if ab and ab != "x":
-            _txt(surf, F.peq_b, ab, T["destaque"], (r.right + 1, y - 2 * s), "bottomleft")
+            _txt(surf, F.peq_b, ab, T["destaque"], (r.right + 1, y - 3 * s), "bottomleft")
 
 
 def _desenhar_ritmo(surf, d: Diagramacao, cl: dict, c: lp.Compasso, ox, oy, T, F) -> None:
+    """Figuras rítmicas no estilo Songsterr: hastes para baixo, barras embaixo."""
     s = d.esc
-    y_barra = oy + d.head + int(8 * s)
-    y_pe = oy + d.head + d.ritmo - int(8 * s)
+    y_topo = oy + d.y_haste
+    y_barra = oy + d.y_barra
     esp = max(3, int(5 * s))
-    grossa = max(2, int(3 * s))
+    grossa = max(2, int(3.2 * s))
+    fina = max(1, int(1.4 * s))
+    cor = T["texto"]
     bx = ox + cl["x"] + cl["pad"]
     eventos_pausa = [e for e in d.p.eventos if e.pausa and c.inicio <= e.inicio < c.fim]
     vazio = all(not tp.ataques for tp in c.tempos) and not any(
         n.inicio < c.fim and n.fim > c.inicio for n in d.p.notas)
-    if vazio:
-        largura = sum(cl["bw"])
-        cx = bx + largura / 2
-        ym = (y_barra + y_pe) / 2
-        pygame.draw.rect(surf, T["fraco"], (cx - 9 * s, ym - 3 * s, 18 * s, 6 * s))
-        _txt(surf, F.peq, "compasso em pausa", T["fraco"], (cx, ym + 6 * s), "midtop")
+    if vazio:                                             # pausa de compasso inteiro
+        cx = bx + sum(cl["bw"]) / 2
+        ym = (y_topo + y_barra) / 2
+        pygame.draw.rect(surf, T["fraco"], (cx - 10 * s, ym - 4 * s, 20 * s, 7 * s))
         return
     for tp, bw in zip(c.tempos, cl["bw"]):
         hastes = []
@@ -342,23 +385,23 @@ def _desenhar_ritmo(surf, d: Diagramacao, cl: dict, c: lp.Compasso, ox, oy, T, F
                 nivel = 0
             hastes.append((x, nivel, "pontuada" in nome))
         for x, nivel, pont in hastes:
-            pygame.draw.line(surf, T["texto"], (x, y_barra), (x, y_pe), max(1, int(1.5 * s)))
+            pygame.draw.line(surf, cor, (x, y_topo), (x, y_barra), fina)
             if pont:
-                pygame.draw.circle(surf, T["texto"], (int(x + 5 * s), int(y_pe - 3 * s)), max(2, int(2 * s)))
-        # barras (colcheias etc.)
+                pygame.draw.circle(surf, cor, (int(x + 6 * s), int(y_barra - 8 * s)), max(2, int(2.2 * s)))
+        # barras embaixo (a 1ª na ponta da haste, as seguintes acima dela)
         if len(hastes) == 1 and hastes[0][1] > 0:
             x, nivel, _ = hastes[0]
             for k in range(nivel):
-                yy = y_barra + k * esp
-                pygame.draw.line(surf, T["texto"], (x, yy), (x + 7 * s, yy + 7 * s), grossa)
+                yy = y_barra - k * esp
+                pygame.draw.line(surf, cor, (x, yy), (x + 8 * s, yy - 8 * s), grossa)
         elif len(hastes) > 1:
             maxniv = max(h[1] for h in hastes)
             for nivel in range(1, maxniv + 1):
-                yy = y_barra + (nivel - 1) * esp
+                yy = y_barra - (nivel - 1) * esp - grossa + 1
                 if nivel == 1:
                     com = [h for h in hastes if h[1] >= 1]
                     if len(com) >= 2:
-                        pygame.draw.rect(surf, T["texto"], (com[0][0], yy, com[-1][0] - com[0][0] + 1, grossa))
+                        pygame.draw.rect(surf, cor, (com[0][0], yy, com[-1][0] - com[0][0] + fina, grossa))
                     continue
                 for j, (x, nv, _) in enumerate(hastes):
                     if nv < nivel:
@@ -366,34 +409,35 @@ def _desenhar_ritmo(surf, d: Diagramacao, cl: dict, c: lp.Compasso, ox, oy, T, F
                     viz_d = j + 1 < len(hastes) and hastes[j + 1][1] >= nivel
                     viz_e = j > 0 and hastes[j - 1][1] >= nivel
                     if viz_d:
-                        pygame.draw.rect(surf, T["texto"], (x, yy, hastes[j + 1][0] - x + 1, grossa))
+                        pygame.draw.rect(surf, cor, (x, yy, hastes[j + 1][0] - x + fina, grossa))
                     elif not viz_e:          # "toquinho" de barra
-                        dx = 8 * s if j + 1 < len(hastes) else -8 * s
-                        pygame.draw.rect(surf, T["texto"], (min(x, x + dx), yy, abs(dx), grossa))
-        # quiálteras
+                        dx = 9 * s if j + 1 < len(hastes) else -9 * s
+                        pygame.draw.rect(surf, cor, (min(x, x + dx), yy, abs(dx), grossa))
+        # quiálteras: colchete com o número, abaixo das barras
         for ini, fim, numero in tp.grupos_quialtera:
             xs = [bx + float(off) * bw for off, _, _ in tp.ataques if ini <= off < fim]
             if not xs:
                 continue
             xa, xb = xs[0], max(xs[-1], xs[0] + 10 * s)
-            yq = y_barra - int(5 * s)
-            cor = T["quialtera"]
-            img = F.peq_b.render(str(numero), True, cor)
+            yq = y_barra + int(6 * s)
+            cq = T["quialtera"]
+            img = F.peq_b.render(str(numero), True, cq)
             r = img.get_rect(center=((xa + xb) / 2, yq))
-            pygame.draw.lines(surf, cor, False, [(xa, yq + 4 * s), (xa, yq), (r.left - 2, yq)], 1)
-            pygame.draw.lines(surf, cor, False, [(r.right + 2, yq), (xb, yq), (xb, yq + 4 * s)], 1)
+            pygame.draw.lines(surf, cq, False, [(xa, yq - 4 * s), (xa, yq), (r.left - 2, yq)], 1)
+            pygame.draw.lines(surf, cq, False, [(r.right + 2, yq), (xb, yq), (xb, yq - 4 * s)], 1)
             surf.blit(img, r)
-        # pausas
+        # pausas dentro do tempo
         pausas = []
         if tp.descricao.startswith("pausa"):
-            pausas.append(bx)
+            pausas.append(bx + 4 * s)
         for e in eventos_pausa:
             if tp.inicio <= e.inicio < tp.inicio + tp.duracao:
-                pausas.append(bx + float((e.inicio - tp.inicio) / tp.duracao) * bw)
+                pausas.append(bx + float((e.inicio - tp.inicio) / tp.duracao) * bw + 4 * s)
         for x in pausas:
-            ym = (y_barra + y_pe) / 2
-            pygame.draw.rect(surf, T["fraco"], (x - 1, ym - 3 * s, 9 * s, 5 * s))
-            _txt(surf, F.peq, "pausa", T["fraco"], (x - 1, ym + 4 * s))
+            ym = (y_topo + y_barra) / 2
+            pygame.draw.lines(surf, T["fraco"], False,
+                              [(x, ym - 8 * s), (x + 5 * s, ym - 3 * s), (x, ym + 2 * s), (x + 5 * s, ym + 8 * s)],
+                              max(1, int(2 * s)))
         bx += bw
 
 
@@ -409,7 +453,7 @@ def exportar_pdf(p: lp.Partitura, caminho: str, dpi: int = 150) -> int:
     M = int(0.45 * dpi)
     F = Fontes(esc)
     d = Diagramacao(p, W - 2 * M, esc)
-    T = TEMA_CLARO
+    T = TEMA_PAPEL
     paginas = []
 
     def nova():
@@ -460,8 +504,11 @@ def _abrir_para_imprimir(caminho: str) -> str:
 
 
 def _caminho_saida(p: lp.Partitura, sufixo: str) -> str:
-    base = os.path.splitext(p.arquivo)[0] if p.arquivo else os.path.join(tempfile.gettempdir(), p.titulo or "partitura")
-    alvo = base + sufixo
+    docs = os.path.join(os.path.expanduser("~"), "Documents")
+    pasta = os.path.join(docs if os.path.isdir(docs) else tempfile.gettempdir(), "EIGUIT")
+    os.makedirs(pasta, exist_ok=True)
+    nome = "".join(ch for ch in (p.titulo or "partitura") if ch not in '\\/:*?"<>|').strip() or "partitura"
+    alvo = os.path.join(pasta, nome + sufixo)
     try:
         with open(alvo, "ab"):
             pass
@@ -547,7 +594,7 @@ class EstudoTempo:
         self.guitarra = True
         self.subdivisao = False
         self.timbre = sint.melhor_timbre()
-        self.detalhes = True
+        self.detalhes = bool(bib_mod.Biblioteca.ler_preferencias().get("detalhes", False))
         self.msg, self.msg_t = "", 0.0
         self.carregando = ""
         self.rep = mt.Reprodutor()
@@ -559,8 +606,24 @@ class EstudoTempo:
         self._pos_q: Optional[Fraction] = None
         self._largura_diag = 0
         self._resultado_carga = None
+        # aparência (fica salva) e biblioteca de partituras da conta
+        prefs = bib_mod.Biblioteca.ler_preferencias()
+        self.zoom = float(prefs.get("zoom", 1.35))
+        self.papel = bool(prefs.get("papel", True))
+        self.mostrar_duracao = bool(prefs.get("duracao", True))
+        self.bib: Optional[bib_mod.Biblioteca] = None
+        self._usuario_bib = object()
+        self.mostrar_bib = False
+        self.scroll_bib = 0
+        self._itens_bib: List[dict] = []
+        self._rects_bib: List[Tuple[pygame.Rect, str, str]] = []
+        self._id_atual: Optional[str] = None
+        self._altura_barra = 112
+        self._cursor_surf = None
         self.botoes1 = [
             Botao(_t("Abrir MIDI / PDF"), self.abrir_dialogo),
+            Botao(lambda: f"{_t('Biblioteca')} ({len(self._itens_bib)})", self.alternar_bib,
+                  ligado=lambda: self.mostrar_bib),
             Botao(lambda: _t("Pausar") if self.rep.tocando and not self.rep.pausado else _t("Tocar"),
                   self.play_pause, icone=lambda: "pause" if self.rep.tocando and not self.rep.pausado else "play"),
             Botao(_t("Parar"), self.parar, icone="stop"),
@@ -575,13 +638,18 @@ class EstudoTempo:
             Botao("−", lambda: self.mudar_bpm(-1), largura=34),
             Botao(lambda: f"BPM {self.bpm:g}", None, largura=96),
             Botao("+", lambda: self.mudar_bpm(+1), largura=34),
-            Botao(lambda: f"BPM da partitura ({self.p.bpm_inicial:g})" if self.p else "BPM da partitura",
+            Botao(lambda: f"Original ({self.p.bpm_inicial:g})" if self.p else "Original",
                   self.bpm_partitura),
             Botao(lambda: f"Faixa: {self._nome_faixa()}", self.proxima_faixa),
             Botao(_t("Tocar tudo"), self.limpar_selecao),
             Botao(_t("Detalhes"), self.alternar_det, ligado=lambda: self.detalhes),
+            Botao("A−", lambda: self.mudar_zoom(-0.15), largura=40),
+            Botao(lambda: f"{self.zoom * 100:.0f}%", None, largura=58),
+            Botao("A+", lambda: self.mudar_zoom(+0.15), largura=40),
+            Botao(_t("Papel claro"), self.alternar_papel, ligado=lambda: self.papel),
+            Botao(_t("Duração"), self.alternar_duracao, ligado=lambda: self.mostrar_duracao),
             Botao(_t("Imprimir"), self.imprimir),
-            Botao(_t("Exportar análise"), self.exportar_analise),
+            Botao(_t("Exportar"), self.exportar_analise),
         ]
 
     # ------------------------------------------------------------- utilidades
@@ -602,8 +670,8 @@ class EstudoTempo:
 
     def _areas(self):
         r = self.rect
-        barra = pygame.Rect(r.x, r.y, r.w, 112)
-        det_h = 212 if (self.detalhes and self.p) else 0
+        barra = pygame.Rect(r.x, r.y, r.w, self._altura_barra)
+        det_h = 190 if (self.detalhes and self.p) else 0
         det = pygame.Rect(r.x, r.bottom - det_h, r.w, det_h)
         vista = pygame.Rect(r.x, barra.bottom, r.w, r.h - barra.h - det_h)
         return barra, vista, det
@@ -630,14 +698,87 @@ class EstudoTempo:
         self.parar()
         self.carregando = f"Abrindo {os.path.basename(caminho)}…"
 
+        bib = self._bib()
+
         def job():
             try:
                 p = lp.carregar(caminho, progresso=lambda m: setattr(self, "carregando", m))
-                self._resultado_carga = ("ok", p)
+                pid = None
+                try:
+                    pid = bib.salvar(p, caminho)          # já fica guardada na conta
+                except Exception as e:
+                    print("[biblioteca] não consegui salvar:", e)
+                self._resultado_carga = ("ok", p, pid)
             except Exception as e:
-                self._resultado_carga = ("erro", str(e))
+                self._resultado_carga = ("erro", str(e), None)
 
         threading.Thread(target=job, daemon=True).start()
+
+    # ---------------------------------------------------------------- biblioteca
+    def _bib(self, usuario=None) -> "bib_mod.Biblioteca":
+        if self.bib is None:
+            self.bib = bib_mod.Biblioteca(usuario)
+            self._recarregar_bib()
+        return self.bib
+
+    def _definir_usuario(self, usuario):
+        if usuario != self._usuario_bib:
+            self._usuario_bib = usuario
+            self.bib = bib_mod.Biblioteca(usuario)
+            self._recarregar_bib()
+
+    def _recarregar_bib(self):
+        try:
+            self._itens_bib = self.bib.listar() if self.bib is not None else []
+        except OSError:
+            self._itens_bib = []
+
+    def alternar_bib(self):
+        self.mostrar_bib = not self.mostrar_bib
+        self.scroll_bib = 0
+        self._recarregar_bib()
+
+    def abrir_da_biblioteca(self, pid: str) -> None:
+        if self.carregando:
+            return
+        self.parar()
+        self.mostrar_bib = False
+        self.carregando = "Abrindo da biblioteca…"
+        bib = self._bib()
+
+        def job():
+            try:
+                self._resultado_carga = ("ok", bib.abrir(pid), pid)
+            except Exception as e:
+                self._resultado_carga = ("erro", f"não consegui abrir da biblioteca: {e}", None)
+
+        threading.Thread(target=job, daemon=True).start()
+
+    def remover_da_biblioteca(self, pid: str) -> None:
+        self._bib().remover(pid)
+        if pid == self._id_atual:
+            self._id_atual = None
+        self._recarregar_bib()
+        self.avisar("Partitura removida da biblioteca.")
+
+    # ---------------------------------------------------------------- aparência
+    def _gravar_prefs(self):
+        bib_mod.Biblioteca.gravar_preferencias(
+            {"zoom": self.zoom, "papel": self.papel, "duracao": self.mostrar_duracao,
+             "detalhes": self.detalhes})
+
+    def mudar_zoom(self, d: float):
+        self.zoom = round(max(0.8, min(2.4, self.zoom + d)), 2)
+        self.diag = None
+        self._gravar_prefs()
+
+    def alternar_papel(self):
+        self.papel = not self.papel
+        self._gravar_prefs()
+
+    def alternar_duracao(self):
+        self.mostrar_duracao = not self.mostrar_duracao
+        self._gravar_prefs()
 
     def _aplicar_partitura(self, p: lp.Partitura) -> None:
         self.p = p
@@ -665,6 +806,12 @@ class EstudoTempo:
         bpm = self.bpm
         self._aplicar_partitura(nova)
         self.bpm = bpm
+        if self._id_atual:                       # a biblioteca lembra a faixa escolhida
+            try:
+                self._bib().salvar(nova, nova.arquivo)
+                self._recarregar_bib()
+            except Exception as e:
+                print("[biblioteca] não consegui atualizar:", e)
 
     def imprimir(self):
         if not self.p:
@@ -805,6 +952,7 @@ class EstudoTempo:
 
     def alternar_det(self):
         self.detalhes = not self.detalhes
+        self._gravar_prefs()
 
     def mudar_bpm(self, d: float):
         self.bpm = float(max(self.BPM_MIN, min(self.BPM_MAX, round(self.bpm + d))))
@@ -825,11 +973,13 @@ class EstudoTempo:
 
     def atualizar(self):
         if self._resultado_carga:
-            st, val = self._resultado_carga
+            st, val, pid = self._resultado_carga
             self._resultado_carga = None
             self.carregando = ""
             if st == "ok":
                 self._aplicar_partitura(val)
+                self._id_atual = pid
+                self._recarregar_bib()
             else:
                 self.avisar(f"Não consegui ler: {val}")
         if self._render_pedido and time.time() >= self._debounce:
@@ -870,8 +1020,37 @@ class EstudoTempo:
         if ev.type == pygame.DROPFILE:
             self.abrir(ev.file)
             return True
+        bib_visivel = self.mostrar_bib or (not self.p and self._itens_bib)
+        area_bib = getattr(self, "_area_bib", None)
+        if bib_visivel and area_bib is not None:
+            if ev.type == pygame.MOUSEWHEEL and area_bib.collidepoint(self._mouse):
+                self.scroll_bib = max(0, self.scroll_bib - ev.y * 50)
+                return True
+            if ev.type == pygame.MOUSEBUTTONDOWN and ev.button in (4, 5) and area_bib.collidepoint(pos):
+                self.scroll_bib = max(0, self.scroll_bib + (-50 if ev.button == 4 else 50))
+                return True
+            if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1 and area_bib.collidepoint(pos):
+                for r, acao, pid in self._rects_bib:
+                    if r.collidepoint(pos):
+                        if acao == "remover":
+                            self.remover_da_biblioteca(pid)
+                        else:
+                            self.abrir_da_biblioteca(pid)
+                        return True
+                return True
+            if (ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1 and self.mostrar_bib
+                    and vista.collidepoint(pos)):
+                self.mostrar_bib = False             # clique fora do painel fecha
+                return True
         if ev.type == pygame.KEYDOWN:
             shift = ev.mod & pygame.KMOD_SHIFT
+            if ev.key == pygame.K_b:
+                self.alternar_bib()
+                return True
+            if ev.key in (pygame.K_PLUS, pygame.K_EQUALS, pygame.K_KP_PLUS, pygame.K_MINUS, pygame.K_KP_MINUS) \
+                    and ev.mod & pygame.KMOD_CTRL:
+                self.mudar_zoom(0.15 if ev.key in (pygame.K_PLUS, pygame.K_EQUALS, pygame.K_KP_PLUS) else -0.15)
+                return True
             if ev.key == pygame.K_SPACE:
                 self.play_pause()
             elif ev.key == pygame.K_l:
@@ -903,6 +1082,9 @@ class EstudoTempo:
             if barra.collidepoint(m) and self.botoes2[1].rect.collidepoint(m):
                 self.mudar_bpm(ev.y)
                 return True
+            if vista.collidepoint(m) and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                self.mudar_zoom(0.1 * ev.y)             # Ctrl + roda = zoom
+                return True
             if vista.collidepoint(m) and self.diag:
                 maxs = max(0, self.diag.altura - vista.h + 40)
                 self.scroll = max(0, min(maxs, self.scroll - ev.y * 70))
@@ -916,7 +1098,8 @@ class EstudoTempo:
                         return True
                 if vista.collidepoint(pos):
                     if not self.p:
-                        self.abrir_dialogo()
+                        if not self._itens_bib:
+                            self.abrir_dialogo()
                         return True
                     i = self._comp_no_mouse(pos)
                     if i is not None:
@@ -963,6 +1146,7 @@ class EstudoTempo:
         largura = getattr(estado, "LARGURA_TELA", tela.get_width())
         altura = getattr(estado, "ALTURA_TELA", tela.get_height())
         self.rect = pygame.Rect(int(cam_x + 40), int(cam_y + 56), int(largura - 80), int(altura - 130))
+        self._definir_usuario(getattr(estado, "usuario_id_logado", None))   # biblioteca da conta
         modo_tema = getattr(TEMA, "modo", None)
         if modo_tema != getattr(self, "_modo_tema", None):      # acompanha a troca claro/escuro
             self.T = tema_eiguit()
@@ -981,28 +1165,20 @@ class EstudoTempo:
     def desenhar_tela(self, tela) -> None:
         if self.rect is None:
             self.rect = tela.get_rect()
+        if self.bib is None:
+            self._bib()
         T, F = self.T, self.F
-        barra, vista, det = self._areas()
         pygame.draw.rect(tela, T["fundo"], self.rect, border_radius=8)
         mouse = self._mouse
 
-        # ---- barra de ferramentas
+        # ---- barra de ferramentas (quebra de linha automática se faltar espaço)
+        linhas = self._posicionar_botoes(self.rect)
+        self._altura_barra = 8 + linhas * 38 + 26
+        barra, vista, det = self._areas()
         pygame.draw.rect(tela, T["painel"], barra)
-        x, y = barra.x + 10, barra.y + 8
-        for b in self.botoes1:
-            w = b.largura or (F.med_b.size(b.texto() if callable(b.texto) else b.texto)[0] + 20 +
-                              (18 if b.icone else 0))
-            b.rect = pygame.Rect(x, y, max(w, 70 if b.icone else 0), 32)
+        for b in self.botoes1 + self.botoes2:
             b.desenhar(tela, T, F, mouse)
-            x = b.rect.right + 6
-        x, y = barra.x + 10, barra.y + 46
-        for b in self.botoes2:
-            w = b.largura or (F.med_b.size(b.texto() if callable(b.texto) else b.texto)[0] + 20)
-            b.rect = pygame.Rect(x, y, w, 32)
-            b.desenhar(tela, T, F, mouse)
-            x = b.rect.right + 6
-        # linha de status
-        ys = barra.y + 88
+        ys = barra.bottom - 22
         if self.carregando:
             status, cor = self.carregando, T["destaque"]
         elif self.msg and time.time() - self.msg_t < 8:
@@ -1020,19 +1196,31 @@ class EstudoTempo:
         pygame.draw.line(tela, T["borda"], (barra.x, barra.bottom - 1), (barra.right, barra.bottom - 1))
 
         # ---- vista da partitura
+        TP = TEMA_PAPEL if self.papel else T
         if not self.p:
-            r = vista.inflate(-80, -80)
-            pygame.draw.rect(tela, T["borda"], r, 2, border_radius=16)
-            _txt(tela, F.titulo, "Estudo de Tempo", T["texto"], (r.centerx, r.centery - 40), "center")
-            _txt(tela, F.med, "Clique aqui ou arraste um arquivo MIDI ou PDF de partitura/tablatura.",
-                 T["fraco"], (r.centerx, r.centery), "center")
-            _txt(tela, F.med, "Cada compasso é separado em tempos e subdivisões; selecione um trecho e toque em loop com metrônomo.",
-                 T["fraco"], (r.centerx, r.centery + 24), "center")
+            if self._itens_bib:
+                self._desenhar_biblioteca(tela, vista, titulo="Suas partituras — clique para abrir")
+            else:
+                r = vista.inflate(-80, -80)
+                pygame.draw.rect(tela, T["borda"], r, 2, border_radius=16)
+                _txt(tela, F.titulo, "Estudo de Tempo", T["texto"], (r.centerx, r.centery - 40), "center")
+                _txt(tela, F.med, "Clique aqui ou arraste um arquivo MIDI ou PDF de partitura/tablatura.",
+                     T["fraco"], (r.centerx, r.centery), "center")
+                _txt(tela, F.med, "Toda partitura aberta fica guardada na sua Biblioteca: da próxima vez é só escolher.",
+                     T["fraco"], (r.centerx, r.centery + 24), "center")
+            if det.h:
+                self._desenhar_detalhes(tela, det)
             return
+        pygame.draw.rect(tela, TP["fundo"], vista)
         largura = vista.w - 24
-        if self.diag is None or self._largura_diag != largura or self.diag.p is not self.p:
-            self.diag = Diagramacao(self.p, largura)
+        if getattr(self, "_F_zoom", None) is None or self._F_zoom[0] != self.zoom:
+            self._F_zoom = (self.zoom, Fontes(self.zoom))
+        FP = self._F_zoom[1]
+        if (self.diag is None or self._largura_diag != largura or self.diag.p is not self.p
+                or self.diag.esc != self.zoom):
+            self.diag = Diagramacao(self.p, largura, self.zoom)
             self._largura_diag = largura
+            self.scroll = min(self.scroll, max(0, self.diag.altura - vista.h + 40))
         if getattr(self, "_rolar_para", None) is not None and self._rolar_para in self.diag.onde:
             si, _ = self.diag.onde[self._rolar_para]
             self.scroll = max(0, min(self.diag.sistemas[si]["y"] - 10, self.diag.altura - vista.h + 40))
@@ -1041,23 +1229,31 @@ class EstudoTempo:
         clip_ant = tela.get_clip()
         tela.set_clip(vista)
         ox, oy = vista.x + 12, vista.y + 14 - int(self.scroll)
+        q = self.posicao_q()
+        mostrar_cursor = q is not None and (self.rep.tocando or self._pos_q is not None)
         for si, sist in enumerate(d.sistemas):
             y = oy + sist["y"]
             if y + d.alt_sist < vista.y or y > vista.bottom:
                 continue
-            desenhar_sistema(tela, d, si, ox, y, T, F, self.sel, self.foco)
+            desenhar_sistema(tela, d, si, ox, y, TP, FP, self.sel, self.foco,
+                             q if mostrar_cursor else None, self.mostrar_duracao)
         # foco
         if self.foco is not None and self.foco in d.onde:
             si, k = d.onde[self.foco]
             cl = d.sistemas[si]["comps"][k]
-            pygame.draw.rect(tela, T["foco"], (ox + cl["x"], oy + d.sistemas[si]["y"] + 1, cl["w"],
-                                               d.alt_sist - d.gap), 1, border_radius=3)
-        # cursor
-        q = self.posicao_q()
-        if q is not None and (self.rep.tocando or self._pos_q is not None):
+            pygame.draw.rect(tela, TP["foco"], (ox + cl["x"], oy + d.sistemas[si]["y"] + 1, cl["w"],
+                                                d.y_fim), max(1, int(self.zoom)), border_radius=4)
+        # cursor: faixa translúcida sobre a tablatura e as figuras (como no Songsterr)
+        if mostrar_cursor:
             si, xc = d.x_de_q(q)
             yy = oy + d.sistemas[si]["y"]
-            pygame.draw.line(tela, T["cursor"], (ox + xc, yy + d.head - 4), (ox + xc, yy + d.tab_y(6) + 6), 2)
+            y0, y1 = yy + d.tab_y(1) - int(10 * d.esc), yy + d.y_barra + int(4 * d.esc)
+            larg = max(6, int(10 * d.esc))
+            if self._cursor_surf is None or self._cursor_surf.get_size() != (larg, y1 - y0):
+                self._cursor_surf = pygame.Surface((larg, y1 - y0), pygame.SRCALPHA)
+                self._cursor_surf.fill((*TP["cursor"], 70))
+            tela.blit(self._cursor_surf, (ox + xc - larg // 2, y0))
+            pygame.draw.line(tela, TP["cursor"], (ox + xc, y0), (ox + xc, y1), max(2, int(2 * d.esc)))
         tela.set_clip(clip_ant)
         # barra de rolagem
         if d.altura > vista.h:
@@ -1065,8 +1261,76 @@ class EstudoTempo:
             yb = vista.y + (vista.h - h) * self.scroll / max(1, d.altura - vista.h + 40)
             pygame.draw.rect(tela, T["borda"], (vista.right - 7, yb, 5, h), border_radius=3)
 
+        if self.mostrar_bib:
+            self._desenhar_biblioteca(tela, vista.inflate(-int(vista.w * 0.18), -40),
+                                      titulo="Biblioteca — clique para abrir")
         if det.h:
             self._desenhar_detalhes(tela, det)
+
+    def _posicionar_botoes(self, r) -> int:
+        """Distribui os botões em linhas dentro da largura disponível. -> nº de linhas."""
+        F = self.F
+        x, y, linhas = r.x + 10, r.y + 8, 1
+        for grupo in (self.botoes1, self.botoes2):
+            if x > r.x + 10:                       # cada grupo começa numa linha nova
+                x, y, linhas = r.x + 10, y + 38, linhas + 1
+            for b in grupo:
+                texto = b.texto() if callable(b.texto) else b.texto
+                w = b.largura or (F.med_b.size(texto)[0] + 20 + (18 if b.icone else 0))
+                w = max(w, 70 if b.icone else 0)
+                if x + w > r.right - 8 and x > r.x + 10:
+                    x, y, linhas = r.x + 10, y + 38, linhas + 1
+                b.rect = pygame.Rect(x, y, w, 32)
+                x = b.rect.right + 6
+        return linhas
+
+    def _desenhar_biblioteca(self, tela, area, titulo):
+        T, F = self.T, self.F
+        ds_sombra = pygame.Rect(area).move(0, 4)
+        pygame.draw.rect(tela, (0, 0, 0), ds_sombra, border_radius=14)
+        pygame.draw.rect(tela, T["painel"], area, border_radius=14)
+        pygame.draw.rect(tela, T["borda"], area, 1, border_radius=14)
+        _txt(tela, F.grande, titulo, T["texto"], (area.x + 20, area.y + 14))
+        dono = "desta conta" if (self.bib is not None and self.bib.usuario not in (None, "", 0)) else "deste computador"
+        _txt(tela, F.peq, f"{len(self._itens_bib)} partitura(s) guardada(s) {dono}. "
+                          "Abrir um arquivo novo também guarda ele aqui.", T["fraco"], (area.x + 20, area.y + 40))
+        lista = pygame.Rect(area.x + 12, area.y + 64, area.w - 24, area.h - 76)
+        self._rects_bib = []
+        self._area_bib = pygame.Rect(area)
+        clip_ant = tela.get_clip()
+        tela.set_clip(lista.clip(clip_ant) if clip_ant else lista)
+        alt = 56
+        maxs = max(0, len(self._itens_bib) * (alt + 6) - lista.h)
+        self.scroll_bib = max(0, min(self.scroll_bib, maxs))
+        y = lista.y - self.scroll_bib
+        for item in self._itens_bib:
+            r = pygame.Rect(lista.x, y, lista.w, alt)
+            y += alt + 6
+            if r.bottom < lista.y or r.y > lista.bottom:
+                continue
+            atual = item["id"] == self._id_atual
+            hover = r.collidepoint(self._mouse)
+            cor = T["painel2"] if (hover or atual) else T["fundo"]
+            pygame.draw.rect(tela, cor, r, border_radius=10)
+            if atual:
+                pygame.draw.rect(tela, T["destaque"], r, 2, border_radius=10)
+            selo = "PDF" if item.get("fonte") == "pdf" else "MIDI"
+            rs = pygame.Rect(r.x + 12, r.centery - 12, 52, 24)
+            pygame.draw.rect(tela, T["destaque"] if selo == "MIDI" else T["foco"], rs, border_radius=6)
+            _txt(tela, F.peq_b, selo, T["botao_txt_on"], rs.center, "center")
+            _txt(tela, F.med_b, item.get("titulo", "?"), T["texto"], (r.x + 78, r.y + 9))
+            quando = time.strftime("%d/%m/%Y %H:%M", time.localtime(item.get("usado", 0)))
+            info = (f"{item.get('compassos', 0)} compassos  ·  BPM {item.get('bpm', 0):g}  ·  "
+                    f"{item.get('faixa_nome', '')}  ·  aberta em {quando}")
+            _txt(tela, F.peq, info, T["fraco"], (r.x + 78, r.y + 32))
+            rx = pygame.Rect(r.right - 44, r.centery - 14, 28, 28)
+            if rx.collidepoint(self._mouse):
+                pygame.draw.rect(tela, T["aviso"], rx, border_radius=6)
+            pygame.draw.line(tela, T["texto"], (rx.x + 8, rx.y + 8), (rx.right - 8, rx.bottom - 8), 2)
+            pygame.draw.line(tela, T["texto"], (rx.right - 8, rx.y + 8), (rx.x + 8, rx.bottom - 8), 2)
+            self._rects_bib.append((rx, "remover", item["id"]))
+            self._rects_bib.append((r, "abrir", item["id"]))
+        tela.set_clip(clip_ant)
 
     def _desenhar_detalhes(self, tela, det):
         T, F = self.T, self.F

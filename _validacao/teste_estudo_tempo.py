@@ -17,6 +17,9 @@ import tempfile
 import time
 from fractions import Fraction
 
+# a suite nunca mexe na biblioteca de verdade do usuario
+os.environ['APPDATA'] = tempfile.mkdtemp(prefix='eiguit_teste_bib_')
+
 import pygame
 
 import harness
@@ -109,6 +112,59 @@ def sub_aba_e_cartao():
     s.checar('Estudo de Tempo' in modulo_estudos.NOMES_TEMPO, 'nome do cartao nao abre o estudo')
 
 
+def biblioteca_da_conta():
+    ctx = Contexto(1600, 900)
+    ctx.estado.usuario_id_logado = 42
+    ger, m = _abrir(ctx)
+    m.abrir(MIDI)
+    limite = time.time() + 20
+    while time.time() < limite and not m.p:
+        _quadro(ger, ctx)
+        time.sleep(0.02)
+    s.checar(m.p is not None, 'o MIDI nao abriu')
+    s.checar(len(m._itens_bib) == 1 and m._id_atual, 'o MIDI aberto nao foi guardado na biblioteca')
+    s.checar('usuario_42' in m.bib.pasta, 'a biblioteca nao e separada por conta')
+    # outra conta nao ve a partitura
+    ctx2 = Contexto(1600, 900)
+    ctx2.estado.usuario_id_logado = 7
+    ger2, m2 = _abrir(ctx2)
+    s.checar(len(m2._itens_bib) == 0, 'a biblioteca de uma conta apareceu em outra')
+    # mesma conta, estudo novo (programa reaberto): lista aparece e abre com um clique
+    ctx3 = Contexto(1600, 900)
+    ctx3.estado.usuario_id_logado = 42
+    ger3, m3 = _abrir(ctx3)
+    _quadro(ger3, ctx3)
+    s.checar(len(m3._itens_bib) == 1 and m3._rects_bib, 'a lista da biblioteca nao apareceu')
+    r = [r for r, acao, _ in m3._rects_bib if acao == 'abrir'][0]
+    ger3.tratar_eventos(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {'pos': r.center, 'button': 1}),
+                        r.center, ctx3.estado)
+    limite = time.time() + 10
+    while time.time() < limite and not m3.p:
+        _quadro(ger3, ctx3)
+        time.sleep(0.01)
+    s.checar(m3.p is not None and len(m3.p.compassos) == 5, 'nao abriu pela biblioteca')
+    s.checar(m3.p.compassos[1].tempos[2].descricao == 'fusa + semicolcheia + 5 fusas',
+             'a partitura da biblioteca voltou diferente')
+    # remover
+    rx = [r for r, acao, _ in m3._rects_bib if acao == 'remover'] if m3._rects_bib else []
+    m3.remover_da_biblioteca(m3._itens_bib[0]['id'])
+    s.checar(len(m3._itens_bib) == 0, 'remover da biblioteca nao funcionou')
+
+
+def zoom_e_papel():
+    ctx = Contexto(1600, 900)
+    ger, m = _abrir(ctx)
+    m._aplicar_partitura(lp.carregar(MIDI))
+    _quadro(ger, ctx)
+    h1 = m.diag.alt_sist
+    m.mudar_zoom(+0.45)
+    _quadro(ger, ctx)
+    s.checar(m.diag.alt_sist > h1, 'o zoom nao aumentou a tablatura')
+    m.alternar_papel()
+    _quadro(ger, ctx)
+    m.alternar_papel()
+
+
 def impressao():
     from Estudos import estudo_tempo
     alvo = os.path.join(tempfile.gettempdir(), 'eiguit_tab_teste.pdf')
@@ -156,6 +212,8 @@ def celula_lida_igual_ao_player():
 s.teste('leitura ritmica do MIDI', leitura_do_midi)
 s.teste('sub-aba Tempo e cartao em ESTUDOS', sub_aba_e_cartao)
 s.teste('impressao da tablatura em PDF', impressao)
+s.teste('biblioteca de partituras por conta', biblioteca_da_conta)
+s.teste('zoom e papel claro', zoom_e_papel)
 s.teste('motor da tablatura: modos, instrumentos e botao de som', motor_tablatura)
 s.teste('celula da grade lida igual ao player', celula_lida_igual_ao_player)
 for _tema in harness.TEMAS:
