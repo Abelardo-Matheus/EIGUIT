@@ -226,10 +226,20 @@ def contraste_texto(cor_fundo):
 # PRIMITIVAS DE DESENHO
 # ---------------------------------------------------------------------------
 
+_CACHE_GRADIENTES = {}
+
+
 def gradiente_vertical(tela, rect, cor_topo, cor_base, raio=0):
-    """Preenche um retangulo com gradiente vertical suave."""
+    """Preenche um retangulo com gradiente vertical suave.
+    O resultado fica em cache por tamanho/cores: o fundo da aplicacao era
+    recalculado a cada quadro (96 faixas numa superficie da tela inteira)."""
     rect = pygame.Rect(rect)
     if rect.height <= 0 or rect.width <= 0:
+        return
+    chave = (rect.width, rect.height, tuple(rgb(cor_topo)), tuple(rgb(cor_base)), raio)
+    pronta = _CACHE_GRADIENTES.get(chave)
+    if pronta is not None:
+        tela.blit(pronta, rect.topleft)
         return
     superficie = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
     passos = max(1, min(rect.height, 96))
@@ -245,6 +255,9 @@ def gradiente_vertical(tela, rect, cor_topo, cor_base, raio=0):
         pygame.draw.rect(mascara, (255, 255, 255, 255),
                          (0, 0, rect.width, rect.height), border_radius=raio)
         superficie.blit(mascara, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+    if len(_CACHE_GRADIENTES) > 96:
+        _CACHE_GRADIENTES.clear()
+    _CACHE_GRADIENTES[chave] = superficie
     tela.blit(superficie, rect.topleft)
 
 

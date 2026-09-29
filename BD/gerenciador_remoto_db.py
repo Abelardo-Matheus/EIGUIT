@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import bcrypt
 try:
     import psycopg
@@ -10,7 +11,12 @@ except ImportError:
         from psycopg2.extras import RealDictCursor as dict_row
     except ImportError:
         psycopg = None
-TEMPO_LIMITE_CONEXAO = 10   # segundos
+# O Neon responde por 6 enderecos (3 IPv4 + 3 IPv6) e o limite vale para CADA um:
+# 5 s aqui = no maximo ~15 s quando a rede esta bloqueada.
+TEMPO_LIMITE_CONEXAO = 5    # segundos por endereco
+# Depois de uma falha, nao tenta de novo por este tempo: o programa segue
+# offline na hora em vez de congelar a cada operacao que usa o banco.
+ESPERA_APOS_FALHA = 60      # segundos
 URL_CONEXAO = 'postgresql://neondb_owner:npg_u8ogByLqHK2F@ep-soft-cake-acsaff4w.sa-east-1.aws.neon.tech/neondb?sslmode=require'
 
 class GerenciadorDB:
@@ -19,6 +25,8 @@ class GerenciadorDB:
         Para que serve: Prover uma interface unificada para persistência de dados (usuários, perfis, favoritos) na nuvem.
         Onde é usada: Instanciado no núcleo do sistema para suporte a dados remotos.
     """
+
+    _ultima_falha = 0.0       # compartilhado por todas as instancias
 
     def __init__(self, url_conexao=URL_CONEXAO):
         """
@@ -38,13 +46,19 @@ class GerenciadorDB:
         if psycopg is None:
             print("Erro: Biblioteca 'psycopg' ou 'psycopg2' não encontrada.")
             return False
+        falha = GerenciadorDB._ultima_falha
+        if falha and time.time() - falha < ESPERA_APOS_FALHA:
+            return False          # servidor fora do ar ha pouco: segue offline sem esperar
         try:
             # Sem limite de tempo, uma rede lenta ou bloqueada deixava o programa
             # parado para sempre antes de abrir qualquer janela.
             self.conexao = psycopg.connect(self.url, connect_timeout=TEMPO_LIMITE_CONEXAO)
+            GerenciadorDB._ultima_falha = 0.0
             return True
         except Exception as e:
-            print(f'Erro ao conectar ao banco remoto: {e}')
+            GerenciadorDB._ultima_falha = time.time()
+            print(f'[CLOUD] Sem conexao com o banco remoto (seguindo offline): '
+                  f'{str(e).splitlines()[0]}')
             return False
 
     def fechar(self):

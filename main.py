@@ -43,8 +43,18 @@ def main():
     from BD.gerenciador_remoto_db import GerenciadorDB
     db = GerenciadorDB()
     estado.db = db
-    estado.favoritos_songsterr = db.obter_favoritos(estado.usuario_id_logado)
-    print(f'[CLOUD] {len(estado.favoritos_songsterr)} favoritos carregados da conta.')
+    # Favoritos vem da nuvem em segundo plano: a janela abre na hora mesmo com
+    # a internet lenta ou o servidor fora do ar
+    estado.favoritos_songsterr = []
+
+    def _carregar_favoritos():
+        favoritos = db.obter_favoritos(estado.usuario_id_logado)
+        if favoritos:
+            estado.favoritos_songsterr = favoritos
+        print(f'[CLOUD] {len(favoritos or [])} favoritos carregados da conta.')
+
+    import threading
+    threading.Thread(target=_carregar_favoritos, daemon=True).start()
     estado.LARGURA_TELA = tela.get_width()
     estado.ALTURA_TELA = tela.get_height()
     estado.camera = minha_camera
