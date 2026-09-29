@@ -217,6 +217,7 @@ dependencies = [
     { name = "rich" },
     { name = "scipy" },
     { name = "sounddevice" },
+    { name = "soundfile" },
     { name = "tinysoundfont" },
     { name = "tkvideoplayer" },
 ]
@@ -242,6 +243,7 @@ requires-dist = [
     { name = "rich", specifier = ">=13.7.0" },
     { name = "scipy", specifier = ">=1.17.1" },
     { name = "sounddevice", specifier = ">=0.5.5" },
+    { name = "soundfile", specifier = ">=0.12.1" },
     { name = "tinysoundfont", specifier = ">=0.3.7" },
     { name = "tkvideoplayer", specifier = ">=2.8" },
 ]
