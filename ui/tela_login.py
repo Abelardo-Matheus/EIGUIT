@@ -2,6 +2,7 @@
 """Tela de autenticacao do EIGUIT Studio (CustomTkinter) com o novo design."""
 import json
 import os
+import threading
 from tkinter import messagebox
 
 import customtkinter as ctk
@@ -65,9 +66,9 @@ class TelaAutenticacao(ctk.CTk):
         self.configure(fg_color=self.cores.fundo)
 
         self.db = GerenciadorDB()
-        self.db.inicializar_estrutura()
         self.usuario_logado = None
 
+        # Sessao lembrada: entra direto, sem esperar pelo banco
         if not pular_cache and os.path.exists(FILE_CACHE):
             try:
                 with open(FILE_CACHE, 'r', encoding='utf-8') as arq:
@@ -81,6 +82,46 @@ class TelaAutenticacao(ctk.CTk):
         self.frame = ctk.CTkFrame(self, fg_color=self.cores.cartao, corner_radius=16)
         self.frame.pack(pady=(0, 24), padx=24, fill='both', expand=True)
         self.mostrar_login()
+        self._trazer_para_frente()
+
+        # A janela aparece primeiro; a conexao com o banco roda em segundo plano
+        self._banco_ok = None
+        self._avisar('Conectando ao servidor...', erro=False)
+        threading.Thread(target=self._preparar_banco, daemon=True).start()
+        self.after(200, self._conferir_banco)
+
+    # ------------------------------------------------------------- janela/banco
+    def _trazer_para_frente(self):
+        """Abre a janela na frente do VS Code / de outras janelas e com foco."""
+        self.lift()
+        self.attributes('-topmost', True)
+        self.after(400, lambda: self.attributes('-topmost', False))
+        self.after(450, self.focus_force)
+
+    def _preparar_banco(self):
+        """Thread: testa a conexao e cria as tabelas (instancia propria do banco)."""
+        db = GerenciadorDB()
+        ok = db.conectar()
+        db.fechar()
+        if ok:
+            db.inicializar_estrutura()
+        self._banco_ok = ok
+
+    def _conferir_banco(self):
+        """Loop do Tk: mostra o resultado da conexao sem travar a janela."""
+        try:
+            if self._banco_ok is None:
+                self.after(200, self._conferir_banco)
+                return
+            if not self.winfo_exists():
+                return
+        except Exception:          # a janela ja foi fechada (login feito)
+            return
+        if self._banco_ok:
+            self._avisar('')
+        else:
+            self._avisar('Sem conexao com o servidor. Verifique a internet e tente '
+                         'fazer login de novo.')
 
     # ------------------------------------------------------------- estrutura
     def _montar_cabecalho(self):

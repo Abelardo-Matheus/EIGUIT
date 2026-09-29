@@ -10,6 +10,7 @@ except ImportError:
         from psycopg2.extras import RealDictCursor as dict_row
     except ImportError:
         psycopg = None
+TEMPO_LIMITE_CONEXAO = 10   # segundos
 URL_CONEXAO = 'postgresql://neondb_owner:npg_u8ogByLqHK2F@ep-soft-cake-acsaff4w.sa-east-1.aws.neon.tech/neondb?sslmode=require'
 
 class GerenciadorDB:
@@ -38,7 +39,9 @@ class GerenciadorDB:
             print("Erro: Biblioteca 'psycopg' ou 'psycopg2' não encontrada.")
             return False
         try:
-            self.conexao = psycopg.connect(self.url)
+            # Sem limite de tempo, uma rede lenta ou bloqueada deixava o programa
+            # parado para sempre antes de abrir qualquer janela.
+            self.conexao = psycopg.connect(self.url, connect_timeout=TEMPO_LIMITE_CONEXAO)
             return True
         except Exception as e:
             print(f'Erro ao conectar ao banco remoto: {e}')
