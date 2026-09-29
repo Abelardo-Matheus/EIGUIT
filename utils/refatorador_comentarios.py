@@ -51,7 +51,7 @@ def main():
         Para que serve: Ponto de entrada do sistema que orquestra a inicialização e o ciclo de vida da aplicação.
         Onde é usada: Executado diretamente ao iniciar o software via main.py.
     """
-    directories = ['Core', 'Modulos', 'Interface', 'Estudos', 'Jogos', 'DragDrop', 'AudioEngine']
+    directories = ['core', 'Modulos', 'Interface', 'Estudos', 'Jogos', 'DragDrop', 'AudioEngine']
     root_files = ['main.py']
     total_processed = 0
     for d in directories:
