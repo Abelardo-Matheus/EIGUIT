@@ -11,6 +11,12 @@ import Estudos.estudo_acordes_pratico as estudo_acordes_pratico
 import Estudos.estudo_ciclo_quintas as estudo_ciclo_quintas
 import Estudos.estudo_padroes as estudo_padroes
 import Estudos.estudo_improvisacao as estudo_improvisacao
+import Estudos.estudo_aulas as estudo_aulas
+import Estudos.estudo_pedais as estudo_pedais
+
+# Nomes pelos quais o estudo de pedais pode ser aberto (cartao e sub-aba)
+NOMES_PEDAIS = ('Pedais', 'Pedais de Efeito')
+
 
 class EstudoAcordes:
     """
@@ -159,6 +165,8 @@ class GerenciadorEstudos:
         self.modulo_ciclo = None
         self.modulo_padroes = None
         self.modulo_improviso = None
+        self.modulo_aulas = None
+        self.modulo_pedais = None
 
     def desenhar_tela_estudo(self, tela, largura, altura, estado, fontes):
         """
@@ -188,11 +196,6 @@ class GerenciadorEstudos:
                 elif estado.estudo_ativo == 'Notas':
                     self.modulo_notas.modo_jogo = 'adivinhar'
             self.modulo_notas.desenhar(tela, estado, fontes, meio_x, meio_y, cam_x, cam_y)
-        elif estado.estudo_ativo in ['Padroes', 'Padrões', 'Padroes Melodicos',
-                                     'Padrões Melódicos', 'Padrões e Ritmos']:
-            modulo_ativo = self.modulo_padroes
-        elif estado.estudo_ativo in ['Improvisacao', 'Improvisação']:
-            modulo_ativo = self.modulo_improviso
         elif estado.estudo_ativo in ['Escalas', 'Acerte a Escala']:
             if self.modulo_escalas is None:
                 self.modulo_escalas = estudo_escalas.EstudoEscalas()
@@ -216,6 +219,14 @@ class GerenciadorEstudos:
                 self.modulo_improviso = estudo_improvisacao.EstudoImprovisacao()
             self.modulo_improviso.desenhar(tela, estado, fontes, meio_x, meio_y,
                                            cam_x, cam_y)
+        elif estado.estudo_ativo == 'Aulas':
+            if self.modulo_aulas is None:
+                self.modulo_aulas = estudo_aulas.EstudoAulas()
+            self.modulo_aulas.desenhar(tela, estado, fontes, meio_x, meio_y, cam_x, cam_y)
+        elif estado.estudo_ativo in NOMES_PEDAIS:
+            if self.modulo_pedais is None:
+                self.modulo_pedais = estudo_pedais.EstudoPedais()
+            self.modulo_pedais.desenhar(tela, estado, fontes, meio_x, meio_y, cam_x, cam_y)
         elif estado.estudo_ativo == 'Ciclo de Quintas':
             if self.modulo_ciclo is None:
                 self.modulo_ciclo = estudo_ciclo_quintas.EstudoCicloQuintas()
@@ -237,6 +248,10 @@ class GerenciadorEstudos:
         self.modulo_ciclo = None
         self.modulo_padroes = None
         self.modulo_improviso = None
+        self.modulo_aulas = None
+        if self.modulo_pedais is not None:
+            self.modulo_pedais.parar()
+        self.modulo_pedais = None
 
     def tratar_eventos(self, evento, pos_mouse, estado):
         """
@@ -267,6 +282,15 @@ class GerenciadorEstudos:
             modulo_ativo = self.modulo_acordes_pratico
         elif estado.estudo_ativo == 'Ciclo de Quintas':
             modulo_ativo = self.modulo_ciclo
+        elif estado.estudo_ativo in ['Padroes', 'Padrões', 'Padroes Melodicos',
+                                     'Padrões Melódicos', 'Padrões e Ritmos']:
+            modulo_ativo = self.modulo_padroes
+        elif estado.estudo_ativo in ['Improvisacao', 'Improvisação']:
+            modulo_ativo = self.modulo_improviso
+        elif estado.estudo_ativo == 'Aulas':
+            modulo_ativo = self.modulo_aulas
+        elif estado.estudo_ativo in NOMES_PEDAIS:
+            modulo_ativo = self.modulo_pedais
 
         if modulo_ativo and hasattr(modulo_ativo, 'tratar_eventos'):
             if modulo_ativo.tratar_eventos(evento, pos_mouse_virtual, estado):

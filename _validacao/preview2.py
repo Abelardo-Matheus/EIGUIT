@@ -5,6 +5,8 @@ Previews do workspace e dos blocos extras.
 Gera, nos dois temas, em _preview_design/:
 - workspace_<tema>.png   : a tela inteira como o programa abre, com a coluna
                            das gavetas fechada e o resto guardado
+- abas_escala_selecionada_<tema>.png : a gaveta translucida com uma forma
+                           pousada no braco
 - gaveteiro_<tema>.png   : a coluna aberta e alguns blocos ja na tela
 - _z_ws_<tema>.png       : o workspace sem a barra superior, para olhar o miolo
 - blocos_novos_<tema>.png: cada bloco extra nos tres tamanhos de teste
@@ -110,6 +112,31 @@ def abas_abertas(tema):
         salvar(tela, f'abas_{nome}_{tema}.png')
 
 
+def escala_selecionada(tema):
+    """A gaveta de escalas aberta com uma forma ja pousada no braco.
+
+    E a prova visual de que o braco continua a vista: a gaveta fica
+    translucida e a forma e desenhada por cima dela.
+    """
+    ctx = Contexto(1920, 1080, tema)
+    for secao in ctx.estado.secoes_inferiores:
+        secao['expandido'] = False
+    ctx.estado.secoes_inferiores[0]['expandido'] = True
+    forma = ctx.escalas['maior'][0]
+    forma.estado = 'braco'
+    forma.casa_atual = 4
+
+    tela = pygame.Surface((1920, 1080), pygame.SRCALPHA)
+    ds.fundo_app(tela)
+    viewport = tela.subsurface(pygame.Rect(0, ALTURA_TOPBAR, 1920,
+                                           1080 - ALTURA_TOPBAR))
+    renderizador_ui.desenhar_workspace(
+        viewport, ctx.estado, ctx.configs, ctx.escalas, ctx.fontes,
+        ctx.metronomo, ctx.processador, ctx.gravador, ctx.campo, ctx.jogos)
+    desenhar_painel_superior(tela, ctx.estado, ctx.fontes, ctx.configs)
+    salvar(tela, f'abas_escala_selecionada_{tema}.png')
+
+
 def gaveteiro(tema):
     """A coluna aberta, com parte dos blocos ja fora da gaveta."""
     from ui.components import gaveteiro as gv
@@ -149,6 +176,7 @@ if __name__ == '__main__':
         harness.definir_tema(tema)
         workspace(tema)
         abas_abertas(tema)
+        escala_selecionada(tema)
         gaveteiro(tema)
         blocos(tema)
         ciclo(tema)

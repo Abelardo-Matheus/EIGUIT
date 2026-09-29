@@ -43,6 +43,55 @@ ALTURA_ITEM_LISTA = ALTURA_ITEM_LISTA_BASE
 ALTURA_BARRA = 40
 MARGEM_BARRA = 10
 
+# Opacidade da gaveta aberta: cheia no uso normal e quase apagada enquanto uma
+# forma de escala esta na mao ou pousada no braco, para o braco aparecer por
+# tras dela sem precisar fechar a gaveta.
+ALPHA_GAVETA = 255
+ALPHA_GAVETA_COM_FORMA = 60
+# As pilulas das sub-abas continuam sendo o jeito de trocar de escala, entao
+# apagam menos que o fundo: da para ler e clicar sem largar a forma
+ALPHA_SUB_ABAS_COM_FORMA = 150
+
+
+def forma_em_uso(dicionario_escalas):
+    """
+        Como funciona: Varre as formas geradas pela fabrica e diz se alguma
+        saiu do painel, isto e, esta presa ao mouse ou pousada no braco.
+        Para que serve: E o sinal de 'tem uma escala selecionada', que deixa a
+        gaveta translucida e joga a forma para cima dela.
+        Onde e usada: Desenho da barra inferior.
+    """
+    for lista_modulos in dicionario_escalas.values():
+        for modulo in lista_modulos:
+            if modulo.estado != 'painel':
+                return True
+    return False
+
+
+def _desenhar_sub_abas(tela, rects_nomes, fontes, ativo, alpha):
+    """
+        Como funciona: Desenha a fileira de pilulas das sub-abas. Com alpha
+        cheio pinta direto na tela; translucida, pinta numa superficie do
+        tamanho da fileira e joga na tela com a opacidade pedida.
+        Para que serve: As pilulas sao opacas por natureza, entao sumir junto
+        com a gaveta exige esse desvio.
+        Onde e usada: Painel expandido da barra inferior.
+    """
+    if not rects_nomes:
+        return
+    if alpha >= 255:
+        for j, (rect, nome) in enumerate(rects_nomes):
+            ds.chip(tela, rect, _t(nome), fontes['pequena'], ativo=ativo == j)
+        return
+
+    area = rects_nomes[0][0].unionall([r for r, _ in rects_nomes[1:]])
+    camada = pygame.Surface((area.width, area.height), pygame.SRCALPHA)
+    for j, (rect, nome) in enumerate(rects_nomes):
+        local = rect.move(-area.x, -area.y)
+        ds.chip(camada, local, _t(nome), fontes['pequena'], ativo=ativo == j)
+    camada.set_alpha(alpha)
+    tela.blit(camada, area.topleft)
+
 
 def altura_caixa(estado):
     """
@@ -234,6 +283,12 @@ def _desenhar_aba_estudos(tela, dx, y_start, largura_conteudo, estado, fontes,
         5: [
             (_t('Improvisação'), _t('Progressao rodando, notas alvo de cada acorde, escala que serve, notas a evitar e vocabulario de frases.')),
         ],
+        6: [
+            (_t('Aulas'), _t('Trilha guiada do iniciante ao avancado: aulas curtas com explicacao, objetivo claro e treino interativo ja configurado, unindo padroes melodicos e improvisacao.')),
+        ],
+        7: [
+            (_t('Pedais de Efeito'), _t('Aprenda o que faz cada pedal, do boost ao whammy: explicacao simples, o que muda cada botao (drive, tone, time, mix...) e um audio de exemplo que muda na hora enquanto voce mexe.')),
+        ],
     }
 
     itens = grupos.get(memoria_sub_aba, [])
@@ -421,6 +476,91 @@ def _desenhar_aba_musicas(tela, dx, y_start, largura_conteudo, estado, fontes,
         ds.botao(tela, rect_btn, _t('Criar Tablatura'), fontes['ui'],
                  hover=rect_btn.collidepoint(pygame.mouse.get_pos()))
 
+    elif memoria_sub_aba == 3:
+        # --- Pesquisa de Timbre: duas trilhas (pessoas que ja timbraram + sites) ---
+        ds.texto_em(tela, _t('Pesquisa de Timbre'), fontes['titulo'],
+                    (dx + BOTTOM_MARGIN_X, y_start), TEMA.texto)
+        ds.texto_em(tela, _t('Digite "Artista - Musica" e clique em Buscar'),
+                    fontes['pequena'],
+                    (dx + BOTTOM_MARGIN_X, y_start + 26), TEMA.texto_apagado)
+
+        y_campo = y_start + 52
+        largura_btn = 100
+        rect_busca = pygame.Rect(dx + BOTTOM_MARGIN_X, y_campo,
+                                 largura_conteudo - BOTTOM_MARGIN_X * 2 - largura_btn - ds.ESPACO_SM,
+                                 32)
+        estado.rect_busca_timbre = rect_busca
+        ds.caixa_texto(tela, rect_busca, estado.query_timbre, fontes['pequena'],
+                       focado=getattr(estado, 'timbre_busca_ativa', False),
+                       placeholder=_t('Ex: Metallica - Enter Sandman'))
+        rect_btn_timbre = pygame.Rect(rect_busca.right + ds.ESPACO_SM, y_campo,
+                                      largura_btn, 32)
+        estado.rect_btn_timbre = rect_btn_timbre
+        ds.botao(tela, rect_btn_timbre, _t('Buscar'), fontes['pequena'],
+                 hover=rect_btn_timbre.collidepoint(pygame.mouse.get_pos()))
+
+        y_lista = rect_busca.bottom + ds.ESPACO_MD
+        largura_lista = largura_conteudo - BOTTOM_MARGIN_X * 2 - 24
+        pacote = estado.resultados_timbre
+
+        if estado.timbre.carregando:
+            ds.texto_em(tela, _t('Pesquisando em varias fontes...'), fontes['pequena'],
+                        (dx + BOTTOM_MARGIN_X, y_lista), TEMA.acento)
+        elif not pacote:
+            ds.cartao_vazio(tela,
+                            pygame.Rect(dx + BOTTOM_MARGIN_X, y_lista,
+                                        largura_conteudo - BOTTOM_MARGIN_X * 2, 56),
+                            _t('Nenhuma busca ainda. Digite artista e musica e clique em Buscar.'),
+                            fontes['pequena'])
+        else:
+            trilha_pessoas = pacote.get('trilha_pessoas', []) or []
+            trilha_sites = pacote.get('trilha_sites', []) or []
+
+            ds.texto_em(tela, _t('Quem ja timbrou (foruns, videos, presets)'), fontes['pequena'],
+                        (dx + BOTTOM_MARGIN_X, y_lista), TEMA.texto_suave)
+            y_lista += 22
+            estado.rects_timbre_pessoas = []
+            if not trilha_pessoas:
+                ds.cartao_vazio(tela,
+                                pygame.Rect(dx + BOTTOM_MARGIN_X, y_lista, largura_lista, 40),
+                                _t('Nada encontrado nessa trilha.'), fontes['pequena'])
+                y_lista += 40 + ds.ESPACO_SM
+            else:
+                qtd = min(len(trilha_pessoas), 4)
+                for i, item in enumerate(trilha_pessoas[:4]):
+                    y_item = y_lista + i * (ALTURA_ITEM_LISTA + 4)
+                    rect_item = pygame.Rect(dx + BOTTOM_MARGIN_X, y_item,
+                                            largura_lista, ALTURA_ITEM_LISTA)
+                    estado.rects_timbre_pessoas.append((rect_item, item))
+                    _linha_musica(tela, rect_item, item.get('titulo') or item.get('url', ''),
+                                  item.get('fonte', ''), fontes)
+                y_lista += qtd * (ALTURA_ITEM_LISTA + 4) + ds.ESPACO_MD
+
+            ds.texto_em(tela, _t('Sites e fontes institucionais'), fontes['pequena'],
+                        (dx + BOTTOM_MARGIN_X, y_lista), TEMA.texto_suave)
+            y_lista += 22
+            estado.rects_timbre_sites = []
+            if not trilha_sites:
+                ds.cartao_vazio(tela,
+                                pygame.Rect(dx + BOTTOM_MARGIN_X, y_lista, largura_lista, 40),
+                                _t('Nada encontrado nessa trilha.'), fontes['pequena'])
+                y_lista += 40 + ds.ESPACO_SM
+            else:
+                qtd = min(len(trilha_sites), 4)
+                for i, item in enumerate(trilha_sites[:4]):
+                    y_item = y_lista + i * (ALTURA_ITEM_LISTA + 4)
+                    rect_item = pygame.Rect(dx + BOTTOM_MARGIN_X, y_item,
+                                            largura_lista, ALTURA_ITEM_LISTA)
+                    estado.rects_timbre_sites.append((rect_item, item))
+                    _linha_musica(tela, rect_item, item.get('titulo') or item.get('url', ''),
+                                  item.get('fonte', ''), fontes)
+                y_lista += qtd * (ALTURA_ITEM_LISTA + 4) + ds.ESPACO_MD
+
+            rect_copiar = pygame.Rect(dx + BOTTOM_MARGIN_X, y_lista, 220, 32)
+            estado.rect_btn_timbre_copiar_prompt = rect_copiar
+            ds.botao(tela, rect_copiar, _t('Copiar prompt p/ IA'), fontes['pequena'],
+                     hover=rect_copiar.collidepoint(pygame.mouse.get_pos()))
+
 
 def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_escalas,
                                            fontes, meu_metronomo, meu_processador,
@@ -465,18 +605,19 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
     offset_y_guit = pos_y_guit + estado.ESPACO_CORDAS if instrumento == 'baixo' else pos_y_guit
     altura_guit = (estado.ALTURA_BRACO - 2 * estado.ESPACO_CORDAS
                    if instrumento == 'baixo' else estado.ALTURA_BRACO)
-    rect_braco_real = pygame.Rect(pos_x_guit, offset_y_guit,
-                                  estado.LARGURA_BRACO, altura_guit)
+    # Mesma calha aplicada ao braco real em guitar_neck.desenhar_guitarra
+    # (sem ela os shapes ficam desalinhados das bolinhas das notas).
+    calha_guit = int(max(26, min(44, estado.LARGURA_BRACO * 0.028)))
+    rect_braco_real = pygame.Rect(pos_x_guit + calha_guit, offset_y_guit,
+                                  estado.LARGURA_BRACO - calha_guit, altura_guit)
 
     tela.set_clip(None)
-    for lista_modulos in dicionario_escalas.values():
-        for modulo in lista_modulos:
-            if modulo.estado != 'painel':
-                modulo.x_braco = pos_x_guit
-                modulo.y_braco = offset_y_guit
-                modulo.atualizar_e_desenhar(tela, pos_mouse, rect_braco_real,
-                                            fontes['pequena'], alpha_atual,
-                                            estado=estado)
+
+    # Uma forma na mao (ou ja pousada no braco) apaga a gaveta e passa a ser
+    # desenhada por cima dela, no fim da funcao
+    com_forma = forma_em_uso(dicionario_escalas)
+    alpha_painel = ALPHA_GAVETA_COM_FORMA if com_forma else ALPHA_GAVETA
+    alpha_sub = ALPHA_SUB_ABAS_COM_FORMA if com_forma else ALPHA_GAVETA
 
     # --- Fileira de botoes principais -------------------------------------
     num_secoes = len(estado.secoes_inferiores)
@@ -499,7 +640,8 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
         rect_painel = pygame.Rect(dx, y_conteudo, largura_conteudo, ALTURA_CAIXA)
         # Guardado para o teste de clique conferir que a geometria bate
         secao['rect_painel'] = rect_painel
-        ds.painel(tela, rect_painel, None, None, acento=TEMA.acento, alpha=255)
+        ds.painel(tela, rect_painel, None, None, acento=TEMA.acento,
+                  alpha=alpha_painel, com_sombra=not com_forma)
 
         # Sub-abas
         y_sub = y_conteudo + GAP_PAINEL
@@ -508,12 +650,14 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
             num_sub = len(secao['sub_abas'])
             espaco_total = largura_conteudo - BOTTOM_MARGIN_X * 2
             largura_sub = (espaco_total - (num_sub - 1) * ds.ESPACO_XS) / num_sub
+            rects_sub = []
             for j, nome_sub in enumerate(secao['sub_abas']):
                 rect_sub = pygame.Rect(dx + BOTTOM_MARGIN_X + j * (largura_sub + ds.ESPACO_XS),
                                        y_sub, largura_sub, altura_sub)
                 secao[f'rect_sub_{j}'] = rect_sub
-                ds.chip(tela, rect_sub, _t(nome_sub), fontes['pequena'],
-                        ativo=secao['memoria_sub_aba'] == j)
+                rects_sub.append((rect_sub, nome_sub))
+            _desenhar_sub_abas(tela, rects_sub, fontes,
+                               secao['memoria_sub_aba'], alpha_sub)
 
         # Area rolavel. y_area fica exatamente em
         # y_conteudo + BOTTOM_OFFSET_AREA_DESENHO, o mesmo ponto que o
@@ -553,9 +697,13 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
                 largura_grade = colunas * largura_bloco + (colunas - 1) * esp_x
                 offset_x = (largura_conteudo - largura_grade) // 2
 
-                for idx, modulo in enumerate(lista_ativa):
+                # A contagem e so das formas que ainda estao no painel: a que
+                # foi para o braco nao deixa buraco na grade
+                idx = -1
+                for modulo in lista_ativa:
                     if modulo.estado != 'painel':
                         continue
+                    idx += 1
                     if getattr(modulo, 'escala_atual_painel', None) != escala_compacta:
                         surf_orig = getattr(modulo, 'imagem_braco', modulo.imagem_painel)
                         modulo.imagem_painel = pygame.transform.scale(
@@ -604,6 +752,18 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
             ds.barra_rolagem(tela, dx + largura_conteudo - 14, y_area, altura_util,
                              altura_util / (altura_util + max_scroll),
                              scroll_atual / max_scroll)
+
+    # As formas fora do painel vao por ultimo: assim a que esta na mao ou no
+    # braco aparece por cima da gaveta translucida, e nao atras dela
+    tela.set_clip(None)
+    for lista_modulos in dicionario_escalas.values():
+        for modulo in lista_modulos:
+            if modulo.estado != 'painel':
+                modulo.x_braco = pos_x_guit
+                modulo.y_braco = offset_y_guit
+                modulo.atualizar_e_desenhar(tela, pos_mouse, rect_braco_real,
+                                            fontes['pequena'], alpha_atual,
+                                            estado=estado)
 
     if estado.drag_ativado:
         dragger.desenhar_caixa_selecao(tela, margem=8)

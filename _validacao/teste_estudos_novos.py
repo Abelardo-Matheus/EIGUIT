@@ -16,7 +16,8 @@ import core.modulos.modulos_estudos as modulo_estudos
 s = Suite('teste_estudos_novos')
 
 ESTUDOS = ['Notas', 'Acerte o Som', 'Escalas', 'Acordes', 'Prática de Acordes',
-           'Padrões', 'Improvisação', 'Ciclo de Quintas', 'Modulo Inexistente']
+           'Padrões', 'Improvisação', 'Ciclo de Quintas', 'Pedais de Efeito',
+           'Modulo Inexistente']
 
 
 def rodar_estudo(nome, tema):

@@ -1,240 +1,396 @@
 
-
 <div align="center">
   <img src="https://github.com/user-attachments/assets/a8fadb13-ea2e-44e0-aead-4abb4989a3c6" width="250" style="border-radius: 50%; opacity: 0.3;" alt="Guitar Studio IA Logo">
-  
+
   <h1>🎸 EIGUIT </h1>
-  <p><i>Braço de guitarra virtual, motor de campo harmônico e processamento de áudio</i></p>
-  <p><i>Virtual Fretboard, Harmonic Field Engine & Audio Processing</i></p>
-  
-  <img src="https://github.com/user-attachments/assets/2d5ffac7-f68f-4418-9845-cb4d508d2c65" width="400" alt="Guitar Studio IA Main Interface">
-  <img src="https://github.com/user-attachments/assets/afa59f64-ae8a-434c-bb4c-b26103066716" width="400" alt="Guitar Studio IA Main Interface">
-  
-  <br><br>
+  <p><i>Estúdio virtual de guitarra e baixo: braço interativo, campo harmônico, editor de tablatura, estúdio de estudos guiados, mini-jogos e processamento de áudio com IA</i></p>
+  <p><i>Virtual guitar/bass studio: interactive fretboard, harmonic field, tablature editor, guided study tracks, mini-games and AI-assisted audio processing</i></p>
 
   <p>
-    <img src="https://img.shields.io/badge/Status-Beta_1-orange?style=for-the-badge" alt="Version Beta">
-    <img src="https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge&logo=python&logoColor=white" alt="Python Version">
+    <img src="docs/screenshots/braco_guitarra.png" width="410" alt="Braço interativo com escala e campo harmônico">
+    <img src="docs/screenshots/editor_tablatura.png" width="410" alt="Editor de tablatura">
+  </p>
+  <p>
+    <img src="docs/screenshots/estudos.png" width="410" alt="Painel de Estudos guiados">
+    <img src="docs/screenshots/jogo_acerte_a_nota.png" width="410" alt="Mini-jogo Acerte a Nota">
+  </p>
+
+  <br>
+
+  <p>
+    <img src="https://img.shields.io/badge/Status-Beta-orange?style=for-the-badge" alt="Version Beta">
+    <img src="https://img.shields.io/badge/Python-3.12-blue?style=for-the-badge&logo=python&logoColor=white" alt="Python Version">
+    <img src="https://img.shields.io/badge/Engine-Pygame_CE-6c5ce7?style=for-the-badge" alt="Pygame">
     <img src="https://img.shields.io/badge/Platform-Windows_|_Linux_|_macOS-lightgrey?style=for-the-badge" alt="Platforms">
     <img src="https://img.shields.io/badge/License-Copyright_Reserved-red?style=for-the-badge" alt="License">
   </p>
 </div>
 
+> 📸 **Sobre os prints deste README:** as imagens acima e as da galeria mais abaixo são placeholders — os arquivos ainda não existem em `docs/screenshots/`. Basta salvar os prints do programa **com esses mesmos nomes de arquivo** nessa pasta (veja a lista completa na seção [Capturas de tela](#-capturas-de-tela--screenshots)) que eles aparecem automaticamente aqui e no GitHub, sem precisar editar este arquivo.
+
+---
 
 ## 🇧🇷 Português
 
-### ⚠️ Status do Projeto: Versão Beta
-Este projeto está atualmente em sua fase **Beta**. Embora a lógica musical matemática, a renderização do braço e os cálculos de processamento de áudio estejam operacionais, o software ainda passa por constantes refinamentos visuais, correção de pequenos *glitches* de interface e otimizações de performance.
+### ⚠️ Status do Projeto: Beta
 
-**Procuramos Colaboradores!** O projeto tem grande potencial de expansão. Seu apoio é muito bem-vindo para:
-* **Design (UI/UX):** Melhorar a interface gráfica, responsividade e experiência do usuário.
-* **Desenvolvimento (Python):** Otimização de performance de renderização do Pygame e integração de novos módulos analíticos e de gamificação.
-* **Teoria Musical:** Expansão do sistema para suportar tétrades, escalas exóticas e afinadores estroboscópicos.
-* **QA / Testes:** Reportar falhas (*bugs*) e sugerir melhorias de estabilidade.
+O EIGUIT deixou de ser "só um braço de guitarra": depois de uma refatoração grande, o projeto virou um **estúdio completo**, organizado em camadas (`core/`, `ui/`, `audio/`, `Jogos/`, `DragDrop/`, `BD/`, `config/`) com um sistema de design próprio. A matemática musical, a renderização do braço, o DSP de áudio e o editor de tablatura já estão operacionais; a interface e os módulos mais novos (Estúdio de Estudos, editor de tablatura, busca de músicas/timbre, perfis na nuvem) ainda recebem ajustes visuais e de estabilidade com frequência.
+
+**Procuramos colaboradores!**
+* **Design (UI/UX):** refino visual, responsividade e microinterações do sistema de design próprio (`config/design_system.py`).
+* **Desenvolvimento (Python/Pygame):** performance de renderização, novos módulos de `core/modulos/` e integração com o serviço de transcrição por IA.
+* **Teoria musical:** novas trilhas em `Estudos/`, escalas exóticas, tétrades e progressões.
+* **QA/Testes:** reportar bugs e sugerir melhorias — hoje o projeto não tem suíte de testes automatizada.
 
 ### 📝 Sobre o Projeto
-O **Guitar Studio IA** é uma ferramenta interativa e avançada voltada para guitarristas, baixistas, estudantes de teoria musical e produtores. Desenvolvido inteiramente em Python utilizando a biblioteca Pygame para renderização e processamento vetorial, o software oferece uma visualização dinâmica e em tempo real do braço do instrumento acoplada à análise de campo harmônico.
 
-O grande diferencial tecnológico e didático deste projeto é o sistema de **Filtro CAGED Automático**. Ao selecionar um acorde gerado dinamicamente dentro do campo harmônico (Jônio, Dórico, Frígio, etc.), o software mapeia instantaneamente as notas da tríade (Tônica, Terça, Quinta) por toda a extensão do braço, aplicando transparência inteligente (Alpha blending) às notas irrelevantes, o que facilita o estudo de arpejos e a memorização fotográfica dos *shapes*.
+O **Guitar Studio IA (EIGUIT)** é uma ferramenta interativa para guitarristas, baixistas, estudantes de teoria musical e produtores, escrita inteiramente em Python com Pygame. O núcleo é um loop de 60 FPS (`main.py`) que combina em tempo real:
 
-### 🚀 Funcionalidades Principais
-* **Braço Interativo Dinâmico:** Suporte nativo para Guitarra (6 e 7 cordas) e Baixo (4 cordas), com recálculo automático de espaçamento e dezenas de afinações abertas disponíveis.
-* **Campo Harmônico Inteligente:** Visualização em tempo real dos 7 graus da escala em algarismos romanos, respondendo diretamente à tônica selecionada.
-* **Filtro de Acordes (CAGED):** Destaque seletivo das tríades, com cálculo instantâneo de intervalos Maiores, Menores e Diminutos.
-* **Interface Modular com Flexbox Customizado:** Menus de escalas e configurações com sistema próprio de barra de rolagem (scroll) e *clipping* de renderização, permitindo uma UI limpa e moderna.
-* **Processamento de Áudio (IA e DSP):** Detecção contínua de frequência via microfone com destaque visual de afinação (*Pitch detection*).
-* **Mini-Jogos de Percepção e Precisão:** Módulos de gamificação interativos (como o "Acerte a Nota") que avaliam a precisão rítmica e de afinação do usuário em tempo real, utilizando a captação do microfone.
-* **Personalização Total:** Ajuste em tempo real de opacidade das notas, cores do braço/fundo e tipografia do sistema, refletindo as alterações sem atraso de quadros.
+* a visualização dinâmica do braço de **sete instrumentos diferentes** (não só guitarra);
+* o **campo harmônico** e o **filtro de acordes** (o antigo "CAGED", hoje generalizado para tríades, tétradas, inversões, diminutos e suspensos);
+* um **editor/tocador de tablatura** com sintetizador próprio;
+* um **estúdio de estudos guiados** (nota, escala, acorde, ciclo de quintas, padrões, improviso e uma trilha de aulas);
+* **mini-jogos** de precisão rítmica e auditiva;
+* **processamento de áudio em tempo real** (afinador, detecção polifônica de notas, detector de ataque/palhetada);
+* busca de **músicas** (Songsterr) e de **timbres/equipamento**, com favoritos salvos na nuvem;
+* **login e perfis na nuvem** (PostgreSQL), para levar tema, cores, afinações e projetos salvos de um computador para o outro.
+
+O diferencial didático continua sendo o **Filtro de Acordes automático**: ao selecionar um acorde gerado dinamicamente a partir do campo harmônico (Jônico, Dórico, Frígio, etc.), o software mapeia instantaneamente Tônica, Terça e Quinta (ou a tétrade completa) por toda a extensão do braço, aplicando transparência inteligente (*alpha blending*) às notas fora do acorde — o que facilita o estudo de arpejos e a memorização fotográfica das formas (*shapes*).
+
+### 🚀 Funcionalidades
+
+As funcionalidades abaixo estão organizadas por área. Itens marcados **(novo)** não existiam na versão anterior deste README; os demais foram mantidos e, na maioria dos casos, ampliados.
+
+#### 🎸 Instrumento e braço
+* **Multi-instrumento (novo):** guitarra de 6 e 7 cordas, baixo de 4 e 5 cordas, ukulele, cavaquinho e teclado — todos compartilham o mesmo motor de diagrama (`config/instrumentos.py`), então estudos, jogos e visualizações funcionam em qualquer um deles.
+* **Braço interativo dinâmico:** recálculo automático de espaçamento por instrumento, com dezenas de afinações abertas (Drop A, Standard B, All 4ths, etc.) prontas para uso.
+* **Câmera com pan & zoom (novo):** o workspace roda numa superfície virtual (`core/modulos/modulo_camera.py`) que pode ser arrastada e ampliada independentemente da barra superior fixa.
+* **Sistema de "gaveteiro" (novo):** os painéis (escalas, acordes, sessão, etc.) vivem em gavetas que se abrem/fecham e se auto-organizam na tela (`ui/components/gaveteiro.py`), com apoio de *drag & drop* com guias de encaixe (*snap guides*, `DragDrop/`).
+
+#### 🎵 Teoria musical
+* **Campo harmônico inteligente:** os 7 graus da escala em algarismos romanos, recalculados em tempo real a partir da tônica selecionada.
+* **Filtro de acordes ampliado (era só CAGED):** tríades, **tétrades**, **inversões**, **diminutos** e **suspensos** (`ui/blocks/painel_acordes.py`) — o antigo painel CAGED agora é um caso particular desse painel maior.
+* **Banco de escalas amplo:** maior, menor, pentatônicas, blues, modos gregos, escalas exóticas, harmônica/menor melódica e teoria avançada (`core/modulos/modulos_*`), geradas dinamicamente por `ui/fabrica_escalas.py`.
+* **Blocos extras de teoria (novo):** círculo das quintas/quartas, histórico de notas tocadas, drone de referência, notas por corda, capotraste virtual e progressões prontas — todos arrastáveis (`ui/components/blocos_extras.py`).
+* **Graus vs. letras:** alterna a exibição das notas entre nomes absolutos (C D E) e graus (1 2 3) para focar em intervalos.
+
+#### 🧑‍🏫 Estúdio de Estudos guiados (novo)
+Um modo de prática dedicado (`Estudos/`, orquestrado por `core/modulos/modulos_estudos.py`), com sete frentes:
+* **Notas** — adivinhar, mapear ou reconhecer de ouvido, em qualquer instrumento.
+* **Escalas** — prática guiada pelas famílias de escalas do banco de dados musical.
+* **Acordes** — reconhecimento e prática de tríades/tétrades comuns.
+* **Ciclo de quintas/quartas** — roda interativa, montagem de progressões e modo desafio (relativa, armadura, quinta/quarta).
+* **Padrões** — sequências melódicas (terças, quartas, arpejos) e células rítmicas clássicas, sincronizadas ao metrônomo.
+* **Improvisação** — mostra, acorde a acorde, as notas alvo, as notas de passagem e as notas a evitar, junto com guias de fraseado.
+* **Aulas** — trilha guiada do iniciante ao avançado que encadeia os motores de Padrões e Improvisação já pré-configurados, com progresso marcável.
+
+#### 🎼 Editor e tocador de tablatura (novo)
+* Editor de tablatura em grade (`ui/editor_musical.py`, `ui/renderizador_criador_tab.py`) com visão de **Tablatura** e **Partitura** sempre sincronizadas (a partitura é derivada da tablatura, não é um dado separado).
+* Sintetizador próprio (`audio/tab_synth.py`) para tocar a tablatura criada, com técnicas marcadas na grade.
+* Integração com o **gerenciador de dados de tablatura** (`core/modulos/modulo_dados_tab.py`) e leitura de arquivos **MIDI** (`core/modulos/leitor_midi.py` / `modulo_leitor_midi.py`).
+
+#### 🎮 Mini-jogos
+* **Acerte a Nota:** as notas descem numa pauta de 5 linhas com cabeça, haste e acidentes; a nota captada pelo microfone precisa bater com a figura ao cruzar a faixa de acerto. Em dificuldades mais altas também cobra o ataque no tempo certo. Quatro níveis: Fácil, Média, Difícil e Impossível.
+* **Rhythm Hero (novo):** jogo de ritmo cujo acerto é medido pelo **ataque** do instrumento (não pelo sustain, então segurar uma nota não pontua). Cada acerto guarda o desvio em milissegundos até o tempo exato, exibido num medidor de precisão — mostra se você atrasa ou adianta o tempo.
+* Presets rápidos de configuração (Iniciante, Prática, Desafio) e subdivisões rítmicas (semínima, colcheia, tercina, semicolcheia).
+
+#### 🎚️ Áudio, IA e afinação
+* **Processamento de áudio contínuo:** captura por microfone com detecção de frequência (`audio/global_audio.py`) e afinador visual com indicador de desvio em cents.
+* **Detecção polifônica de notas (novo):** o motor de áudio global identifica mais de uma nota tocada ao mesmo tempo.
+* **Detector de ataque/palhetada (novo, `core/modulos/detector_palhetadas.py`):** usado pelos jogos e estudos para julgar o tempo real da execução, não só a altura da nota.
+* **Cliente de transcrição por IA (novo, `core/modulos/modulo_ia_transcricao.py`):** envia um áudio para o microsserviço de transcrição do repositório (FastAPI + Celery + Demucs + basic-pitch, fora do escopo deste README) e recebe notas/BPM de volta.
+* **Metrônomo completo:** widget compacto no canto da tela ou painel completo, BPM de 40 a 300, presets rápidos e fórmulas de compasso (2/4, 3/4, 4/4, 6/8), com o primeiro tempo do compasso sempre destacado.
+
+#### 🌐 Músicas, timbre e nuvem (novo)
+* **Busca de músicas (Songsterr):** busca tablaturas por artista/música, baixa MIDI de referência e mantém uma lista de **favoritos sincronizada na nuvem**.
+* **Minhas músicas:** biblioteca de arquivos MIDI adicionados localmente (também por *drag & drop* de um `.mid`).
+* **Busca de timbre:** agrega, para "Artista - Música", quem já timbrou aquele som (fóruns, vídeos, presets) e sites/fontes institucionais, com um botão para copiar um prompt pronto para uma IA de texto.
+* **Login e perfis na nuvem:** autenticação (`ui/tela_login.py`, CustomTkinter) contra um banco PostgreSQL na nuvem; tema, cores, afinação e projetos salvos ficam ligados à conta do usuário (`BD/gerenciador_remoto_db.py`, `core/modulos/modulo_perfil.py`).
+* **Sessão de estudo:** contabiliza tempo de prática, notas tocadas e o percentual delas dentro do contexto harmônico ativo (`core/sessao_estudo.py`).
+
+#### 🎨 Personalização e interface
+* **Sistema de design próprio (novo, `config/design_system.py`):** paletas clara/escura consistentes, com alternância de tema em tempo real.
+* **Cor de destaque customizável (novo):** além de 5 temas prontos, dá para digitar um hexadecimal exato ou escolher em um seletor de cor.
+* **5 idiomas com tradução dinâmica (novo):** Português, English, Español, Français e Deutsch, traduzidos sob demanda e cacheados (`core/i18n.py`).
+* **3 tamanhos de fonte** e 5 fontes de sistema, com reconstrução instantânea da UI ao trocar.
+* **Modos de exibição de nota:** letras, graus ou "só a bolinha" (para focar no *shape*).
+* **Suporte e tutoriais integrados:** modal com abas (Escalas, Configurações, Metrônomo, Acordes, Vídeos) e reprodução de vídeo-aulas embutida (`core/modulos/modulo_suporte.py`, `modulo_video_aula.py`).
+
+### 🏗️ Arquitetura e Estrutura de Arquivos
+
+A base de código foi refatorada em camadas. A estrutura abaixo reflete o repositório atual (o app desktop; o microsserviço de transcrição e o frontend web em `services/` e `web_frontend/` são programas separados no mesmo repositório e não estão detalhados aqui):
+
+```text
+EIGUIT/
+├── main.py                       # Entry point / loop principal do motor (60 FPS)
+├── studio_cli.py                 # CLI de teoria musical (TUI com "rich")
+├── core/
+│   ├── estado_app.py             # EstadoGlobal: fonte única de verdade do app
+│   ├── controlador_eventos.py    # Único ponto de tratamento de mouse/teclado
+│   ├── config.py                 # Preferências do usuário (cores, fontes, tema, idioma)
+│   ├── i18n.py                   # Tradução dinâmica (5 idiomas) com cache
+│   ├── sessao_estudo.py          # Rastreamento de tempo/precisão de prática
+│   └── modulos/                  # Módulos de features (campo harmônico, metrônomo,
+│                                  # processamento de áudio, timbre, songsterr, perfil,
+│                                  # transcrição IA, dados de tablatura, câmera, etc.)
+├── ui/
+│   ├── renderizador_ui.py        # Todos os draw calls: workspace + UI fixa
+│   ├── fabrica_escalas.py        # Gera os dicionários de escalas/modos
+│   ├── editor_musical.py         # Editor de tablatura/partitura sincronizados
+│   ├── tela_login.py             # Tela de autenticação (CustomTkinter)
+│   ├── blocks/                   # Braço da guitarra, painel de acordes, tablatura
+│   └── components/                # Barra superior, navegação inferior, gaveteiro,
+│                                  # sidebar de áudio, blocos extras de teoria
+├── Estudos/                       # As sete trilhas do Estúdio de Estudos
+├── Jogos/                         # Acerte a Nota, Rhythm Hero e o gerenciador de jogos
+├── DragDrop/                      # Elementos arrastáveis e guias de encaixe (snap)
+├── audio/                         # Motor de áudio global (mic) e sintetizador de tablatura
+├── BD/                            # Acesso ao PostgreSQL na nuvem (perfis, favoritos)
+├── config/                        # Design system, instrumentos, layout, temas
+└── assets/                        # Imagens, ícones, timbres e áudios do projeto
+```
 
 ### 🛠️ Como Executar o Projeto
 
-#### 🔹 Opção A: Via Código-Fonte e VS Code (Desenvolvimento)
-Para rodar o software diretamente do código e fazer suas próprias modificações:
+O projeto usa **Python 3.12** e é gerenciado com **[uv](https://docs.astral.sh/uv/)** (o `pyproject.toml`/`uv.lock` já fixam as versões das dependências).
 
-1. **Pré-requisitos:** Certifique-se de ter o **Python 3.10 ou superior** e o `git` instalados no seu sistema.
-2. **Clone o repositório oficial:**
+1. **Pré-requisitos:** Python 3.12, `git` e `uv` instalados.
+2. **Clone o repositório:**
    ```bash
-   git clone [https://github.com/SEU_USUARIO/EIGUIT.git](https://github.com/SEU_USUARIO/EIGUIT.git)
+   git clone https://github.com/SEU_USUARIO/EIGUIT.git
    cd EIGUIT
+   ```
+3. **Instale as dependências:**
+   ```bash
+   uv sync
+   ```
+4. **Execute a aplicação:**
+   ```bash
+   uv run python main.py
+   ```
+   *(ou ative o ambiente virtual criado pelo `uv` e rode `python main.py` normalmente).*
 
+⚠️ **Importante:** o app abre primeiro uma **tela de login** e só continua depois de autenticar contra um banco PostgreSQL na nuvem — é preciso ter acesso a essa configuração (ou apontar `BD/gerenciador_remoto_db.py` para seu próprio banco) para o programa iniciar.
 
+Também existe um executável standalone gerado com PyInstaller (`build/GuitarStudioIA/GuitarStudioIA.exe`); se preferir testar sem configurar o ambiente Python, gere ou baixe o `.zip` da build mais recente e mantenha a pasta `assets/` no mesmo diretório do `.exe`. Por não ter assinatura digital, o Windows SmartScreen pode alertar — clique em "Mais informações" → "Executar assim mesmo".
 
-3. **Crie e ative um ambiente virtual (VENV):**
-```bash
-# Criação do ambiente
-python -m venv venv_novo
+### 🎮 Guia de Uso Rápido
 
-# Ativação no Windows (PowerShell/CMD)
-.\venv_novo\Scripts\activate
+1. **Login:** autentique-se na tela inicial (CustomTkinter). Seu tema, cores e afinações favoritas ficam salvos na sua conta.
+2. **Instrumento:** troque entre guitarra (6/7 cordas), baixo (4/5 cordas), ukulele, cavaquinho ou teclado nos controles de instrumento — o braço se redimensiona sozinho.
+3. **Escalas e acordes:** abra a gaveta de Escalas ou Acordes na barra inferior, arraste uma forma para o braço; clique com o botão direito sobre o braço para devolver tudo ao painel de origem.
+4. **Campo harmônico:** clique num grau (I, II, III...) para isolar as notas daquele acorde no braço, com transparência no restante da escala; clique de novo para desmarcar.
+5. **Estúdio de Estudos:** abra a gaveta "Estudos" e escolha uma trilha (Notas, Escalas, Acordes, Ciclo de Quintas, Padrões, Improvisação ou Aulas).
+6. **Editor de tablatura:** na gaveta "Músicas", vá em "Área de Música" → "Criar Tablatura" para abrir o editor/tocador.
+7. **Mini-jogos:** na gaveta de Análise de IA/Jogos, escolha "Acerte a Nota" ou "Rhythm Hero" e toque fisicamente no seu instrumento — o jogo julga afinação e tempo.
+8. **Busca de músicas e timbre:** na gaveta "Músicas", use "Busca" para procurar tablaturas no Songsterr (e favoritar), ou a aba de Timbre para pesquisar como outros músicos tocaram determinada música.
+9. **Metrônomo:** widget compacto no canto inferior direito, ou o painel completo com BPM, compasso e presets.
+10. **Personalização:** na aba Configurações, troque tema, cor de destaque (inclusive por hexadecimal), fonte, tamanho de fonte, idioma (5 opções) e o modo de exibição das notas (letras, graus ou só a bolinha).
 
-# Ativação no Linux / macOS (Terminal)
-source venv_novo/bin/activate
+### 📸 Capturas de tela / Screenshots
 
-```
+As imagens abaixo ainda são placeholders. Salve os prints do programa em `docs/screenshots/` **usando exatamente estes nomes de arquivo** para que apareçam automaticamente neste README (no GitHub e no editor local):
 
+| Arquivo | O que deve mostrar |
+|---|---|
+| `docs/screenshots/login.png` | Tela de login/autenticação |
+| `docs/screenshots/braco_guitarra.png` | Braço interativo com uma escala ativa |
+| `docs/screenshots/campo_harmonico.png` | Painel de campo harmônico / filtro de acordes |
+| `docs/screenshots/estudos.png` | Uma das trilhas do Estúdio de Estudos |
+| `docs/screenshots/editor_tablatura.png` | Editor/tocador de tablatura |
+| `docs/screenshots/jogo_acerte_a_nota.png` | Mini-jogo Acerte a Nota |
+| `docs/screenshots/jogo_rhythm_hero.png` | Mini-jogo Rhythm Hero |
+| `docs/screenshots/afinador_ia.png` | Painel de afinador / análise de IA |
+| `docs/screenshots/musicas_busca.png` | Busca de músicas (Songsterr) |
+| `docs/screenshots/configuracoes.png` | Painel de configurações / temas |
 
-4. **Instale as dependências rigorosas:**
-```bash
-pip install pygame-ce pyaudio numpy librosa sounddevice
-
-```
-
-
-5. **Execute a aplicação:**
-Abra a pasta clonada no VS Code, abra o arquivo `main.py` e pressione `F5`, ou execute diretamente no terminal ativado:
-```bash
-python main.py
-
-```
-
-
-
-#### 🔹 Opção B: Via Executável (.EXE Standalone)
-
-Caso queira apenas testar a ferramenta no Windows sem configurar o Python:
-
-1. Navegue até a aba **Releases** no lado direito deste repositório GitHub.
-2. Baixe o arquivo `.zip` da versão mais recente.
-3. Extraia todo o conteúdo para uma pasta dedicada no seu computador.
-4. **Importante:** Mantenha a pasta `assets` e a pasta `Audios` (com os arquivos `.wav`) no mesmo diretório do executável `main.exe`.
-5. Dê um duplo clique em **`main.exe`**.
-* *Aviso do Windows:* Por ser um executável compilado de forma independente (sem assinatura digital paga), o Windows SmartScreen pode bloqueá-lo inicialmente. Clique em *"Mais informações"* e, em seguida, em *"Executar assim mesmo"*.
-
-
-
-### 🎮 Guia de Uso Rápido e Atalhos
-
-1. **Seleção de Instrumento:** Utilize os botões azuis na barra de ferramentas superior para alternar instantaneamente entre Guitarra e Baixo. A interface se redimensionará sozinha.
-2. **Sistema CAGED:** Role até a aba "Campo Harmônico". Clique em qualquer um dos blocos azuis (I, II, III...). O software isolará as notas da tríade correspondente no braço, aplicando transparência ao restante da escala. Clique novamente para desmarcar.
-3. **Navegação (Scroll):** Posicione o mouse sobre o painel inferior (Escalas, Acordes, Configurações) e use a rodinha do mouse (*scroll wheel*) para subir ou descer pelas opções.
-4. **Gamificação (Modo Jogos):** Na seção inferior, acesse a área de Análise por IA e abra os **Mini-Jogos**. O jogo "Acerte a Nota" exige que você toque fisicamente a nota exigida na tela usando sua guitarra. O sistema julgará sua precisão rítmica e de afinação.
-5. **Treinamento Rítmico:** O metrônomo pode ser acionado de forma miniaturalizada no canto inferior direito, ou configurado profundamente na aba "Configurações".
-6. **Graus vs Letras:** Em "Configurações", altere a exibição das notas de "C D E" (Letras) para "1 2 3" (Graus) para focar na visualização de intervalos em vez do nome absoluto da nota.
+<p align="center">
+  <img src="docs/screenshots/campo_harmonico.png" width="410" alt="Campo harmônico / filtro de acordes">
+  <img src="docs/screenshots/jogo_rhythm_hero.png" width="410" alt="Mini-jogo Rhythm Hero">
+</p>
+<p align="center">
+  <img src="docs/screenshots/musicas_busca.png" width="410" alt="Busca de músicas Songsterr">
+  <img src="docs/screenshots/configuracoes.png" width="410" alt="Painel de configurações">
+</p>
 
 ---
 
 ## 🇺🇸 English
 
-### ⚠️ Project Status: Beta Version
+### ⚠️ Project Status: Beta
 
-This project is currently in its **Beta** phase. While the core musical mathematics, fretboard rendering, and audio processing pipelines are fully operational, the software is continually undergoing visual refinements, minor UI glitch corrections, and performance optimizations.
+EIGUIT outgrew being "just a fretboard viewer": after a large refactor, it's now a **full studio**, organized in layers (`core/`, `ui/`, `audio/`, `Jogos/`, `DragDrop/`, `BD/`, `config/`) with its own design system. The core musical math, fretboard rendering, audio DSP and tablature editor are fully operational; the newest modules (Study Studio, tablature editor, song/gear search, cloud profiles) still get frequent visual and stability refinements.
 
-**Contributors Wanted!** This project has significant expansion potential. Your support is highly appreciated in areas such as:
-
-* **Design (UI/UX):** Enhancing the graphical interface, responsiveness, and overall user flow.
-* **Development (Python):** Optimizing Pygame rendering performance and integrating new analytical and gamification modules.
-* **Music Theory:** Expanding the mathematical engine to support tetrads (7th chords), exotic scales, and strobe tuning systems.
-* **QA / Testing:** Reporting bugs and submitting PRs to improve application stability.
+**Contributors wanted!**
+* **Design (UI/UX):** visual polish, responsiveness and micro-interactions for the custom design system (`config/design_system.py`).
+* **Development (Python/Pygame):** rendering performance, new modules under `core/modulos/`, and integration with the AI transcription service.
+* **Music theory:** new tracks under `Estudos/`, exotic scales, tetrads and progressions.
+* **QA/Testing:** bug reports and stability suggestions — there is currently no automated test suite.
 
 ### 📝 About the Project
 
-**Guitar Studio IA** is an advanced interactive tool designed for guitarists, bassists, music theory students, and producers. Developed entirely in Python using the Pygame library for rendering and vector processing, the software provides a dynamic, real-time visualization of the instrument's fretboard coupled with deep harmonic field analysis.
+**Guitar Studio IA (EIGUIT)** is an interactive tool for guitarists, bassists, music theory students and producers, written entirely in Python with Pygame. The core is a 60 FPS loop (`main.py`) that combines in real time:
 
-The technological and educational centerpiece of this project is the **Automatic CAGED Filter System**. By selecting a dynamically generated chord within a given harmonic field (Ionian, Dorian, Phrygian, etc.), the software instantly maps the triad notes (Root, Third, Fifth) across the entire fretboard. It applies smart Alpha blending transparency to irrelevant notes, drastically simplifying arpeggio study and the photographic memorization of shape patterns.
+* a dynamic fretboard/neck for **seven different instruments** (not just guitar);
+* the **harmonic field** and **chord filter** (the former "CAGED", now generalized to triads, tetrads, inversions, diminished and suspended chords);
+* a built-in **tablature editor/player** with its own synthesizer;
+* a **guided Study Studio** (notes, scales, chords, circle of fifths, patterns, improvisation and a lesson track);
+* **mini-games** for rhythmic and pitch accuracy;
+* **real-time audio processing** (tuner, polyphonic note detection, pick/attack detection);
+* **song search** (Songsterr) and **gear/tone search**, with cloud-synced favorites;
+* **cloud login and profiles** (PostgreSQL), carrying theme, colors, tunings and saved projects between computers.
 
-### 🚀 Key Features
+The educational centerpiece remains the **Automatic Chord Filter**: selecting a chord dynamically generated from the harmonic field (Ionian, Dorian, Phrygian, etc.) instantly maps the Root, Third and Fifth (or the full tetrad) across the entire fretboard, applying smart alpha-blending transparency to notes outside the chord — drastically simplifying arpeggio study and shape memorization.
 
-* **Dynamic Interactive Fretboard:** Native rendering for Guitar (6 & 7 strings) and Bass (4 strings), with automatic spacing recalculation and dozens of built-in open tunings.
-* **Smart Harmonic Field:** Real-time visualization of the 7 scale degrees in Roman numerals, reacting instantly to the selected root note.
-* **CAGED Chord Filter:** Selective highlighting of triads with instant on-the-fly calculation of Major, Minor, and Diminished intervals.
-* **Custom Modular UI:** Settings and scale menus utilize a custom flexbox-like logic with an independent scrollbar and clipping masks, delivering a clean and modern interface.
-* **Audio Processing (DSP & AI):** Continuous real-time frequency detection via microphone with visual pitch feedback logic.
-* **Gamification & Accuracy Mini-Games:** Interactive modules (such as "Hit the Note") that evaluate the user's rhythmic and pitch accuracy in real-time using microphone input.
-* **Total Customization:** Adjust note opacity, fretboard wood color, and system typography in real-time without frame lag.
+### 🚀 Features
 
-### 🛠️ How to Run the Project
+Grouped by area. Items marked **(new)** did not exist in the previous version of this README; everything else was kept and, in most cases, expanded.
 
-#### 🔹 Option A: Via Source Code and VS Code (Development)
+#### 🎸 Instrument and fretboard
+* **Multi-instrument (new):** 6- and 7-string guitar, 4- and 5-string bass, ukulele, cavaquinho and keyboard — all sharing the same diagram engine (`config/instrumentos.py`), so studies, games and visualizations work on any of them.
+* **Dynamic interactive fretboard:** automatic spacing recalculation per instrument, with dozens of ready-to-use open tunings (Drop A, Standard B, All 4ths, etc.).
+* **Pan & zoom camera (new):** the workspace renders onto a virtual surface (`core/modulos/modulo_camera.py`) that can be panned/zoomed independently of the fixed top bar.
+* **"Drawer" system (new):** panels (scales, chords, session, etc.) live in drawers that open/close and self-arrange on screen (`ui/components/gaveteiro.py`), backed by drag & drop with snap guides (`DragDrop/`).
 
-To run the software directly from the source and make your own modifications:
+#### 🎵 Music theory
+* **Smart harmonic field:** the 7 scale degrees in Roman numerals, recalculated live from the selected root.
+* **Expanded chord filter (used to be just CAGED):** triads, **tetrads**, **inversions**, **diminished** and **suspended** chords (`ui/blocks/painel_acordes.py`) — the old CAGED panel is now a special case of this larger panel.
+* **Large scale library:** major, minor, pentatonics, blues, Greek modes, exotic scales, harmonic/melodic minor and advanced theory (`core/modulos/modulos_*`), generated dynamically by `ui/fabrica_escalas.py`.
+* **Extra theory blocks (new):** circle of fifths/fourths, played-note history, reference drone, notes-per-string, virtual capo and ready-made progressions — all draggable (`ui/components/blocos_extras.py`).
+* **Degrees vs. letters:** toggle note display between absolute names (C D E) and degrees (1 2 3) to focus on intervals.
 
-1. **Prerequisites:** Ensure you have **Python 3.10 or higher** and `git` installed on your system.
-2. **Clone the official repository:**
-```bash
-git clone [https://github.com/YOUR_USER/EIGUIT.git](https://github.com/YOUR_USER/EIGUIT.git)
-cd EIGUIT
+#### 🧑‍🏫 Guided Study Studio (new)
+A dedicated practice mode (`Estudos/`, orchestrated by `core/modulos/modulos_estudos.py`) with seven tracks:
+* **Notes** — guess, map or ear-train, on any instrument.
+* **Scales** — guided practice through the scale library.
+* **Chords** — recognition and practice of common triads/tetrads.
+* **Circle of fifths/fourths** — interactive wheel, progression building and a challenge mode (relative key, key signature, fifth/fourth).
+* **Patterns** — melodic sequences (thirds, fourths, arpeggios) and classic rhythmic cells, synced to the metronome.
+* **Improvisation** — shows, chord by chord, target notes, passing scale notes and notes to avoid, plus phrasing guides.
+* **Lessons** — a guided beginner-to-advanced track that opens the Patterns/Improvisation engines already pre-configured, with completion tracking.
 
-```
+#### 🎼 Tablature editor and player (new)
+* Grid-based tablature editor (`ui/editor_musical.py`, `ui/renderizador_criador_tab.py`) with always-in-sync **Tablature** and **Sheet Music** views (sheet music is derived from the tab grid, not stored separately).
+* Its own synthesizer (`audio/tab_synth.py`) to play back the created tablature, including grid-marked techniques.
+* Integrates with the **tablature data manager** (`core/modulos/modulo_dados_tab.py`) and **MIDI** file reading (`core/modulos/leitor_midi.py` / `modulo_leitor_midi.py`).
 
+#### 🎮 Mini-games
+* **Hit the Note:** notes fall on a 5-line staff with noteheads, stems and accidentals; the note detected by the microphone must match the figure as it crosses the hit zone. Higher difficulties also require hitting the attack on time. Four levels: Easy, Medium, Hard and Impossible.
+* **Rhythm Hero (new):** a rhythm game where hits are judged by the instrument's **attack** (not sustain, so holding a note earns nothing). Every hit stores its deviation in milliseconds from the exact beat, shown on a precision meter — revealing whether you rush or drag.
+* Quick setup presets (Beginner, Practice, Challenge) and rhythmic subdivisions (quarter, eighth, triplet, sixteenth notes).
 
-3. **Create and activate a virtual environment (VENV):**
-```bash
-# Creation
-python -m venv venv_novo
+#### 🎚️ Audio, AI and tuning
+* **Continuous audio processing:** microphone capture with frequency detection (`audio/global_audio.py`) and a visual tuner with cents-deviation feedback.
+* **Polyphonic note detection (new):** the global audio engine identifies more than one note played at once.
+* **Pick/attack detector (new, `core/modulos/detector_palhetadas.py`):** used by games and studies to judge real playing timing, not just pitch.
+* **AI transcription client (new, `core/modulos/modulo_ia_transcricao.py`):** sends audio to the repository's transcription microservice (FastAPI + Celery + Demucs + basic-pitch, out of scope for this README) and gets notes/BPM back.
+* **Full metronome:** compact widget in the corner or a full panel, 40–300 BPM, quick presets and time signatures (2/4, 3/4, 4/4, 6/8), always accenting the downbeat.
 
-# Windows Activation (PowerShell/CMD)
-.\venv_novo\Scripts\activate
+#### 🌐 Songs, gear and cloud (new)
+* **Song search (Songsterr):** search tabs by artist/song, download reference MIDI, and keep a **cloud-synced favorites** list.
+* **My Songs:** a library of locally added MIDI files (also via drag & drop of a `.mid`).
+* **Gear/tone search:** for "Artist - Song", aggregates who already dialed in that tone (forums, videos, presets) and official sites/sources, with a button to copy a ready-made prompt for a text AI.
+* **Cloud login and profiles:** authentication (`ui/tela_login.py`, CustomTkinter) against a cloud PostgreSQL database; theme, colors, tuning and saved projects are tied to the user's account (`BD/gerenciador_remoto_db.py`, `core/modulos/modulo_perfil.py`).
+* **Study session tracking:** tracks practice time, notes played and how many of them fall inside the active harmonic context (`core/sessao_estudo.py`).
 
-# Linux / macOS Activation (Terminal)
-source venv_novo/bin/activate
+#### 🎨 Customization and interface
+* **Custom design system (new, `config/design_system.py`):** consistent light/dark palettes with live theme switching.
+* **Custom accent color (new):** besides 5 ready-made themes, type an exact hex color or pick one from a color picker.
+* **5 languages with dynamic translation (new):** Portuguese, English, Spanish, French and German, translated on demand and cached (`core/i18n.py`).
+* **3 font sizes** and 5 system fonts, with instant UI rebuild on change.
+* **Note display modes:** letters, degrees, or "dot only" (to focus on the shape).
+* **Built-in support and tutorials:** a tabbed modal (Scales, Settings, Metronome, Chords, Videos) with embedded video-lesson playback (`core/modulos/modulo_suporte.py`, `modulo_video_aula.py`).
 
-```
+### 🏗️ Architecture and File Structure
 
-
-4. **Install strict dependencies:**
-```bash
-pip install pygame-ce pyaudio numpy librosa sounddevice
-
-```
-
-
-5. **Run the application:**
-Open the cloned folder in VS Code, open `main.py`, and press `F5`, or run directly in the activated terminal:
-```bash
-python main.py
-
-```
-
-
-
-#### 🔹 Option B: Via Standalone Executable (.EXE)
-
-If you just want to test the tool on Windows without dealing with Python configurations:
-
-1. Navigate to the **Releases** tab on the right side of this GitHub repository.
-2. Download the latest version's `.zip` file.
-3. Extract all contents to a dedicated folder on your computer.
-4. **Crucial:** Ensure the `assets` and `Audios` folders (with the `.wav` files) remain in the same directory as `main.exe`.
-5. Double-click **`main.exe`**.
-* *Windows Warning:* Because this is an independently compiled executable (without a paid digital signature), Windows SmartScreen might block it initially. Click *"More info"* and then *"Run anyway"*.
-
-
-
-### 🎮 Quick Start Guide & Workflow
-
-1. **Instrument Selection:** Use the blue buttons on the top toolbar to switch instantly between Guitar and Bass. The UI will resize and recalculate automatically.
-2. **CAGED System:** Scroll down to the "Harmonic Field" tab. Click on any of the blue degree blocks (I, II, III...). The software will isolate the corresponding triad notes on the neck, turning the rest of the scale transparent. Click it again to deselect.
-3. **Scroll Navigation:** Hover your mouse over the bottom panel area (Scales, Chords, Settings) and use the mouse wheel to scroll through options smoothly.
-4. **Gamification (Game Mode):** In the bottom section, access the AI Analysis area and open the **Mini-Games**. The "Hit the Note" game requires you to physically play the requested note on your instrument. The system will judge your timing and pitch accuracy in real-time.
-5. **Rhythm Training:** The metronome can be toggled via the miniature widget in the bottom right corner or configured in-depth within the "Settings" tab.
-6. **Degrees vs Letters:** In "Settings", change the text display mode from "C D E" (Letters) to "1 2 3" (Degrees) to focus strictly on interval visualization rather than absolute pitch names.
-
----
-
-## 📂 Arquitetura e Estrutura de Arquivos / System Architecture & File Structure
-
-A base de código foi inteiramente refatorada para seguir padrões modernos de Orientação a Objetos e Separação de Preocupações (Separation of Concerns).
+The codebase was refactored into layers. The tree below reflects the current repository (the desktop app; the transcription microservice and web frontend under `services/` and `web_frontend/` are separate programs in the same repo and are out of scope here):
 
 ```text
 EIGUIT/
-├── main.py                     # Entry point / Loop principal do motor (60 FPS)
-├── estado_app.py               # Singleton de gestão de estado (Global State variables)
-├── renderizador_ui.py          # View Engine / Responsável pelos draw calls do Pygame
-├── controlador_eventos.py      # Input Handler / Lógica de Mouse e Keyboard events
-├── config.py                   # Persistência de preferências do usuário / Flexbox UI config
-├── fabrica_escalas.py          # Lógica geracional estrutural de dicionários (Modos Gregos)
-├── Jogos/                      # Módulo de Gamificação
-│   ├── Jogos_interativos.py    # Gerenciador de transições e UI dos jogos
-│   └── acerte_a_nota.py        # Core logic do mini-jogo de precisão musical
-├── Modulos/                    # Módulos encapsulados (Features)
-│   ├── modulo_campo_harmonico.py   # Cálculos de matemática intervalar e renderização do CAGED
-│   ├── modulo_metronomo.py         # Threading e temporização precisa de áudio (BPM)
-│   └── modulo_processamento.py     # Captura de áudio, DSP e análise Fast Fourier Transform
-├── assets/audio/                     # Banco de timbres sintetizados e gravações do projeto
-└── assets/                     # Pasta local contendo recursos estáticos (assets/images/Ícones)
-
+├── main.py                       # Entry point / main engine loop (60 FPS)
+├── studio_cli.py                 # Music-theory CLI (rich TUI)
+├── core/
+│   ├── estado_app.py             # EstadoGlobal: the single source of truth
+│   ├── controlador_eventos.py    # The only mouse/keyboard input handler
+│   ├── config.py                 # User preferences (colors, fonts, theme, language)
+│   ├── i18n.py                   # Dynamic translation (5 languages) with caching
+│   ├── sessao_estudo.py          # Practice time/accuracy tracking
+│   └── modulos/                  # Feature modules (harmonic field, metronome,
+│                                  # audio processing, gear search, Songsterr, profile,
+│                                  # AI transcription, tab data, camera, etc.)
+├── ui/
+│   ├── renderizador_ui.py        # All draw calls: workspace + fixed UI
+│   ├── fabrica_escalas.py        # Generates the scale/mode dictionaries
+│   ├── editor_musical.py         # Synced tablature/sheet-music editor
+│   ├── tela_login.py             # Authentication screen (CustomTkinter)
+│   ├── blocks/                   # Fretboard, chord panel, tablature block
+│   └── components/                # Top bar, bottom navigation, drawer system,
+│                                  # audio sidebar, extra theory blocks
+├── Estudos/                       # The seven Study Studio tracks
+├── Jogos/                         # Hit the Note, Rhythm Hero and the games manager
+├── DragDrop/                      # Draggable elements and snap guides
+├── audio/                         # Global (mic) audio engine and tab synthesizer
+├── BD/                            # Cloud PostgreSQL access (profiles, favorites)
+├── config/                        # Design system, instruments, layout, themes
+└── assets/                        # Project images, icons, timbres and audio
 ```
 
-```
+### 🛠️ How to Run the Project
 
-```
+The project targets **Python 3.12** and is managed with **[uv](https://docs.astral.sh/uv/)** (`pyproject.toml`/`uv.lock` pin the dependency versions).
+
+1. **Prerequisites:** Python 3.12, `git` and `uv` installed.
+2. **Clone the repository:**
+   ```bash
+   git clone https://github.com/YOUR_USER/EIGUIT.git
+   cd EIGUIT
+   ```
+3. **Install dependencies:**
+   ```bash
+   uv sync
+   ```
+4. **Run the app:**
+   ```bash
+   uv run python main.py
+   ```
+   *(or activate the venv `uv` created and run `python main.py` directly).*
+
+⚠️ **Important:** the app opens a **login screen** first and only continues after authenticating against a cloud PostgreSQL database — you need access to that configuration (or to point `BD/gerenciador_remoto_db.py` at your own database) for the program to start.
+
+A standalone PyInstaller-built executable also exists (`build/GuitarStudioIA/GuitarStudioIA.exe`); if you'd rather test it without a Python setup, build or download the latest `.zip` and keep the `assets/` folder next to the `.exe`. Since it isn't digitally signed, Windows SmartScreen may warn you — click "More info" → "Run anyway".
+
+### 🎮 Quick Start Guide
+
+1. **Login:** authenticate on the startup screen (CustomTkinter). Your theme, colors and favorite tunings are saved to your account.
+2. **Instrument:** switch between guitar (6/7 strings), bass (4/5 strings), ukulele, cavaquinho or keyboard in the instrument controls — the fretboard resizes itself.
+3. **Scales and chords:** open the Scales or Chords drawer in the bottom bar and drag a shape onto the fretboard; right-click the fretboard to send everything back to its panel.
+4. **Harmonic field:** click a degree (I, II, III...) to isolate that chord's notes on the fretboard, dimming the rest of the scale; click again to clear it.
+5. **Study Studio:** open the "Estudos" drawer and pick a track (Notes, Scales, Chords, Circle of Fifths, Patterns, Improvisation or Lessons).
+6. **Tablature editor:** in the "Músicas" drawer, go to "Music Area" → "Create Tablature" to open the editor/player.
+7. **Mini-games:** in the AI Analysis/Games drawer, pick "Hit the Note" or "Rhythm Hero" and physically play your instrument — the game judges pitch and timing.
+8. **Song and gear search:** in the "Músicas" drawer, use "Search" to look up tabs on Songsterr (and favorite them), or the Gear tab to see how other musicians got a particular tone.
+9. **Metronome:** a compact widget in the bottom-right corner, or the full panel with BPM, time signature and presets.
+10. **Customization:** in Settings, change theme, accent color (including by hex code), font, font size, language (5 options) and note display mode (letters, degrees, or dot only).
+
+### 📸 Screenshots
+
+The images below are still placeholders. Save the program's screenshots into `docs/screenshots/` **using these exact file names** so they show up automatically here (on GitHub and in your local editor) — see the table in the [Capturas de tela](#-capturas-de-tela--screenshots) section above for the full list and what each one should show.
+
+---
+
+## ⚖️ Termos de Uso e Licença Comercial / Terms of Use & Commercial License
+
+**© 2026 Guitar Studio IA - MATHEUS ABELARDO TREVENZOLI ARAUJO. Todos os Direitos Reservados / All Rights Reserved.**
+
+Este documento estabelece as regras estritas de utilização para o código-fonte, algoritmos de renderização, matemática de interface e ativos visuais presentes neste repositório.
+
+1. **PROPRIEDADE INTELECTUAL:** Todo o código-fonte e algoritmos contidos neste repositório são de propriedade intelectual exclusiva do autor.
+2. **USO PERMITIDO (CÓDIGO ABERTO):** É concedida permissão para clonar, baixar, compilar e executar este software **exclusivamente para fins educacionais, acadêmicos, estudo de código e uso recreativo/pessoal.** Contribuições via *Pull Requests* para melhoria do repositório original são bem-vindas e incentivadas.
+3. **RESTRIÇÕES DE USO (NÃO COMERCIAL E SEM DERIVADOS):**
+   * É expressamente **PROIBIDA** a venda, comercialização, aluguel, assinatura ou monetização direta/indireta deste software, bem como a integração do seu código em softwares pagos ou de terceiros.
+   * É expressamente **PROIBIDA** a criação e distribuição pública de produtos derivados (*forks* que alterem a marca para se passarem por outro produto) com intenções de lucro ou sem a devida atribuição.
+   * A cópia e redistribuição em massa deste software em plataformas externas sem os créditos originais, links para este repositório do GitHub e a manutenção desta licença anexada resultará em violação de direitos autorais.
+4. **GARANTIA LIMITADA:** O software é fornecido "no estado em que se encontra" (*as is*), sem garantias de comercialização, funcionalidade livre de falhas ou adequação a propósitos específicos. O autor não se responsabiliza por danos lógicos ou problemas de processamento de áudio derivados do uso deste código.
+
+---
+*Desenvolvido com dedicação, lógica e muito ☕ para músicos que buscam a verdadeira evolução. / Engineered with logic, dedication, and ☕ for musicians pursuing true evolution.*

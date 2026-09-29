@@ -18,6 +18,8 @@ MARGEM_DIREITA = 10
 # Respiro entre os controles do topo e o braco, e entre o braco e a barra
 ESPACO_ENTRE_FIXOS = 16
 MARGEM_INFERIOR = 10
+# Respiro entre a barra superior e os controles do topo do workspace
+MARGEM_TOPO = 10
 
 # Referencia do canvas
 LARGURA_REF = 1920
@@ -99,11 +101,12 @@ def calcular(largura_tela, altura_viewport):
 def _centralizar_fixos(layout, largura_tela, altura_viewport):
     """
         Como funciona: A barra de abas vai para o rodape, ocupando a largura
-        toda menos a faixa da coluna, e o que sobra na tela principal (os
-        controles do topo e o braco) fica centrado no espaco acima dela, na
-        horizontal e na vertical.
-        Para que serve: Com os blocos guardados no gaveteiro, o instrumento e
-        o assunto da tela; centrado ele fica no lugar para onde o olho vai.
+        toda menos a faixa da coluna. Os controles do topo e o braco ficam
+        centrados na horizontal e encostados no topo da area util, um logo
+        abaixo do outro.
+        Para que serve: A gaveta de baixo abre por cima de mais da metade da
+        tela; com o braco no topo ele continua a vista enquanto se escolhe uma
+        forma de escala para arrastar ate ele.
         Onde e usada: Fim de calcular(), entao vale na abertura e no 'Voltar
         para o Padrao'.
     """
@@ -125,10 +128,14 @@ def _centralizar_fixos(layout, largura_tela, altura_viewport):
         medidas['w'] = min(medidas['w'], util)
         medidas['x'] = esquerda + (util - medidas['w']) // 2
 
+    # Encostados no topo, na ordem controles -> braco. Se a tela for tao baixa
+    # que o grupo nao caiba acima da barra, os dois encolhem em vez de descer.
     limite = barra['y'] if barra is not None else altura_viewport
-    altura_grupo = topo['h'] + ESPACO_ENTRE_FIXOS + braco['h']
-    topo['y'] = max(MARGEM_INFERIOR, (limite - altura_grupo) // 2)
+    topo['y'] = MARGEM_TOPO
     braco['y'] = topo['y'] + topo['h'] + ESPACO_ENTRE_FIXOS
+    sobra = braco['y'] + braco['h'] - (limite - MARGEM_INFERIOR)
+    if sobra > 0:
+        braco['h'] = max(MINIMOS['dragger_guitarra'][1], braco['h'] - sobra)
     return layout
 
 

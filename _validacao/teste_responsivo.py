@@ -84,8 +84,8 @@ def barra_fica_fixa_no_rodape():
                  'a barra fixa nao pode entrar na lista de arrastaveis')
 
 
-def tela_principal_fica_centrada():
-    """Com os blocos guardados, braco e controles ficam no meio da area util."""
+def tela_principal_fica_no_topo():
+    """Braco e controles: centrados na horizontal, encostados no topo."""
     for largura, altura in RESOLUCOES:
         viewport = max(600, altura - ALTURA_TOPBAR)
         calculado = layout.calcular(largura, viewport)
@@ -103,10 +103,11 @@ def tela_principal_fica_centrada():
         barra = calculado['dragger_painel_inferior']
         s.checar(braco['y'] == topo['y'] + topo['h'] + layout.ESPACO_ENTRE_FIXOS,
                  'o braco fica logo abaixo dos controles do topo')
-        acima = topo['y']
-        abaixo = barra['y'] - (braco['y'] + braco['h'])
-        s.checar(abs(acima - abaixo) <= 2 or acima <= layout.MARGEM_INFERIOR + 1,
-                 f'o grupo nao ficou centrado na vertical ({acima} x {abaixo})')
+        s.checar(topo['y'] == layout.MARGEM_TOPO,
+                 f'os controles em {largura}x{altura} deviam encostar no topo '
+                 f"(y={topo['y']})")
+        s.checar(braco['y'] + braco['h'] < barra['y'],
+                 f'o braco em {largura}x{altura} invade a barra de abas')
 
 
 def gaveta_de_baixo_cresce_com_a_tela():
@@ -193,11 +194,54 @@ def barra_e_coluna_ficam_na_tela_na_mesa_virtual():
                  f'{largura}x{altura}: gavetas de menos na mesa virtual')
 
 
+def gaveta_apaga_com_forma_selecionada():
+    """
+    Escolher uma forma de escala nao pode esconder o braco: a gaveta aberta
+    fica translucida e a forma passa a ser desenhada por cima dela.
+    """
+    import pygame
+    from ui import renderizador_ui
+    from ui.components import bottom_nav
+
+    ctx = Contexto(1920, 1080)
+    ctx.estado.secoes_inferiores[0]['expandido'] = True
+    viewport = max(600, 1080 - ALTURA_TOPBAR)
+
+    def quadro():
+        tela = pygame.Surface((1920, viewport))
+        renderizador_ui.desenhar_workspace(
+            tela, ctx.estado, ctx.configs, ctx.escalas, ctx.fontes,
+            ctx.metronomo, ctx.processador, ctx.gravador, ctx.campo, ctx.jogos)
+        return tela
+
+    s.checar(not bottom_nav.forma_em_uso(ctx.escalas),
+             'nenhuma forma deveria comecar fora do painel')
+    fechada = quadro()
+
+    forma = ctx.escalas['maior'][0]
+    forma.estado = 'braco'
+    s.checar(bottom_nav.forma_em_uso(ctx.escalas),
+             'a forma no braco tem de contar como selecionada')
+    aberta = quadro()
+
+    # A gaveta ocupa o rodape do viewport; com a forma na mao ela tem de mudar
+    painel = ctx.estado.secoes_inferiores[0]['rect_painel']
+    amostra = [(painel.x + painel.width // 3, painel.y + painel.height // 2),
+               (painel.centerx, painel.y + 6)]
+    mudou = sum(1 for p in amostra if fechada.get_at(p) != aberta.get_at(p))
+    s.checar(mudou == len(amostra),
+             'a gaveta continuou opaca com a forma selecionada')
+
+    forma.estado = 'painel'
+
+
 s.teste('todo bloco do canvas tem tamanho minimo', nomes_batem)
+s.teste('a gaveta apaga quando ha forma selecionada',
+        gaveta_apaga_com_forma_selecionada)
 s.teste('barra e coluna ficam na tela mesmo na mesa virtual',
         barra_e_coluna_ficam_na_tela_na_mesa_virtual)
 s.teste('a barra de abas fica fixa no rodape', barra_fica_fixa_no_rodape)
-s.teste('braco e controles ficam centrados', tela_principal_fica_centrada)
+s.teste('braco e controles ficam no topo', tela_principal_fica_no_topo)
 s.teste('a gaveta de baixo cresce com a tela', gaveta_de_baixo_cresce_com_a_tela)
 s.teste('o clique encontra a gaveta desenhada', clique_encontra_a_gaveta_desenhada)
 s.teste('o layout cabe em todas as resolucoes', cabe_em_todas_as_resolucoes)

@@ -2,6 +2,7 @@ import pygame
 from DragDrop.elemento_arrastavel import ElementoArrastavel
 from ui.components.config_componentes import LARGURA_TOOLBAR_PADRAO, LARGURA_INFERIOR_PADRAO, TOPBAR_Y_INICIAL, TOPBAR_ALTURA, GUITAR_Y_INICIAL, GUITAR_ALTURA_BRACO, CHORD_ALTURA, CHORD_OFFSET_Y_BRACO, SIDEBAR_NOTA_LARGURA, SIDEBAR_NOTA_ALTURA, SIDEBAR_NOTA_OFFSET_X, SIDEBAR_NOTA_OFFSET_Y_BOTTOM, METRO_LARGURA, METRO_ALTURA, METRO_OFFSET_X, METRO_OFFSET_Y_ESTUDO, CORES_LARGURA, CORES_ALTURA, CORES_OFFSET_X, CORES_OFFSET_Y_BOTTOM, BOTTOM_Y_OFFSET_TELA, BOTTOM_Y_AREA_DESENHO_OFFSET
 from core.modulos.modulo_songsterr import SongsterrAPI
+from core.modulos.modulo_timbre import BuscaTimbre
 
 class EstadoGlobal:
     """
@@ -22,6 +23,16 @@ class EstadoGlobal:
         self.query_songsterr = ''
         self.resultados_songsterr = []
         self.songsterr_search_active = False
+        # --- Pesquisa de Timbre (sub-aba "Timbre" de MÚSICAS) ---
+        self.timbre = BuscaTimbre()
+        self.query_timbre = ''
+        self.timbre_busca_ativa = False
+        self.resultados_timbre = None
+        self.rect_busca_timbre = pygame.Rect(0, 0, 0, 0)
+        self.rect_btn_timbre = pygame.Rect(0, 0, 0, 0)
+        self.rect_btn_timbre_copiar_prompt = pygame.Rect(0, 0, 0, 0)
+        self.rects_timbre_pessoas = []
+        self.rects_timbre_sites = []
         self.lista_tabs = []
         self.favoritos_songsterr = []
         self.musicas_locais = []
@@ -154,7 +165,7 @@ class EstadoGlobal:
         self.nota_selecionada_bloco = 'C'
         self.rects_notas_selecao = []
         self.instrumento = 'guitarra'
-        self.secoes_inferiores = [{'titulo': 'ESCALAS', 'expandido': False, 'conteudo': 'escalas', 'memoria_sub_aba': 0, 'sub_abas': ['Maior', 'Menor', 'Penta Maior', 'Penta Menor', 'Blues', 'Modos', 'Harmônica', 'Melodica', 'Exóticas']}, {'titulo': 'ACORDES', 'expandido': False, 'conteudo': 'acordes', 'memoria_sub_aba': 0, 'sub_abas': ['CAGED', 'Tríades Maiores', 'Tríades Menores', 'Sétimas', 'Power Chords']}, {'titulo': 'ANÁLISE DE IA', 'expandido': False, 'conteudo': 'analise_ia', 'memoria_sub_aba': 0, 'sub_abas': ['Afinador / IA', 'JOGOS']}, {'titulo': 'ESTUDOS', 'expandido': False, 'conteudo': 'estudos', 'memoria_sub_aba': 0, 'sub_abas': ['Notas', 'Escalas', 'Acordes', 'Teoria', 'Padrões', 'Improvisação']}, {'titulo': 'MÚSICAS', 'expandido': False, 'conteudo': 'musicas', 'memoria_sub_aba': 0, 'sub_abas': ['Songster', 'Minhas Músicas', 'Criação Musical']}, {'titulo': 'CONFIGURAÇÃO', 'expandido': False, 'conteudo': 'configuracao', 'memoria_sub_aba': 0, 'sub_abas': ['Cores da Interface', 'Configurações Globais']}]
+        self.secoes_inferiores = [{'titulo': 'ESCALAS', 'expandido': False, 'conteudo': 'escalas', 'memoria_sub_aba': 0, 'sub_abas': ['Maior', 'Menor', 'Penta Maior', 'Penta Menor', 'Blues', 'Modos', 'Harmônica', 'Melodica', 'Exóticas']}, {'titulo': 'ACORDES', 'expandido': False, 'conteudo': 'acordes', 'memoria_sub_aba': 0, 'sub_abas': ['CAGED', 'Tríades Maiores', 'Tríades Menores', 'Sétimas', 'Power Chords']}, {'titulo': 'ANÁLISE DE IA', 'expandido': False, 'conteudo': 'analise_ia', 'memoria_sub_aba': 0, 'sub_abas': ['Afinador / IA', 'JOGOS']}, {'titulo': 'ESTUDOS', 'expandido': False, 'conteudo': 'estudos', 'memoria_sub_aba': 0, 'sub_abas': ['Notas', 'Escalas', 'Acordes', 'Teoria', 'Padrões', 'Improvisação', 'Aulas', 'Pedais']}, {'titulo': 'MÚSICAS', 'expandido': False, 'conteudo': 'musicas', 'memoria_sub_aba': 0, 'sub_abas': ['Songster', 'Minhas Músicas', 'Criação Musical', 'Timbre']}, {'titulo': 'CONFIGURAÇÃO', 'expandido': False, 'conteudo': 'configuracao', 'memoria_sub_aba': 0, 'sub_abas': ['Cores da Interface', 'Configurações Globais']}]
         
         # --- Criador de Tablaturas ---
         from core.modulos.modulo_dados_tab import GerenciadorDadosTablatura

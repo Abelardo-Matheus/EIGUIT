@@ -33,6 +33,30 @@ def obter_draggers_ativos(estado):
 
 from DragDrop.gerenciador_snap import calcular_snap_e_guias
 
+def disparar_busca_timbre(estado):
+    """
+        Como funciona: Interpreta 'estado.query_timbre' no formato "Artista -
+        Musica" (ou so o texto livre, se nao houver ' - ') e dispara
+        'BuscaTimbre.buscar_timbre_async' numa thread separada; o resultado
+        e escrito em 'estado.resultados_timbre' quando a busca terminar.
+        Para que serve: E o gatilho compartilhado pela tecla Enter e pelo
+        botao "Buscar" da sub-aba Timbre.
+        Onde e usada: Chamado do tratamento de teclado (Enter) e do
+        tratamento de clique (botao Buscar) deste modulo.
+    """
+    texto = (estado.query_timbre or '').strip()
+    if not texto:
+        return
+    if ' - ' in texto:
+        artista, musica = texto.split(' - ', 1)
+    else:
+        artista, musica = '', texto
+
+    def _callback(pacote):
+        estado.resultados_timbre = pacote
+
+    estado.timbre.buscar_timbre_async(musica.strip(), artista.strip(), _callback)
+
 def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos):
     """
         Como funciona: Itera sobre a fila de eventos do Pygame, tratando entradas de teclado, mouse e gestos de câmera.
@@ -256,6 +280,14 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                     threading.Thread(target=thread_busca).start()
                 elif len(evento.unicode) > 0 and evento.unicode.isprintable():
                     estado.query_songsterr += evento.unicode
+                continue
+            if getattr(estado, 'timbre_busca_ativa', False):
+                if evento.key == pygame.K_BACKSPACE:
+                    estado.query_timbre = estado.query_timbre[:-1]
+                elif evento.key == pygame.K_RETURN:
+                    disparar_busca_timbre(estado)
+                elif len(evento.unicode) > 0 and evento.unicode.isprintable():
+                    estado.query_timbre += evento.unicode
                 continue
             meu_metronomo.tratar_teclado(evento)
             if evento.key == pygame.K_ESCAPE:
@@ -516,7 +548,16 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                     elif secao['conteudo'] in ['escalas', 'acordes']:
                         pos_x_guit = estado.dragger_guitarra.x if hasattr(estado, 'dragger_guitarra') else 100
                         pos_y_guit = estado.dragger_guitarra.y if hasattr(estado, 'dragger_guitarra') else 90
-                        rect_braco_real = pygame.Rect(pos_x_guit, pos_y_guit, estado.LARGURA_BRACO, estado.ALTURA_BRACO)
+                        instrumento_guit = getattr(estado, 'instrumento', 'guitarra')
+                        offset_y_guit = (pos_y_guit + estado.ESPACO_CORDAS
+                                         if instrumento_guit == 'baixo' else pos_y_guit)
+                        altura_guit_evt = (estado.ALTURA_BRACO - 2 * estado.ESPACO_CORDAS
+                                           if instrumento_guit == 'baixo' else estado.ALTURA_BRACO)
+                        # Mesma calha aplicada ao braco real em guitar_neck.desenhar_guitarra
+                        # (sem ela os shapes ficam desalinhados das bolinhas das notas).
+                        calha_guit = int(max(26, min(44, estado.LARGURA_BRACO * 0.028)))
+                        rect_braco_real = pygame.Rect(pos_x_guit + calha_guit, offset_y_guit,
+                                                      estado.LARGURA_BRACO - calha_guit, altura_guit_evt)
                         if gerenciador_interface.tratar_cliques_escalas(evento.pos, i, secao['memoria_sub_aba'], dicionario_escalas, rect_braco_real, scroll_atual):
                             clicou_conteudo = True
                             break
@@ -558,6 +599,44 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                             if clicou_conteudo:
                                 break
                     elif secao['conteudo'] == 'musicas':
+                        if secao['memoria_sub_aba'] == 3:
+                            if hasattr(estado, 'rect_busca_timbre') and estado.rect_busca_timbre.collidepoint(evento.pos):
+                                estado.timbre_busca_ativa = True
+                                clicou_conteudo = True
+                            else:
+                                estado.timbre_busca_ativa = False
+                            if hasattr(estado, 'rect_btn_timbre') and estado.rect_btn_timbre.collidepoint(evento.pos):
+                                disparar_busca_timbre(estado)
+                                clicou_conteudo = True
+                            if hasattr(estado, 'rect_btn_timbre_copiar_prompt') and estado.rect_btn_timbre_copiar_prompt.collidepoint(evento.pos):
+                                if estado.resultados_timbre:
+                                    prompt = estado.timbre.gerar_prompt_para_ia(estado.resultados_timbre)
+                                    try:
+                                        import tkinter as tk
+                                        janela = tk.Tk()
+                                        janela.withdraw()
+                                        janela.clipboard_clear()
+                                        janela.clipboard_append(prompt)
+                                        janela.update()
+                                        janela.destroy()
+                                        print('[Timbre] Prompt copiado para a area de transferencia.')
+                                    except Exception as e:
+                                        print(f'[Timbre] Nao foi possivel copiar o prompt: {e}')
+                                clicou_conteudo = True
+                            if not clicou_conteudo and hasattr(estado, 'rects_timbre_pessoas'):
+                                for rect_item, item in estado.rects_timbre_pessoas:
+                                    if rect_item.collidepoint(evento.pos):
+                                        import webbrowser
+                                        webbrowser.open(item.get('url', ''))
+                                        clicou_conteudo = True
+                                        break
+                            if not clicou_conteudo and hasattr(estado, 'rects_timbre_sites'):
+                                for rect_item, item in estado.rects_timbre_sites:
+                                    if rect_item.collidepoint(evento.pos):
+                                        import webbrowser
+                                        webbrowser.open(item.get('url', ''))
+                                        clicou_conteudo = True
+                                        break
                         if hasattr(estado, 'rect_aba_songsterr_busca') and estado.rect_aba_songsterr_busca.collidepoint(evento.pos):
                             estado.sub_memoria_musicas = 0
                             clicou_conteudo = True
