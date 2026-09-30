@@ -12,7 +12,9 @@ Motor de áudio do ESTUDOS > Tempo.
 """
 from __future__ import annotations
 
+import atexit
 import os
+import threading
 import time
 from fractions import Fraction
 from typing import Optional, Tuple
@@ -124,7 +126,7 @@ CAUDA_COMPLETA = 1.5      # segundos de "rabo" depois da última nota
 
 
 def renderizar_guitarra_completa(p, bpm: float, taxa: int = 44100, timbre: str = "sintetico",
-                                 info: Optional[dict] = None, progresso=None) -> np.ndarray:
+                                 info: Optional[dict] = None, progresso=None, cancelado=None) -> np.ndarray:
     """Guitarra da música inteira (sem metrônomo) em float32 (n, 2), no BPM pedido.
     Com o sampler, o amp roda em blocos (memória baixa) e `progresso(prontas, buffer)`
     é chamado a cada bloco, para o começo da música já poder tocar."""
@@ -146,17 +148,25 @@ def renderizar_guitarra_completa(p, bpm: float, taxa: int = 44100, timbre: str =
     if isinstance(alvo, str) and alvo.startswith("amp:") and sint.sampler_disponivel()[0]:
         from . import amp_guitarra as amp
         from . import sampler_guitarra as sg
-        di = sg.render_di(notas, dur, taxa, dobrar=True, cauda=0.0)
-        n = max(1, int(round(dur * taxa)))
-        di = di[:n]
         if info is not None:
             info["backend"] = "sampler"
-        if alvo == "amp:di":
-            out = (di * np.float32(0.6 / (float(np.abs(di).max()) + 1e-9))).astype(np.float32)
+        preset = alvo[4:]
+        n = max(1, int(round(dur * taxa)))
+        saida = np.zeros((n, 2), np.float32)
+        if preset != "di":
+            amp.ganho_fixo(preset, taxa)                 # mede o nível uma vez (rápido)
+
+        def ao_bloco(ini, fim, di):
+            # DI pronto até `fim`: passa este bloco pelo amp e já libera para tocar
+            if preset == "di":
+                saida[ini:fim] = np.clip(di[ini:fim] * np.float32(0.6 / amp.PICO_ENTRADA_FIXO), -1, 1)
+            else:
+                amp.processar_bloco(di, ini, fim, preset, taxa, saida)
             if progresso:
-                progresso(len(out), out)
-            return out
-        return amp.processar_em_blocos(di, alvo[4:], taxa, pico_saida=0.6, progresso=progresso)
+                progresso(fim, saida)
+
+        sg.render_di_em_blocos(notas, dur, taxa, dobrar=True, ao_bloco=ao_bloco, cancelado=cancelado)
+        return saida
     buf, usado = sint.render_notas(notas, dur, taxa, timbre, loop=False, pico=0.6)
     if info is not None:
         info["backend"] = usado
@@ -213,11 +223,78 @@ def montar_trecho(p, completo: np.ndarray, q_ini: Fraction, q_fim: Fraction, bpm
     return np.ascontiguousarray(out), n / taxa
 
 
+def cliques_do_trecho(p, q_ini: Fraction, q_fim: Fraction, bpm: float, taxa: int,
+                      subdivisao: bool = False) -> list:
+    """Posições (em amostras, a partir de q_ini) e tipo de cada batida do metrônomo."""
+    fator = bpm / p.bpm_inicial
+    s_ini = p.segundos(q_ini)
+    saida = []
+    for c in p.compassos:
+        if c.fim <= q_ini or c.inicio >= q_fim:
+            continue
+        for k in range(c.num):
+            qb = c.inicio + c.dur_tempo * k
+            if q_ini <= qb < q_fim:
+                saida.append((int(round((p.segundos(qb) - s_ini) / fator * taxa)), 0 if k == 0 else 1))
+            if subdivisao:
+                qm = qb + c.dur_tempo / 2
+                if q_ini <= qm < q_fim:
+                    saida.append((int(round((p.segundos(qm) - s_ini) / fator * taxa)), 2))
+    return sorted(saida)
+
+
+_CLIQUES: dict = {}
+
+
+def metronomo_janela(cliques: list, i0: int, i1: int, taxa: int) -> np.ndarray:
+    """Só o pedaço [i0, i1) do metrônomo (para tocar em pedaços sem montar tudo)."""
+    if taxa not in _CLIQUES:
+        forte, fraco = _click(taxa, True), _click(taxa, False)
+        _CLIQUES[taxa] = (forte, fraco, fraco * 0.35)
+    sons = _CLIQUES[taxa]
+    out = np.zeros(i1 - i0, np.float32)
+    maior = len(sons[0])
+    import bisect
+    k = bisect.bisect_left(cliques, (i0 - maior, -1))
+    while k < len(cliques) and cliques[k][0] < i1:
+        pos, tipo = cliques[k]
+        som = sons[tipo]
+        a, b = max(pos, i0), min(pos + len(som), i1)
+        if a < b:
+            out[a - i0:b - i0] += som[a - pos:b - pos]
+        k += 1
+    return out
+
+
+_GRAVANDO = threading.Lock()
+PARAR = threading.Event()          # ligado ao fechar o programa: os renders param no próximo bloco
+_THREADS: list = []
+
+
+def registrar_thread(th: threading.Thread) -> None:
+    _THREADS.append(th)
+    _THREADS[:] = [t for t in _THREADS if t.is_alive() or t is th]
+
+
+def _encerrar_ao_sair():
+    # Fechar o programa com um render/gravação em andamento derrubava o Python
+    # (thread no meio do numpy/libsndfile). Pede para parar e espera um pouco.
+    PARAR.set()
+    for th in list(_THREADS):
+        th.join(timeout=5)
+    if _GRAVANDO.acquire(timeout=8):
+        _GRAVANDO.release()
+
+
+atexit.register(_encerrar_ao_sair)
+
+
 def salvar_audio(caminho: str, buf: np.ndarray, taxa: int) -> None:
     import soundfile as sf
-    tmp = caminho + ".tmp"
-    sf.write(tmp, np.clip(buf, -1, 1), taxa, subtype="PCM_16", format="FLAC")
-    os.replace(tmp, caminho)
+    with _GRAVANDO:
+        tmp = caminho + ".tmp"
+        sf.write(tmp, np.clip(buf, -1, 1), taxa, subtype="PCM_16", format="FLAC")
+        os.replace(tmp, caminho)
 
 
 def ler_audio(caminho: str, taxa: int) -> Optional[np.ndarray]:
@@ -246,6 +323,7 @@ class Reprodutor:
         self.pausado = False
         self._t0 = 0.0
         self._tp = 0.0
+        self._stream = None       # tocando em pedaços enquanto o resto ainda é preparado
 
     # -- mixer --
     @staticmethod
@@ -263,10 +341,57 @@ class Reprodutor:
             pygame.mixer.set_num_channels(max(64, self.idx + 1))
         self.canal = pygame.mixer.Channel(self.idx)
 
+    def tocar_em_pedacos(self, obter, n_total: int, loop: bool, pos: float = 0.0,
+                         pedaco_s: float = 3.0) -> None:
+        """Toca um áudio que ainda está sendo preparado: `obter(i0, i1)` devolve o
+        pedaço int16 (ou None se ainda não ficou pronto). Os pedaços entram em fila
+        sem emenda; se o preparo atrasar, o relógio do cursor espera junto."""
+        self._garantir()
+        self.canal.stop()
+        taxa, _ = self.formato()
+        self.buf, self.som, self.loop = None, None, loop
+        self.dur = n_total / taxa
+        tam = max(1, int(pedaco_s * taxa))
+        i = int(max(0.0, min(pos, self.dur - 0.01)) * taxa)
+        self._stream = {"obter": obter, "n": n_total, "tam": tam, "prox": i, "taxa": taxa,
+                        "faminto": None, "tocou": False}
+        self._t0 = time.perf_counter() - pos
+        self.tocando, self.pausado = True, False
+        self._alimentar()
+
+    def _alimentar(self):
+        import pygame
+        st = self._stream
+        if st["prox"] >= st["n"]:
+            if not self.loop:
+                return
+            st["prox"] = 0
+        i0 = st["prox"]
+        i1 = min(st["n"], i0 + st["tam"])
+        pedaco = st["obter"](i0, i1)
+        ocioso = not self.canal.get_busy()
+        if pedaco is None:
+            if ocioso and st["faminto"] is None and st["tocou"]:
+                st["faminto"] = time.perf_counter()        # acabou o pronto: segura o cursor
+            return
+        som = pygame.sndarray.make_sound(np.ascontiguousarray(pedaco))
+        if ocioso:
+            self.canal.play(som)
+            if st["faminto"] is not None:
+                self._t0 += time.perf_counter() - st["faminto"]
+                st["faminto"] = None
+        elif self.canal.get_queue() is None:
+            self.canal.queue(som)
+        else:
+            return
+        st["tocou"] = True
+        st["prox"] = i1
+
     def tocar(self, buf: np.ndarray, dur: float, loop: bool, pos: float = 0.0) -> None:
         import pygame
         self._garantir()
         self.canal.stop()
+        self._stream = None
         self.buf, self.dur, self.loop = buf, dur, loop
         self.som = pygame.sndarray.make_sound(buf)
         taxa, _ = self.formato()
@@ -286,7 +411,7 @@ class Reprodutor:
     def trocar_loop(self, loop: bool) -> None:
         """Liga/desliga o loop sem parar o som."""
         self.loop = loop
-        if self.canal and self.tocando and not loop:
+        if self.canal and self.tocando and not loop and self._stream is None:
             # esvazia a fila: pygame não tem 'unqueue', então reinicia do mesmo ponto
             pos = self.posicao()
             self.tocar(self.buf, self.dur, False, pos)
@@ -306,12 +431,15 @@ class Reprodutor:
     def parar(self) -> None:
         if self.canal:
             self.canal.stop()
+        self._stream = None
         self.tocando = self.pausado = False
 
     def posicao(self) -> float:
         if not self.tocando:
             return 0.0
         agora = self._tp if self.pausado else time.perf_counter()
+        if self._stream is not None and self._stream["faminto"] is not None:
+            agora = self._stream["faminto"]
         t = agora - self._t0
         if self.loop and self.dur > 0:
             return t % self.dur
@@ -321,6 +449,14 @@ class Reprodutor:
         """Chame a cada quadro. Devolve False quando terminou (sem loop)."""
         if not self.tocando or self.pausado:
             return self.tocando
+        if self._stream is not None:
+            st = self._stream
+            if not self.loop and st["prox"] >= st["n"] and not self.canal.get_busy():
+                self.tocando = False
+                self._stream = None
+                return False
+            self._alimentar()
+            return True
         if self.loop:
             if self.canal.get_queue() is None and self.som is not None:
                 self.canal.queue(self.som)

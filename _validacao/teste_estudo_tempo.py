@@ -205,6 +205,52 @@ def audio_pronto_e_gaveta():
     s.checar(m.timbre == 'sintetico' and not m.gaveta_som, 'a gaveta nao trocou o som')
 
 
+def musica_longa_toca_em_pedacos():
+    """Play sem selecao numa musica longa, logo ao abrir: comeca antes do audio inteiro ficar pronto."""
+    import struct
+    import teste_leitor_tempo as tl
+    cam = os.path.join(tempfile.gettempdir(), 'eiguit_longa.mid')
+    ev = [(0, 0, b"\xff\x51\x03" + (500000).to_bytes(3, "big")), (0, 0, b"\xff\x58\x04\x04\x02\x18\x08")]
+    tr = [(0, 0, b"\xff\x03\x08Guitarra")]
+    for k in range(60 * 8):                                    # 60 compassos de colcheias (2 min)
+        alt = (40, 45, 47, 52, 55, 57, 59, 64)[k % 8]
+        tr += [(k * 240, 3, bytes([0x90, alt, 100])), (k * 240 + 200, 2, bytes([0x80, alt, 0]))]
+    with open(cam, 'wb') as f:
+        f.write(b"MThd" + struct.pack(">IHHH", 6, 1, 2, 480) + tl._trilha(ev) + tl._trilha(tr))
+    ctx = Contexto(1600, 900)
+    ger, m = _abrir(ctx)
+    m.timbre = 'real_clean' if __import__('audio.sintetizador', fromlist=['x']).sampler_disponivel()[0] else 'sintetico'
+    m._aplicar_partitura(lp.carregar(cam))
+    m.sel = None
+    m.play_pause()
+    limite = time.time() + 60
+    while time.time() < limite and not m.rep.tocando:
+        _quadro(ger, ctx)
+        time.sleep(0.02)
+    s.checar(m.rep.tocando, 'o play sem selecao nao comecou')
+    if m.timbre != 'sintetico':
+        s.checar(not m.audio_pronto(), 'deveria ter comecado antes do audio inteiro ficar pronto')
+    q_ini = m.posicao_q()
+    t = time.time()
+    while time.time() - t < 1.5:
+        _quadro(ger, ctx)
+        time.sleep(0.02)
+    s.checar(m.posicao_q() > q_ini, 'o cursor nao andou tocando em pedacos')
+    m.parar()
+    # trocar o som no meio do preparo e dar play: nao pode cair num render pesado em paralelo
+    outro = 'real_crunch' if m.timbre == 'real_clean' else 'sintetico'
+    m.escolher_timbre(outro)
+    m.play_pause()
+    limite = time.time() + 60
+    while time.time() < limite and not m.rep.tocando:
+        _quadro(ger, ctx)
+        s.checar(m._render_thread is None or not m._render_thread.is_alive(),
+                 'o play gerou um segundo audio em paralelo (era o que travava no 0%)')
+        time.sleep(0.02)
+    s.checar(m.rep.tocando and m._atual[2][-1] == outro, 'depois de trocar o som o play nao tocou')
+    m.parar()
+
+
 def songsterr_simulado():
     import json as _json
     from Estudos import importar_songsterr as imp
@@ -302,6 +348,7 @@ s.teste('biblioteca de partituras por conta', biblioteca_da_conta)
 s.teste('zoom e papel claro', zoom_e_papel)
 s.teste('audio da musica pronto, play imediato e gaveta de sons', audio_pronto_e_gaveta)
 s.teste('importar do Songsterr pela busca (rede simulada)', songsterr_simulado)
+s.teste('musica longa: play logo ao abrir toca em pedacos', musica_longa_toca_em_pedacos)
 s.teste('motor da tablatura: modos, instrumentos e botao de som', motor_tablatura)
 s.teste('celula da grade lida igual ao player', celula_lida_igual_ao_player)
 for _tema in harness.TEMAS:
