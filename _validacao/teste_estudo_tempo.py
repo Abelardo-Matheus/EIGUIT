@@ -165,6 +165,83 @@ def zoom_e_papel():
     m.alternar_papel()
 
 
+def audio_pronto_e_gaveta():
+    ctx = Contexto(1600, 900)
+    ger, m = _abrir(ctx)
+    m._aplicar_partitura(lp.carregar(MIDI))
+    limite = time.time() + 60
+    while time.time() < limite and not m.audio_pronto():
+        _quadro(ger, ctx)
+        time.sleep(0.02)
+    s.checar(m.audio_pronto(), 'o audio da musica inteira nao ficou pronto')
+    m.sel = (1, 1)
+    t = time.perf_counter()
+    m.play_pause()
+    _quadro(ger, ctx)
+    s.checar(m.rep.tocando and time.perf_counter() - t < 0.5, 'com o audio pronto o play deveria ser imediato')
+    m.parar()
+    # quadros leves: as linhas ficam prontas em cache
+    for _ in range(3):
+        _quadro(ger, ctx)
+    t = time.perf_counter()
+    for _ in range(20):
+        _quadro(ger, ctx)
+    s.checar((time.perf_counter() - t) / 20 < 0.05, 'desenhar um quadro deveria levar menos de 50 ms')
+    # gaveta de sons
+    m.alternar_gaveta()
+    _quadro(ger, ctx)
+    alvo = [r for r, tid in m._rects_gaveta if tid == 'sintetico'][0]
+    ger.tratar_eventos(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {'pos': alvo.center, 'button': 1}),
+                       alvo.center, ctx.estado)
+    s.checar(m.timbre == 'sintetico' and not m.gaveta_som, 'a gaveta nao trocou o som')
+
+
+def songsterr_simulado():
+    import json as _json
+    from Estudos import importar_songsterr as imp
+    parte = {"name": "Lead", "tuning": [64, 59, 55, 50, 45, 40], "automations": {"tempo": [{"measure": 0, "bpm": 100}]},
+             "measures": [{"signature": [4, 4], "voices": [{"beats": [
+                 {"duration": [1, 4], "notes": [{"string": 2, "fret": 5}]}] * 4}]}] * 2}
+    orig = (imp.buscar, imp.faixas, imp.baixar_faixa)
+    alvo = os.path.join(tempfile.gettempdir(), 'Banda - Teste (Lead).songsterr.json')
+    imp.buscar = lambda t: [{'id': 1, 'titulo': 'Teste', 'artista': 'Banda'}]
+    imp.faixas = lambda i: ({'songId': 1, 'revisionId': 2, 'artist': 'Banda', 'title': 'Teste', 'image': 'x'},
+                            [{'indice': 0, 'partId': 0, 'nome': 'Lead', 'instrumento': 'Guitar',
+                              'afinacao': [64, 59, 55, 50, 45, 40], 'percussao': False}])
+
+    def baixar(meta, faixa):
+        with open(alvo, 'w', encoding='utf-8') as f:
+            _json.dump({'meta': meta, 'parte': parte}, f)
+        return alvo
+    imp.baixar_faixa = baixar
+    try:
+        ctx = Contexto(1600, 900)
+        ger, m = _abrir(ctx)
+        m.abrir_songsterr()
+        for ch in 'teste':
+            ger.tratar_eventos(pygame.event.Event(pygame.KEYDOWN, {'key': 0, 'unicode': ch, 'mod': 0}), (0, 0), ctx.estado)
+        s.checar(m.songsterr['texto'] == 'teste', 'digitacao na busca do Songsterr')
+        ger.tratar_eventos(pygame.event.Event(pygame.KEYDOWN, {'key': pygame.K_RETURN, 'unicode': '\r', 'mod': 0}),
+                           (0, 0), ctx.estado)
+        for fase in ('musica', 'faixa'):
+            limite = time.time() + 5
+            while time.time() < limite and not [r for r, a, _ in m.songsterr['rects'] if a == fase]:
+                _quadro(ger, ctx)
+                time.sleep(0.02)
+            r = [r for r, a, _ in m.songsterr['rects'] if a == fase][0]
+            ger.tratar_eventos(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {'pos': r.center, 'button': 1}),
+                               r.center, ctx.estado)
+            _quadro(ger, ctx)
+        limite = time.time() + 10
+        while time.time() < limite and not (m.p and m.p.fonte == 'songsterr'):
+            _quadro(ger, ctx)
+            time.sleep(0.02)
+        s.checar(m.p is not None and m.p.fonte == 'songsterr' and not m.p.digitacao_sugerida,
+                 'a faixa do Songsterr nao abriu')
+    finally:
+        imp.buscar, imp.faixas, imp.baixar_faixa = orig
+
+
 def impressao():
     from Estudos import estudo_tempo
     alvo = os.path.join(tempfile.gettempdir(), 'eiguit_tab_teste.pdf')
@@ -214,6 +291,8 @@ s.teste('sub-aba Tempo e cartao em ESTUDOS', sub_aba_e_cartao)
 s.teste('impressao da tablatura em PDF', impressao)
 s.teste('biblioteca de partituras por conta', biblioteca_da_conta)
 s.teste('zoom e papel claro', zoom_e_papel)
+s.teste('audio da musica pronto, play imediato e gaveta de sons', audio_pronto_e_gaveta)
+s.teste('importar do Songsterr pela busca (rede simulada)', songsterr_simulado)
 s.teste('motor da tablatura: modos, instrumentos e botao de som', motor_tablatura)
 s.teste('celula da grade lida igual ao player', celula_lida_igual_ao_player)
 for _tema in harness.TEMAS:

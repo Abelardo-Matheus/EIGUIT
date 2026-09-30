@@ -564,6 +564,9 @@ class Botao:
         elif ic == "stop":
             pygame.draw.rect(surf, txt_cor, (x, cy - 6, 12, 12))
             x += 18
+        elif ic == "seta":                         # gaveta: seta para baixo à direita
+            sx = self.rect.right - 16
+            pygame.draw.polygon(surf, txt_cor, [(sx - 5, cy - 3), (sx + 5, cy - 3), (sx, cy + 3)])
         if texto:
             _txt(surf, F.med_b, texto, txt_cor, (x, cy), "midleft")
 
@@ -620,6 +623,18 @@ class EstudoTempo:
         self._id_atual: Optional[str] = None
         self._altura_barra = 112
         self._cursor_surf = None
+        # áudio da música inteira já pronto (chave: partitura, timbre, bpm)
+        self._completos: dict = {}
+        self._completo_job = None
+        self._completo_pendente = 0.0
+        # desenho: cada linha da partitura vira uma imagem pronta (só muda se algo mudar)
+        self._cache_linhas: dict = {}
+        self._cache_chave = None
+        self._overlays: dict = {}
+        # gaveta de sons e busca no Songsterr
+        self.gaveta_som = False
+        self._rects_gaveta: List[Tuple[pygame.Rect, str]] = []
+        self.songsterr = None
         self.botoes1 = [
             Botao(_t("Abrir MIDI / PDF"), self.abrir_dialogo),
             Botao(lambda: f"{_t('Biblioteca')} ({len(self._itens_bib)})", self.alternar_bib,
@@ -631,8 +646,9 @@ class EstudoTempo:
             Botao(_t("Metrônomo"), self.alternar_met, ligado=lambda: self.metronomo),
             Botao(_t("Guitarra"), self.alternar_gtr, ligado=lambda: self.guitarra),
             Botao(_t("Contar 'e'"), self.alternar_sub, ligado=lambda: self.subdivisao),
-            Botao(lambda: f"Timbre: {sint.nome_timbre(self.timbre)}", self.proximo_timbre,
-                  dica="Clique para trocar; arraste um .sf2/.sf3 para usar outro SoundFont"),
+            Botao(lambda: f"Som: {sint.nome_timbre(self.timbre).replace('Real: ', '')}", self.alternar_gaveta,
+                  ligado=lambda: self.gaveta_som, icone="seta"),
+            Botao("Songsterr", self.abrir_songsterr, ligado=lambda: bool(self.songsterr)),
         ]
         self.botoes2 = [
             Botao("−", lambda: self.mudar_bpm(-1), largura=34),
@@ -790,6 +806,8 @@ class EstudoTempo:
         self.diag = None
         self._render_ok = None
         self._atual = None
+        self._cache_linhas = {}
+        self._preparar_audio_completo(0.3)
         self.avisar(f"{p.titulo}: {len(p.compassos)} compassos, BPM {p.bpm_inicial:g} (metrônomo ajustado)")
         if p.notas:
             primeira = p.compasso_em(min(n.inicio for n in p.notas))
@@ -854,6 +872,14 @@ class EstudoTempo:
         params, q_tocar = self._render_pedido
         self._render_pedido = None
         p = self.p
+        q0, q1, bpm, loop, met, gtr, sub, timbre = params
+        completo = self._completos.get((id(p), timbre, round(bpm, 2)))
+        if completo is not None or not gtr:
+            # música inteira já pronta: só recorta o trecho (milissegundos)
+            taxa, can = mt.Reprodutor.formato()
+            buf, dur = mt.montar_trecho(p, completo, q0, q1, bpm, taxa, can, met, gtr, loop, subdivisao=sub)
+            self._render_ok = (buf, dur, params, q_tocar, p)
+            return
 
         def job():
             try:
@@ -905,7 +931,8 @@ class EstudoTempo:
         q0, q1 = self._faixa_q()
         q = self._pos_q if (self._pos_q is not None and q0 <= self._pos_q < q1) else q0
         self._pedir_render(q)
-        self.avisar("Preparando o áudio…")
+        if not self.audio_pronto():
+            self.avisar("Preparando o áudio…")
 
     def parar(self):
         """Para o áudio (botão Parar e também chamado pelo gerenciador ao sair do estudo)."""
@@ -939,6 +966,272 @@ class EstudoTempo:
         self.subdivisao = not self.subdivisao
         self._reiniciar_se_tocando()
 
+    # ------------------------------------------------ áudio completo em segundo plano
+    def _arquivo_audio(self, timbre, bpm):
+        if not self._id_atual or self.bib is None:
+            return None
+        return os.path.join(self.bib.pasta, self._id_atual, f"audio_{timbre}_{bpm:g}.flac")
+
+    def _preparar_audio_completo(self, atraso: float = 0.0):
+        """Agenda o render da guitarra da música inteira (timbre e BPM atuais)."""
+        self._completo_pendente = time.time() + atraso
+
+    def _rodar_audio_completo(self):
+        if not self.p or not self._completo_pendente or time.time() < self._completo_pendente:
+            return
+        if self._completo_job and self._completo_job.is_alive():
+            return
+        self._completo_pendente = 0.0
+        p, timbre, bpm = self.p, self.timbre, round(self.bpm, 2)
+        chave = (id(p), timbre, bpm)
+        if chave in self._completos:
+            return
+        arquivo = self._arquivo_audio(timbre, bpm)
+
+        def job():
+            try:
+                taxa, _ = mt.Reprodutor.formato()
+                buf = mt.ler_audio(arquivo, taxa) if arquivo and os.path.exists(arquivo) else None
+                if buf is None:
+                    buf = mt.renderizar_guitarra_completa(p, bpm, taxa, timbre)
+                    if arquivo:
+                        try:
+                            mt.salvar_audio(arquivo, buf, taxa)
+                        except Exception as e:
+                            print("[tempo] não consegui guardar o áudio:", e)
+                self._completos[chave] = buf
+                while len(self._completos) > 3:
+                    self._completos.pop(next(iter(self._completos)))
+            except Exception as e:
+                print("[tempo] falha no áudio completo:", e)
+
+        self._completo_job = threading.Thread(target=job, daemon=True)
+        self._completo_job.start()
+
+    def audio_pronto(self) -> bool:
+        return bool(self.p) and (id(self.p), self.timbre, round(self.bpm, 2)) in self._completos
+
+    # ------------------------------------------------ Songsterr (buscar pelo nome)
+    def abrir_songsterr(self):
+        if self.songsterr:
+            self.songsterr = None
+            return
+        self.gaveta_som = False
+        self.mostrar_bib = False
+        self.songsterr = {"texto": "", "fase": "busca", "resultados": [], "faixas": [], "meta": None,
+                          "ocupado": "", "erro": "", "rects": [], "scroll": 0, "digitou": 0.0}
+
+    def _songsterr_tarefa(self, rotulo, funcao, depois):
+        st = self.songsterr
+        if not st or st["ocupado"]:
+            return
+        st["ocupado"], st["erro"] = rotulo, ""
+
+        def job():
+            try:
+                res = funcao()
+                self._songsterr_resultado = (depois, res, None)
+            except Exception as e:
+                self._songsterr_resultado = (depois, None, str(e))
+
+        threading.Thread(target=job, daemon=True).start()
+
+    def _songsterr_buscar(self):
+        from Estudos import importar_songsterr as imp
+        texto = self.songsterr["texto"].strip()
+        if texto:
+            self._songsterr_tarefa(f"Buscando “{texto}”…", lambda: imp.buscar(texto), "resultados")
+
+    def _songsterr_escolher_musica(self, item):
+        from Estudos import importar_songsterr as imp
+        self._songsterr_tarefa(f"Abrindo {item['titulo']}…", lambda: imp.faixas(item["id"]), "faixas")
+
+    def _songsterr_escolher_faixa(self, faixa):
+        from Estudos import importar_songsterr as imp
+        meta = self.songsterr["meta"]
+        self._songsterr_tarefa(f"Baixando {faixa['nome']}…", lambda: imp.baixar_faixa(meta, faixa), "baixado")
+
+    def _songsterr_aplicar(self):
+        res = getattr(self, "_songsterr_resultado", None)
+        if not res or not self.songsterr:
+            return
+        self._songsterr_resultado = None
+        depois, valor, erro = res
+        st = self.songsterr
+        st["ocupado"] = ""
+        if erro:
+            st["erro"] = f"Falhou: {erro}"
+            return
+        st["scroll"] = 0
+        if depois == "resultados":
+            st["resultados"], st["fase"] = valor, "resultados"
+            if not valor:
+                st["erro"] = "Nada encontrado. Tente outro nome (ex.: artista + música)."
+        elif depois == "faixas":
+            st["meta"], st["faixas"] = valor
+            st["fase"] = "faixas"
+        elif depois == "baixado":
+            self.songsterr = None
+            self.abrir(valor)                       # lê, desenha e guarda na biblioteca
+
+    def _desenhar_songsterr(self, tela, area):
+        T, F, st = self.T, self.F, self.songsterr
+        pygame.draw.rect(tela, (0, 0, 0), area.move(0, 4), border_radius=14)
+        pygame.draw.rect(tela, T["painel"], area, border_radius=14)
+        pygame.draw.rect(tela, T["borda"], area, 1, border_radius=14)
+        st["rects"] = []
+        _txt(tela, F.grande, "Importar do Songsterr", T["texto"], (area.x + 20, area.y + 14))
+        rx = pygame.Rect(area.right - 44, area.y + 12, 28, 28)
+        pygame.draw.line(tela, T["texto"], (rx.x + 8, rx.y + 8), (rx.right - 8, rx.bottom - 8), 2)
+        pygame.draw.line(tela, T["texto"], (rx.right - 8, rx.y + 8), (rx.x + 8, rx.bottom - 8), 2)
+        st["rects"].append((rx, "fechar", None))
+        # campo de busca
+        campo = pygame.Rect(area.x + 20, area.y + 50, area.w - 170, 36)
+        pygame.draw.rect(tela, T["fundo"], campo, border_radius=8)
+        pygame.draw.rect(tela, T["destaque"], campo, 2, border_radius=8)
+        texto = st["texto"] or ""
+        cursor = "|" if int(time.time() * 2) % 2 == 0 else ""
+        cor = T["texto"] if texto else T["fraco"]
+        _txt(tela, F.med, (texto + cursor) if texto else "Digite o nome da música ou do artista e aperte Enter",
+             cor, (campo.x + 12, campo.centery), "midleft")
+        bb = pygame.Rect(campo.right + 10, campo.y, 120, 36)
+        pygame.draw.rect(tela, T["botao_on"], bb, border_radius=8)
+        _txt(tela, F.med_b, "Buscar", T["botao_txt_on"], bb.center, "center")
+        st["rects"].append((bb, "buscar", None))
+        y = campo.bottom + 10
+        if st["ocupado"] or st["erro"]:
+            _txt(tela, F.med, st["ocupado"] or st["erro"], T["destaque"] if st["ocupado"] else T["aviso"],
+                 (area.x + 22, y))
+        y += 26
+        lista = pygame.Rect(area.x + 12, y, area.w - 24, area.bottom - y - 12)
+        itens = []
+        if st["fase"] == "resultados":
+            itens = [(f"{r['titulo']}", r["artista"], ("musica", r)) for r in st["resultados"]]
+        elif st["fase"] == "faixas":
+            meta = st["meta"] or {}
+            bv = pygame.Rect(area.x + 20, y - 2, 90, 26)
+            pygame.draw.rect(tela, T["painel2"], bv, border_radius=6)
+            _txt(tela, F.peq_b, "‹ Voltar", T["texto"], bv.center, "center")
+            st["rects"].append((bv, "voltar", None))
+            _txt(tela, F.med_b, f"{meta.get('artist', '')} — {meta.get('title', '')}: escolha a faixa",
+                 T["texto"], (bv.right + 12, bv.centery), "midleft")
+            lista.y += 30
+            lista.h -= 30
+            for f in st["faixas"]:
+                afin = " ".join(lp.nome_nota(a) for a in reversed(f["afinacao"])) if f["afinacao"] else ""
+                sub = f"{f['instrumento']}" + (f"  ·  afinação {afin}" if afin else "")
+                itens.append((f["nome"], sub + ("  ·  percussão (sem tablatura)" if f["percussao"] else ""),
+                              ("faixa", f)))
+        clip_ant = tela.get_clip()
+        tela.set_clip(lista.clip(clip_ant) if clip_ant else lista)
+        alt = 48
+        st["scroll"] = max(0, min(st["scroll"], max(0, len(itens) * (alt + 4) - lista.h)))
+        yy = lista.y - st["scroll"]
+        for titulo, sub, acao in itens:
+            r = pygame.Rect(lista.x, yy, lista.w, alt)
+            yy += alt + 4
+            if r.bottom < lista.y or r.y > lista.bottom:
+                continue
+            pygame.draw.rect(tela, T["painel2"] if r.collidepoint(self._mouse) else T["fundo"], r, border_radius=8)
+            _txt(tela, F.med_b, titulo, T["texto"], (r.x + 14, r.y + 6))
+            _txt(tela, F.peq, sub, T["fraco"], (r.x + 14, r.y + 28))
+            st["rects"].append((r, acao[0], acao[1]))
+        tela.set_clip(clip_ant)
+        self._area_songsterr = pygame.Rect(area)
+
+    def _songsterr_evento(self, ev, pos) -> bool:
+        st = self.songsterr
+        if ev.type == pygame.TEXTINPUT:
+            # acentos compostos (´ + a) só chegam por aqui; letras normais vêm no KEYDOWN
+            if ev.text and not ev.text.isascii():
+                st["texto"] += ev.text
+            return True
+        if ev.type == pygame.KEYDOWN:
+            if ev.key == pygame.K_BACKSPACE:
+                st["texto"] = st["texto"][:-1]
+            elif ev.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                self._songsterr_buscar()
+            elif ev.key == pygame.K_ESCAPE:
+                self.songsterr = None
+            elif ev.unicode and ev.unicode.isprintable() and ev.unicode.isascii():
+                st["texto"] += ev.unicode
+            return True                               # teclas não vazam para o player
+        area = getattr(self, "_area_songsterr", None)
+        if ev.type == pygame.MOUSEWHEEL and area and area.collidepoint(self._mouse):
+            st["scroll"] = max(0, st["scroll"] - ev.y * 50)
+            return True
+        if ev.type == pygame.MOUSEBUTTONDOWN and ev.button in (4, 5) and area and area.collidepoint(pos):
+            st["scroll"] = max(0, st["scroll"] + (-50 if ev.button == 4 else 50))
+            return True
+        if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+            if area and not area.collidepoint(pos):
+                return False
+            for r, acao, dado in st["rects"]:
+                if r.collidepoint(pos):
+                    if acao == "fechar":
+                        self.songsterr = None
+                    elif acao == "buscar":
+                        self._songsterr_buscar()
+                    elif acao == "voltar":
+                        st["fase"] = "resultados"
+                    elif acao == "musica" and not st["ocupado"]:
+                        self._songsterr_escolher_musica(dado)
+                    elif acao == "faixa" and not st["ocupado"] and not dado["percussao"]:
+                        self._songsterr_escolher_faixa(dado)
+                    return True
+            return True
+        return False
+
+    # ------------------------------------------------ gaveta de sons
+    def alternar_gaveta(self):
+        self.gaveta_som = not self.gaveta_som
+
+    def escolher_timbre(self, tid: str):
+        self.timbre = tid
+        self.gaveta_som = False
+        self.avisar(f"Som: {sint.nome_timbre(tid)}")
+        self._preparar_audio_completo()
+        self._reiniciar_se_tocando()
+
+    def _itens_gaveta(self):
+        sm_ok = sint.sampler_disponivel()[0]
+        sf_ok = sint.soundfont_disponivel()[0]
+        grupos = [("Guitarra real (samples + amplificador)", [t for t in sint.TIMBRES if t[0].startswith("real_")], sm_ok),
+                  ("SoundFont", [t for t in sint.TIMBRES if isinstance(t[2], tuple)], sf_ok),
+                  ("Básico", [t for t in sint.TIMBRES if t[0] == "sintetico"], True)]
+        return grupos
+
+    def _desenhar_gaveta(self, tela):
+        T, F = self.T, self.F
+        botao = next(b for b in self.botoes1 if b.acao == self.alternar_gaveta)
+        grupos = self._itens_gaveta()
+        larg = 300
+        alt = sum(26 + 30 * len(itens) for _, itens, _ in grupos) + 12
+        r = pygame.Rect(botao.rect.x, botao.rect.bottom + 4, larg, alt)
+        if r.right > self.rect.right - 8:
+            r.x = self.rect.right - 8 - larg
+        pygame.draw.rect(tela, (0, 0, 0), r.move(0, 4), border_radius=12)
+        pygame.draw.rect(tela, T["painel"], r, border_radius=12)
+        pygame.draw.rect(tela, T["borda"], r, 1, border_radius=12)
+        self._rects_gaveta = []
+        self._area_gaveta = r
+        y = r.y + 8
+        for nome, itens, ok in grupos:
+            _txt(tela, F.peq_b, nome.upper() if ok else nome.upper() + "  (indisponível)", T["fraco"], (r.x + 14, y + 5))
+            y += 26
+            for tid, rotulo, _ in itens:
+                ri = pygame.Rect(r.x + 6, y, larg - 12, 28)
+                atual = tid == self.timbre
+                if atual:
+                    pygame.draw.rect(tela, T["botao_on"], ri, border_radius=7)
+                elif ok and ri.collidepoint(self._mouse):
+                    pygame.draw.rect(tela, T["painel2"], ri, border_radius=7)
+                cor = T["botao_txt_on"] if atual else (T["texto"] if ok else T["fraco"])
+                _txt(tela, F.med_b if atual else F.med, rotulo.replace("Real: ", ""), cor, (ri.x + 12, ri.centery), "midleft")
+                if ok:
+                    self._rects_gaveta.append((ri, tid))
+                y += 30
+
     def proximo_timbre(self):
         sf_ok, _ = sint.soundfont_disponivel()
         sm_ok, _ = sint.sampler_disponivel()
@@ -948,6 +1241,7 @@ class EstudoTempo:
             if self.timbre == "sintetico" or (real and sm_ok) or (not real and sf_ok):
                 break
         self.avisar(f"Timbre: {sint.nome_timbre(self.timbre)}")
+        self._preparar_audio_completo()
         self._reiniciar_se_tocando()
 
     def alternar_det(self):
@@ -956,11 +1250,13 @@ class EstudoTempo:
 
     def mudar_bpm(self, d: float):
         self.bpm = float(max(self.BPM_MIN, min(self.BPM_MAX, round(self.bpm + d))))
+        self._preparar_audio_completo(1.2)        # espera parar de mexer no BPM
         self._reiniciar_se_tocando()
 
     def bpm_partitura(self):
         if self.p:
             self.bpm = self.p.bpm_inicial
+            self._preparar_audio_completo()
             self._reiniciar_se_tocando()
 
     def limpar_selecao(self):
@@ -982,6 +1278,8 @@ class EstudoTempo:
                 self._recarregar_bib()
             else:
                 self.avisar(f"Não consegui ler: {val}")
+        self._rodar_audio_completo()
+        self._songsterr_aplicar()
         if self._render_pedido and time.time() >= self._debounce:
             self._rodar_render()
         if self._render_ok:
@@ -1020,6 +1318,19 @@ class EstudoTempo:
         if ev.type == pygame.DROPFILE:
             self.abrir(ev.file)
             return True
+        if self.songsterr:
+            if self._songsterr_evento(ev, pos):
+                return True
+        if self.gaveta_som and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+            for r, tid in self._rects_gaveta:
+                if r.collidepoint(pos):
+                    self.escolher_timbre(tid)
+                    return True
+            botao = next(b for b in self.botoes1 if b.acao == self.alternar_gaveta)
+            if not botao.rect.collidepoint(pos):
+                self.gaveta_som = False           # clique fora fecha a gaveta
+                if getattr(self, "_area_gaveta", None) is not None and self._area_gaveta.collidepoint(pos):
+                    return True
         bib_visivel = self.mostrar_bib or (not self.p and self._itens_bib)
         area_bib = getattr(self, "_area_bib", None)
         if bib_visivel and area_bib is not None:
@@ -1210,6 +1521,7 @@ class EstudoTempo:
                      T["fraco"], (r.centerx, r.centery + 24), "center")
             if det.h:
                 self._desenhar_detalhes(tela, det)
+            self._desenhar_sobreposicoes(tela, vista)
             return
         pygame.draw.rect(tela, TP["fundo"], vista)
         largura = vista.w - 24
@@ -1231,12 +1543,25 @@ class EstudoTempo:
         ox, oy = vista.x + 12, vista.y + 14 - int(self.scroll)
         q = self.posicao_q()
         mostrar_cursor = q is not None and (self.rep.tocando or self._pos_q is not None)
+        # cada linha é desenhada UMA vez numa imagem e depois só "colada" (sem travar)
+        chave = (id(d), self.papel, self.mostrar_duracao, getattr(self, "_modo_tema", None))
+        if chave != self._cache_chave:
+            self._cache_linhas, self._cache_chave = {}, chave
+        novas = 0
         for si, sist in enumerate(d.sistemas):
             y = oy + sist["y"]
             if y + d.alt_sist < vista.y or y > vista.bottom:
                 continue
-            desenhar_sistema(tela, d, si, ox, y, TP, FP, self.sel, self.foco,
-                             q if mostrar_cursor else None, self.mostrar_duracao)
+            img = self._cache_linhas.get(si)
+            if img is None and novas < 3:            # no máximo 3 linhas novas por quadro
+                img = pygame.Surface((largura + 12, d.alt_sist)).convert()
+                img.fill(TP["fundo"])
+                desenhar_sistema(img, d, si, 0, 0, TP, FP, None, None, None, self.mostrar_duracao)
+                self._cache_linhas[si] = img
+                novas += 1
+            if img is not None:
+                tela.blit(img, (ox, y))
+                self._desenhar_camadas(tela, d, si, ox, y, TP, FP, q if mostrar_cursor else None)
         # foco
         if self.foco is not None and self.foco in d.onde:
             si, k = d.onde[self.foco]
@@ -1266,6 +1591,52 @@ class EstudoTempo:
                                       titulo="Biblioteca — clique para abrir")
         if det.h:
             self._desenhar_detalhes(tela, det)
+        # indicador: o áudio da música inteira já está pronto?
+        pronto = self.audio_pronto()
+        rot = "áudio pronto" if pronto else "preparando áudio…"
+        img = F.peq_b.render(rot, True, (40, 170, 90) if pronto else T["fraco"])
+        tela.blit(img, img.get_rect(bottomright=(barra.right - 12, barra.bottom - 6)))
+        self._desenhar_sobreposicoes(tela, vista)
+
+    def _desenhar_sobreposicoes(self, tela, vista):
+        """Painéis que ficam por cima de tudo (Songsterr e gaveta de sons)."""
+        if self.songsterr:
+            self._desenhar_songsterr(tela, vista.inflate(-int(vista.w * 0.14), -30))
+        if self.gaveta_som:
+            self._desenhar_gaveta(tela)
+
+    def _transparente(self, w, h, cor, alfa):
+        chave = (int(w), int(h), cor, alfa)
+        img = self._overlays.get(chave)
+        if img is None:
+            if len(self._overlays) > 64:
+                self._overlays.clear()
+            img = pygame.Surface((max(1, int(w)), max(1, int(h))), pygame.SRCALPHA)
+            img.fill((*cor, alfa))
+            self._overlays[chave] = img
+        return img
+
+    def _desenhar_camadas(self, tela, d, si, ox, oy, TP, FP, q_atual):
+        """O que muda a cada quadro por cima da linha pronta: seleção e notas soando."""
+        sist = d.sistemas[si]
+        if self.sel:
+            for cl in sist["comps"]:
+                if self.sel[0] <= cl["i"] <= self.sel[1]:
+                    tela.blit(self._transparente(cl["w"], d.y_fim - 2, TP["foco"], 38), (ox + cl["x"], oy + 2))
+        if q_atual is None or not (sist["q0"] <= q_atual < sist["q1"]):
+            return
+        cor = TP.get("tocando", TP["destaque"])
+        s = d.esc
+        for n in self.p.notas:
+            if not (n.inicio <= q_atual < n.fim) or n.inicio < sist["q0"] or not n.corda:
+                continue
+            _, xa = d.x_de_q(n.inicio)
+            y = oy + d.tab_y(n.corda)
+            rot = "x" if "dead note" in n.tecnica else n.rotulo()
+            img = FP.casa.render(rot, True, cor)
+            r = img.get_rect(center=(ox + xa + img.get_width() / 2 - 1, y))
+            pygame.draw.rect(tela, TP["nota_bg"], r.inflate(int(4 * s), -int(2 * s)), border_radius=int(3 * s))
+            tela.blit(img, r)
 
     def _posicionar_botoes(self, r) -> int:
         """Distribui os botões em linhas dentro da largura disponível. -> nº de linhas."""

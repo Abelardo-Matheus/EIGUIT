@@ -68,6 +68,7 @@ class Nota:
     tecnica: str = ""
     velocidade: int = 90
     bend_semitons: float = 0.0
+    canal: int = -1                  # canal MIDI de origem (-1 = não veio de MIDI)
 
     @property
     def fim(self) -> Fraction:
@@ -337,7 +338,7 @@ def _notas_da_faixa(bruto: dict, chave) -> List[Nota]:
         for tb, s in bends.get(canal, []):
             if t0 <= tb < t1 and abs(s) > abs(bmax):
                 bmax = s
-        n = Nota(q0, q1 - q0, p, velocidade=vel, bend_semitons=bmax)
+        n = Nota(q0, q1 - q0, p, velocidade=vel, bend_semitons=bmax, canal=canal)
         if bmax >= 1.5:
             n.tecnica = "bend 1 tom"
         elif bmax >= 0.75:
@@ -443,10 +444,84 @@ def ler_midi(caminho: str, faixa: Optional[int] = None,
         fim = max((n.fim for n in p.notas), default=Fraction(4))
         if fim > p.compassos[-1].fim:
             p.compassos = _montar_compassos(formulas, fim, p)
-    sugerir_digitacao(p.notas, p.afinacao)
+    exata = digitacao_por_canal(p) if afinacao is None else False
+    if not exata:
+        if afinacao is None:
+            nome_af, p.afinacao = detectar_afinacao(p.notas)
+            if nome_af != "Padrão (E A D G B E)":
+                p.avisos.append(f"Afinação detectada pelas notas mais graves: {nome_af}.")
+        sugerir_digitacao(p.notas, p.afinacao)
     p.eventos = _agrupar_eventos(p.notas)
     analisar(p)
     return p
+
+
+# afinações comuns de guitarra de 6 cordas (1ª -> 6ª corda)
+AFINACOES = [
+    ("Padrão (E A D G B E)", [64, 59, 55, 50, 45, 40]),
+    ("Drop D", [64, 59, 55, 50, 45, 38]),
+    ("Meio tom abaixo (Eb)", [63, 58, 54, 49, 44, 39]),
+    ("Drop C#", [63, 58, 54, 49, 44, 37]),
+    ("Um tom abaixo (D)", [62, 57, 53, 48, 43, 38]),
+    ("Drop C", [62, 57, 53, 48, 43, 36]),
+    ("C padrão", [60, 55, 51, 46, 41, 36]),
+    ("Drop B", [61, 56, 52, 47, 42, 35]),
+]
+
+
+def detectar_afinacao(notas: List[Nota]) -> Tuple[str, List[int]]:
+    """Escolhe a afinação que alcança a nota mais grave e usa mais cordas soltas."""
+    alturas = [n.altura for n in notas if n.altura is not None]
+    if not alturas:
+        return AFINACOES[0][0], list(AFINACOES[0][1])
+    mais_grave = min(alturas)
+    if mais_grave >= 40:
+        return AFINACOES[0][0], list(AFINACOES[0][1])
+    melhor, pontos_melhor = AFINACOES[0], None
+    for nome, af in AFINACOES:
+        if af[-1] > mais_grave:
+            continue
+        soltas = sum(1 for a in alturas if a in af)
+        pontos = soltas - 0.5 * (af[-1] < mais_grave - 2) * len(alturas) * 0.05
+        if pontos_melhor is None or pontos > pontos_melhor:
+            melhor, pontos_melhor = (nome, af), pontos
+    return melhor[0], list(melhor[1])
+
+
+def digitacao_por_canal(p: "Partitura") -> bool:
+    """Guitar Pro pode exportar a guitarra com UM CANAL POR CORDA. Nesse caso a
+    corda de cada nota é conhecida de verdade: usa isso em vez de adivinhar."""
+    por_canal: dict = {}
+    for n in p.notas:
+        if n.canal >= 0 and n.altura is not None:
+            por_canal.setdefault(n.canal, []).append(n)
+    if not 4 <= len(por_canal) <= 7:
+        return False
+    # cada canal tem de ser monofônico (uma corda não toca duas notas ao mesmo tempo)
+    for ns in por_canal.values():
+        inicios = [n.inicio for n in ns]
+        if len(set(inicios)) < 0.95 * len(inicios):
+            return False
+    # ordena os canais do mais agudo para o mais grave
+    medianas = {c: sorted(n.altura for n in ns)[len(ns) // 2] for c, ns in por_canal.items()}
+    ordem = sorted(por_canal, key=lambda c: -medianas[c])
+    mins = [min(n.altura for n in por_canal[c]) for c in ordem]
+    for nome, af in AFINACOES:
+        cordas = af[:len(ordem)] if len(ordem) <= 6 else None
+        if cordas is None:
+            break
+        # cada canal precisa caber na sua corda (casa 0 a 24) e manter a ordem
+        if all(0 <= mins[k] - cordas[k] <= 12 for k in range(len(ordem))) and \
+                all(max(n.altura for n in por_canal[c]) - cordas[k] <= CASA_MAX for k, c in enumerate(ordem)):
+            for k, c in enumerate(ordem):
+                for n in por_canal[c]:
+                    n.corda, n.casa = k + 1, n.altura - cordas[k]
+            p.afinacao = list(af)
+            p.digitacao_sugerida = False
+            p.avisos = [a for a in p.avisos if "SUGERIDA" not in a]
+            p.avisos.append(f"Digitação exata: o MIDI traz uma corda por canal ({nome}).")
+            return True
+    return False
 
 
 _DENS_LIMPOS = {1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 24}
@@ -520,7 +595,7 @@ def quantizar(notas: List[Nota], compassos: List["Compasso"], exato: bool = True
             desloc = novo - n.inicio
             fim = max(novo + Fraction(1, 32), n.fim + desloc)
             saida.append(Nota(novo, fim - novo, n.altura, n.corda, n.casa, n.tecnica,
-                              n.velocidade, n.bend_semitons))
+                              n.velocidade, n.bend_semitons, n.canal))
     # mesma nota duplicada no mesmo ataque (dobra de gravação) vira uma só
     vistos, limpas = set(), []
     for n in sorted(saida, key=lambda n: (n.inicio, n.altura or 0)):
@@ -534,7 +609,7 @@ def quantizar(notas: List[Nota], compassos: List["Compasso"], exato: bool = True
 def trocar_faixa(p: Partitura, idx: int) -> Partitura:
     if p.fonte != "midi" or not p.arquivo:
         return p
-    return ler_midi(p.arquivo, faixa=idx, afinacao=p.afinacao)
+    return ler_midi(p.arquivo, faixa=idx)
 
 
 def _agrupar_eventos(notas: List[Nota]) -> List[Evento]:
@@ -1125,6 +1200,10 @@ def ler_pdf(caminho: str, progresso: Optional[Callable[[str], None]] = None,
 
 def carregar(caminho: str, progresso=None) -> Partitura:
     ext = os.path.splitext(caminho)[1].lower()
+    if caminho.lower().endswith(".songsterr.json"):
+        with open(caminho, encoding="utf-8") as f:
+            pacote = json.load(f)
+        return partitura_de_songsterr(pacote.get("parte", pacote), pacote.get("meta"), caminho)
     if ext in (".mid", ".midi", ".kar"):
         return ler_midi(caminho)
     if ext == ".json":
@@ -1167,3 +1246,149 @@ def relatorio_markdown(p: Partitura) -> str:
                 L.append("| Técnica | " + " | ".join(t.celulas_tecnica) + " |")
         L.append("")
     return "\n".join(L)
+
+
+# ----------------------------------------------------------------------------
+# 6) Tablatura do Songsterr (JSON da faixa): corda, casa, ritmo e técnicas exatos
+# ----------------------------------------------------------------------------
+_TUPLET_NORMAL = {3: 2, 5: 4, 6: 4, 7: 4, 9: 8, 10: 8, 11: 8, 12: 8, 13: 8}
+
+
+def _duracao_songsterr(beat: dict) -> Fraction:
+    """Duração do beat em SEMÍNIMAS: [1, 8] = colcheia, pontos e quiálteras aplicados."""
+    d = beat.get("duration")
+    if isinstance(d, (list, tuple)) and len(d) == 2 and d[1]:
+        v = Fraction(int(d[0]), int(d[1]))
+    else:
+        v = Fraction(1, int(beat.get("type", 4) or 4))
+    pontos = int(beat.get("dots", 0) or 0)
+    extra, metade = Fraction(0), v
+    for _ in range(pontos):
+        metade /= 2
+        extra += metade
+    v += extra
+    tup = beat.get("tuplet")
+    if isinstance(tup, dict):
+        num, den = int(tup.get("enters", tup.get("n", 3))), int(tup.get("times", tup.get("d", 2)))
+    elif tup:
+        num = int(tup)
+        den = _TUPLET_NORMAL.get(num, 2 ** (num.bit_length() - 1))
+    else:
+        num = den = 1
+    return v * 4 * Fraction(den, num)
+
+
+def partitura_de_songsterr(parte: dict, meta: Optional[dict] = None, arquivo: str = "") -> Partitura:
+    """Converte o JSON de uma faixa do Songsterr (o mesmo que o site desenha)."""
+    meta = meta or {}
+    titulo = " — ".join(x for x in (meta.get("artist"), meta.get("title")) if x) or \
+        os.path.basename(arquivo).replace(".songsterr.json", "")
+    faixa_nome = parte.get("name") or parte.get("instrument") or "Guitarra"
+    p = Partitura(titulo=titulo, fonte="songsterr", arquivo=arquivo, digitacao_sugerida=False,
+                  faixas=[faixa_nome], faixa_idx=0)
+    afin = parte.get("tuning") or AFINACAO_PADRAO
+    af = [int(x) for x in afin]
+    p.afinacao = af + AFINACAO_PADRAO[len(af):] if len(af) < 6 else af
+    medidas = parte.get("measures") or []
+    # andamento
+    bpms = {}
+    for t in (parte.get("automations") or {}).get("tempo", []) or []:
+        try:
+            bpms[int(t.get("measure", 0))] = float(t.get("bpm"))
+        except (TypeError, ValueError):
+            pass
+    bpm0 = bpms.get(0) or float(meta.get("tempo") or 120)
+    p.mapa_bpm = [(Fraction(0), bpm0)]
+    q = Fraction(0)
+    num, den = 4, 4
+    ultima_por_corda: dict = {}
+    for mi, m in enumerate(medidas):
+        sig = m.get("signature")
+        if isinstance(sig, (list, tuple)) and len(sig) == 2:
+            num, den = int(sig[0]), int(sig[1])
+        if mi in bpms and mi > 0 and bpms[mi] != p.mapa_bpm[-1][1]:
+            p.mapa_bpm.append((q, bpms[mi]))
+        c = Compasso(mi + 1, num, den, q, p.bpm_em(q))
+        vozes = m.get("voices") or []
+        for vi, voz in enumerate(vozes):
+            pos = q
+            for beat in voz.get("beats") or []:
+                dur = _duracao_songsterr(beat)
+                notas_json = [n for n in (beat.get("notes") or []) if not n.get("rest")]
+                pausa = bool(beat.get("rest")) or not notas_json
+                pm = bool(beat.get("palmMute"))
+                if pausa:
+                    if vi == 0:
+                        p.eventos.append(Evento(pos, [], dur, pausa=True))
+                    pos += dur
+                    continue
+                notas = []
+                so_ligadas = True
+                for nj in notas_json:
+                    corda = int(nj.get("string", 0)) + 1
+                    casa = nj.get("fret")
+                    tec = []
+                    if nj.get("dead"):
+                        tec.append("dead note")
+                    if pm:
+                        tec.append("P.M.")
+                    bend = 0.0
+                    b = nj.get("bend")
+                    if isinstance(b, dict):
+                        tom = b.get("tone")
+                        if tom is None and b.get("points"):
+                            tom = max((pt.get("tone", 0) for pt in b["points"]), default=0)
+                        bend = float(tom or 0) / 50.0          # 100 = 1 tom = 2 semitons
+                        if bend:
+                            tec.append("bend 1 tom" if bend >= 1.5 else "bend ½")
+                            pts = b.get("points") or []
+                            if len(pts) >= 3 and pts[-1].get("tone", 1) == 0:
+                                tec.append("release")
+                    if nj.get("vibrato") or nj.get("wideVibrato"):
+                        tec.append("vibrato")
+                    if nj.get("hp"):
+                        tec.append("hammer")
+                    sl = nj.get("slide")
+                    if sl:
+                        tec.append("slide out" if "out" in str(sl).lower() else "slide")
+                    if nj.get("harmonic"):
+                        tec.append("harmônico")
+                    if nj.get("tie") and corda in ultima_por_corda:
+                        ant = ultima_por_corda[corda]
+                        ant.duracao = pos + dur - ant.inicio
+                        continue
+                    so_ligadas = False
+                    if casa is None or corda < 1 or corda > len(p.afinacao):
+                        continue
+                    casa = int(casa)
+                    alt = p.afinacao[corda - 1] + casa
+                    n = Nota(pos, dur, alt, corda, casa, " ".join(tec), 96, bend)
+                    notas.append(n)
+                    ultima_por_corda[corda] = n
+                # hammer/pull: decide pela altura da nota anterior na mesma corda
+                if notas:
+                    p.notas += notas
+                    if vi == 0:
+                        p.eventos.append(Evento(pos, notas, dur))
+                    else:
+                        p.eventos.append(Evento(pos, notas, None))
+                elif so_ligadas and vi == 0:
+                    p.eventos.append(Evento(pos, [], dur, ligadura=True))
+                pos += dur
+        p.compassos.append(c)
+        q = c.fim
+    if not p.compassos:
+        raise ValueError("O JSON do Songsterr não tem compassos.")
+    # hammer x pull pela altura
+    por_corda: dict = {}
+    for n in sorted(p.notas, key=lambda n: n.inicio):
+        ant = por_corda.get(n.corda)
+        if "hammer" in n.tecnica and ant is not None and ant.altura is not None and n.altura < ant.altura:
+            n.tecnica = n.tecnica.replace("hammer", "pull")
+        por_corda[n.corda] = n
+    p.eventos.sort(key=lambda e: e.inicio)
+    for c in p.compassos:
+        c.bpm = p.bpm_em(c.inicio)
+    p.avisos.append("Tablatura do Songsterr: corda, casa, ritmo e técnicas exatos.")
+    analisar(p)
+    return p

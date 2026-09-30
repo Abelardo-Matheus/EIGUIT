@@ -102,6 +102,13 @@ data files.
   `audio/tab_synth.py → MotorAudioDual` (tablature screens) keeps its old API and adds the
   `profissional` mode (default), per-note cache + background HQ render, `preparar_grade()`,
   `ler_celula()` and `proximo_som()` for the "Som:" button.
+- **Database URL** — never in code: `BD/gerenciador_remoto_db.py → ler_url_conexao()` reads
+  `EIGUIT_DB_URL` or `%APPDATA%/EIGUIT/banco.txt` (or git-ignored `banco.local.txt`).
+- **ESTUDOS > Tempo extras** — `Estudos/biblioteca_partituras.py` (per-account cache in
+  `%APPDATA%/EIGUIT/biblioteca/usuario_<id>`, analysis pickle + full-song audio FLAC),
+  `Estudos/importar_songsterr.py` (search by name → track JSON with exact string/fret),
+  `ui/components/gaveta_som.py` (sound drawer used by the tablature screens). The score is
+  drawn once per line into cached surfaces; only selection/playing notes are drawn per frame.
 - **ESTUDOS > Tempo** — `Estudos/estudo_tempo.py` (screen, registered in
   `core/modulos/modulos_estudos.py` via `NOMES_TEMPO`), `Estudos/leitor_partitura.py`
   (MIDI parser + rhythm analysis per measure/beat; PDF via Anthropic API, needs

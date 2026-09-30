@@ -199,6 +199,58 @@ def testar():
     ok(ch[1].tempos[3].descricao == "colcheia pontuada + semicolcheia", f"humano C2t4: {ch[1].tempos[3].descricao}")
     ok(all(t.grade <= 12 for c in ch for t in c.tempos), "humano: sobrou grade estranha")
 
+    # Songsterr: JSON da faixa (corda/casa/ritmo/técnicas exatos)
+    parte = {"name": "Lead", "tuning": [64, 59, 55, 50, 45, 38], "automations": {"tempo": [{"measure": 0, "bpm": 90}]},
+             "measures": [
+                 {"signature": [4, 4], "voices": [{"beats": [
+                     {"duration": [1, 4], "notes": [{"string": 5, "fret": 0}], "palmMute": True},
+                     {"duration": [1, 8], "tuplet": 3, "notes": [{"string": 2, "fret": 7}]},
+                     {"duration": [1, 8], "tuplet": 3, "notes": [{"string": 2, "fret": 9, "hp": True}]},
+                     {"duration": [1, 8], "tuplet": 3, "notes": [{"string": 2, "fret": 7, "hp": True}]},
+                     {"duration": [1, 4], "dots": 1, "notes": [{"string": 1, "fret": 8, "bend": {"tone": 100}}]},
+                     {"duration": [1, 8], "rest": True}]}]},
+                 {"voices": [{"beats": [
+                     {"duration": [1, 2], "notes": [{"string": 0, "fret": 5, "vibrato": True}]},
+                     {"duration": [1, 2], "notes": [{"string": 0, "fret": 5, "tie": True}]}]}]}]}
+    ps = lp.partitura_de_songsterr(parte, {"artist": "Banda", "title": "Musica"})
+    ok(ps.titulo == "Banda — Musica" and ps.bpm_inicial == 90 and len(ps.compassos) == 2, "songsterr: cabeçalho")
+    ok(not ps.compassos[0].alertas, f"songsterr: soma do compasso 1 {ps.compassos[0].alertas}")
+    ok(ps.compassos[0].tempos[1].quialtera == "tercina", f"songsterr: tercina {ps.compassos[0].tempos[1].descricao}")
+    n6 = [n for n in ps.notas if n.corda == 6][0]
+    ok(n6.altura == 38 and "P.M." in n6.tecnica, "songsterr: drop D + palm mute")
+    ok([n.tecnica for n in ps.notas if n.corda == 3] == ["", "hammer", "pull"], f"songsterr: h/p {[n.tecnica for n in ps.notas if n.corda == 3]}")
+    ok([n for n in ps.notas if n.corda == 2][0].bend_semitons == 2.0, "songsterr: bend 1 tom")
+    lig = [n for n in ps.notas if n.corda == 1]
+    ok(len(lig) == 1 and lig[0].duracao == 4, f"songsterr: ligadura {[(n.duracao) for n in lig]}")
+
+    # MIDI com um canal por corda (Guitar Pro) + Drop D
+    cam = os.path.join(tempfile.gettempdir(), "teste_canais.mid")
+    ev = [(0, 0, b"\xff\x51\x03" + (500000).to_bytes(3, "big")), (0, 0, b"\xff\x58\x04\x04\x02\x18\x08")]
+    trilha = [(0, 0, b"\xff\x03\x08Guitarra")]
+    afd = [64, 59, 55, 50, 45, 38]
+    frases = [(6, 0), (6, 3), (5, 5), (4, 5), (3, 2), (2, 3), (1, 0), (1, 12), (6, 5), (5, 7), (4, 7), (3, 5)]
+    for k, (corda, casa) in enumerate(frases):
+        ch = corda - 1
+        ev_on = (k * PPQ, 3, bytes([0x90 | ch, afd[corda - 1] + casa, 100]))
+        ev_off = ((k + 1) * PPQ - 10, 2, bytes([0x80 | ch, afd[corda - 1] + casa, 0]))
+        trilha += [ev_on, ev_off]
+    with open(cam, "wb") as f:
+        f.write(b"MThd" + struct.pack(">IHHH", 6, 1, 2, PPQ) + _trilha(ev) + _trilha(trilha))
+    pc = lp.ler_midi(cam)
+    ok(not pc.digitacao_sugerida and pc.afinacao == afd, f"canal por corda: {pc.avisos}")
+    ok([(n.corda, n.casa) for n in sorted(pc.notas, key=lambda n: n.inicio)] == frases, "canal por corda: casas")
+
+    # Drop D num canal só (detecção de afinação)
+    cam2 = os.path.join(tempfile.gettempdir(), "teste_dropd.mid")
+    tr2 = [(0, 0, b"\xff\x03\x08Guitarra")]
+    for k, alt in enumerate([38, 38, 45, 50, 38, 41, 43, 38]):
+        tr2 += [(k * PPQ, 3, bytes([0x90, alt, 100])), ((k + 1) * PPQ - 10, 2, bytes([0x80, alt, 0]))]
+    with open(cam2, "wb") as f:
+        f.write(b"MThd" + struct.pack(">IHHH", 6, 1, 2, PPQ) + _trilha(ev) + _trilha(tr2))
+    pd = lp.ler_midi(cam2)
+    ok(pd.afinacao == afd and all(n.casa is not None for n in pd.notas), f"drop D: {pd.afinacao}")
+    ok(all(n.casa == 0 for n in pd.notas if n.altura == 38), "drop D: ré grave deveria ser corda solta")
+
     md = lp.relatorio_markdown(p)
     ok("### Compasso 2" in md and "fusa + semicolcheia + 5 fusas" in md, "relatório")
 

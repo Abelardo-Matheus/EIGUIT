@@ -14,6 +14,8 @@ class RenderizadorTablatura:
     """
     def __init__(self):
         self.synth = MotorAudioDual()   # começa no melhor som disponível (profissional)
+        from ui.components.gaveta_som import GavetaSom
+        self.gaveta = GavetaSom()       # botão "Som:" abre a lista de timbres
         self.dados = GerenciadorDadosTablatura()
         self.largura_coluna = 60
         self.altura_linha = 20
@@ -399,7 +401,9 @@ class RenderizadorTablatura:
         pygame.draw.rect(tela, cor_toggle_audio, estado.rect_tab_toggle_audio, border_radius=5)
         txt_modo = self.synth.rotulo_som()
         txt_t_audio = fontes['pequena'].render(txt_modo, True, BRANCO)
-        tela.blit(txt_t_audio, (estado.rect_tab_toggle_audio.centerx - txt_t_audio.get_width() // 2, y_ctrl + 7))
+        tela.blit(txt_t_audio, (estado.rect_tab_toggle_audio.centerx - txt_t_audio.get_width() // 2 - 6, y_ctrl + 7))
+        sx, sy = estado.rect_tab_toggle_audio.right - 14, estado.rect_tab_toggle_audio.centery
+        pygame.draw.polygon(tela, BRANCO, [(sx - 5, sy - 2), (sx + 5, sy - 2), (sx, sy + 4)])
 
         # Status da IA
         if hasattr(estado, 'cliente_ia') and estado.cliente_ia.status != 'idle' and getattr(estado, 'ia_ligada', False):
@@ -425,6 +429,9 @@ class RenderizadorTablatura:
         txt_help = fontes['pequena'].render("Setas: Mover | Números: Casa | +/-: Duração | b: Bend | /: Slide | Direito: Mover Play", True, (150, 150, 150))
         tela.blit(txt_help, (20, altura - 40))
 
+        # Gaveta de sons por cima de tudo
+        self.gaveta.desenhar(tela, estado.rect_tab_toggle_audio, fontes['pequena'], self.synth)
+
     def tratar_evento(self, evento, estado, motor_audio=None):
         """
         Trata eventos de clique e teclado para editar a tablatura.
@@ -435,6 +442,9 @@ class RenderizadorTablatura:
 
         if evento.type == pygame.MOUSEBUTTONDOWN:
             if evento.button == 1:
+                # Gaveta de sons (abre/fecha/escolhe) tem prioridade
+                if self.gaveta.tratar_clique(evento.pos, getattr(estado, 'rect_tab_toggle_audio', None), self.synth):
+                    return True
                 # Tratar botão adicionar linha
                 if hasattr(estado, 'rect_tab_add_linha') and estado.rect_tab_add_linha.collidepoint(evento.pos):
                     self.dados.adicionar_colunas(64)
@@ -484,9 +494,6 @@ class RenderizadorTablatura:
                 if hasattr(estado, 'rect_tab_rec') and estado.rect_tab_rec.collidepoint(evento.pos):
                     if getattr(estado, 'ia_ligada', False) or getattr(estado, 'tab_gravando', False):
                         self._alternar_gravacao(estado, motor_audio)
-                    return True
-                if hasattr(estado, 'rect_tab_toggle_audio') and estado.rect_tab_toggle_audio.collidepoint(evento.pos):
-                    self.synth.proximo_som()   # Clean > Crunch > Drive > High gain > Realista > Sintético
                     return True
 
                 # 3. Cliques em Seletor de Instrumentos

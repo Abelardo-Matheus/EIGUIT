@@ -27,7 +27,7 @@ try:
 except ImportError:                                   # rodando fora do pacote
     from Estudos import leitor_partitura as lp        # type: ignore
 
-VERSAO_CACHE = 2          # suba quando a análise mudar: o cache antigo é refeito sozinho
+VERSAO_CACHE = 3          # suba quando a análise mudar: o cache antigo é refeito sozinho
 
 
 def pasta_raiz() -> str:

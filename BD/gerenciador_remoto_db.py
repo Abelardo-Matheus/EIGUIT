@@ -17,7 +17,44 @@ TEMPO_LIMITE_CONEXAO = 5    # segundos por endereco
 # Depois de uma falha, nao tenta de novo por este tempo: o programa segue
 # offline na hora em vez de congelar a cada operacao que usa o banco.
 ESPERA_APOS_FALHA = 60      # segundos
-URL_CONEXAO = 'postgresql://neondb_owner:npg_u8ogByLqHK2F@ep-soft-cake-acsaff4w.sa-east-1.aws.neon.tech/neondb?sslmode=require'
+def _arquivos_de_conexao():
+    """Onde a URL do banco pode ficar (fora do git): %APPDATA%/EIGUIT/banco.txt ou banco.local.txt."""
+    base = os.environ.get('APPDATA') or os.path.join(os.path.expanduser('~'), '.config')
+    raiz = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return [os.path.join(base, 'EIGUIT', 'banco.txt'), os.path.join(raiz, 'banco.local.txt')]
+
+
+def ler_url_conexao():
+    """
+        Como funciona: procura a URL do Neon na variavel EIGUIT_DB_URL e depois nos
+        arquivos locais de _arquivos_de_conexao(). A senha nunca fica no codigo.
+        Para que serve: tirar a credencial do repositorio publico.
+        Onde e usada: GerenciadorDB, quando nenhuma URL e passada.
+    """
+    url = os.environ.get('EIGUIT_DB_URL', '').strip()
+    if url:
+        return url
+    for caminho in _arquivos_de_conexao():
+        try:
+            with open(caminho, encoding='utf-8') as arq:
+                url = arq.read().strip()
+            if url:
+                return url
+        except OSError:
+            continue
+    return ''
+
+
+def salvar_url_conexao(url):
+    """Grava a URL em %APPDATA%/EIGUIT/banco.txt (usado pelo script de atualizacao)."""
+    caminho = _arquivos_de_conexao()[0]
+    os.makedirs(os.path.dirname(caminho), exist_ok=True)
+    with open(caminho, 'w', encoding='utf-8') as arq:
+        arq.write(url.strip())
+    return caminho
+
+
+URL_CONEXAO = None   # lida em tempo de execucao por ler_url_conexao()
 
 class GerenciadorDB:
     """
@@ -27,14 +64,15 @@ class GerenciadorDB:
     """
 
     _ultima_falha = 0.0       # compartilhado por todas as instancias
+    _avisou_sem_url = False
 
-    def __init__(self, url_conexao=URL_CONEXAO):
+    def __init__(self, url_conexao=None):
         """
             Como funciona: Inicializa os atributos e o estado inicial da instância.
             Para que serve: Prepara o objeto para ser utilizado no ciclo de vida da aplicação.
             Onde é usada: Chamado a partir do módulo ou classe base de 'gerenciador_remoto_db'.
         """
-        self.url = url_conexao
+        self.url = url_conexao or ler_url_conexao()
         self.conexao = None
 
     def conectar(self):
@@ -46,13 +84,23 @@ class GerenciadorDB:
         if psycopg is None:
             print("Erro: Biblioteca 'psycopg' ou 'psycopg2' não encontrada.")
             return False
+        if not self.url:
+            if not GerenciadorDB._avisou_sem_url:
+                print('[CLOUD] Conexao com o banco nao configurada (seguindo offline). '
+                      'Rode o ATUALIZAR.bat ou crie %APPDATA%\\EIGUIT\\banco.txt com a URL do Neon.')
+                GerenciadorDB._avisou_sem_url = True
+            return False
         falha = GerenciadorDB._ultima_falha
         if falha and time.time() - falha < ESPERA_APOS_FALHA:
             return False          # servidor fora do ar ha pouco: segue offline sem esperar
         try:
             # Sem limite de tempo, uma rede lenta ou bloqueada deixava o programa
             # parado para sempre antes de abrir qualquer janela.
-            self.conexao = psycopg.connect(self.url, connect_timeout=TEMPO_LIMITE_CONEXAO)
+            opcoes = {'connect_timeout': TEMPO_LIMITE_CONEXAO}
+            if '-pooler.' in self.url and hasattr(psycopg, 'Connection'):
+                # endereco "-pooler" do Neon (PgBouncer): sem prepared statements
+                opcoes['prepare_threshold'] = None
+            self.conexao = psycopg.connect(self.url, **opcoes)
             GerenciadorDB._ultima_falha = 0.0
             return True
         except Exception as e:

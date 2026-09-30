@@ -207,3 +207,6 @@ ATUALIZAR.bat
 atualizar.ps1
 APLICAR.bat
 aplicar_e_unificar.ps1
+
+# Conexao com o banco (tem senha) - nunca versionar
+banco.local.txt

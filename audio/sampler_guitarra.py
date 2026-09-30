@@ -28,6 +28,7 @@ import json
 import math
 import os
 import re
+import time
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -321,7 +322,9 @@ def _tocar(inst: Instrumento, reg: Regiao, altura: int, curva_semi: np.ndarray, 
 def _render_tomada(inst, notas_prep, n_total, taxa, rng, folga=(0.0, 0.0), detune=0.0) -> np.ndarray:
     out = np.zeros(n_total, np.float32)
     rel = int(0.09 * taxa)
-    for n, fim, ant, cortada in notas_prep:
+    for k_nota, (n, fim, ant, cortada) in enumerate(notas_prep):
+        if k_nota % 6 == 5:
+            time.sleep(0)          # render em 2º plano: devolve a vez para a tela não engasgar
         if n.altura is None:
             continue
         tec = n.tecnica or ""

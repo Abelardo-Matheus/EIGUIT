@@ -33,6 +33,8 @@ class RenderizadorCriadorTablatura:
         
         self.dados = GerenciadorDadosTablatura()
         self.synth = MotorAudioDual()   # começa no melhor som disponível (profissional)
+        from ui.components.gaveta_som import GavetaSom
+        self.gaveta = GavetaSom()       # botão de som abre a lista de timbres
         
         # Cores legadas
         self.COR_FUNDO = COR_FUNDO
@@ -99,6 +101,8 @@ class RenderizadorCriadorTablatura:
         self._desenhar_status_ia()
         self._desenhar_toolbar()
         self._desenhar_scrollbar(num_sistemas_a_exibir + 1)
+        self.gaveta.desenhar(self.tela, getattr(self, 'rect_toggle_audio', None) or pygame.Rect(0, 0, 0, 0),
+                             self.fonte_ui, self.synth)
 
     def _desenhar_sistema(self, idx):
         base_y = self.inicio_y + (idx * self.espacamento_linhas) - self.scroll_y
@@ -226,7 +230,9 @@ class RenderizadorCriadorTablatura:
         pygame.draw.rect(self.tela, cor_toggle, self.rect_toggle_audio, border_radius=18)
         txt_modo = self.synth.rotulo_som()
         txt_t = self.fonte_ui.render(txt_modo, True, BRANCO)
-        self.tela.blit(txt_t, (self.rect_toggle_audio.centerx - txt_t.get_width()//2, self.rect_toggle_audio.centery - txt_t.get_height()//2))
+        self.tela.blit(txt_t, (self.rect_toggle_audio.centerx - txt_t.get_width()//2 - 6, self.rect_toggle_audio.centery - txt_t.get_height()//2))
+        sx, sy = self.rect_toggle_audio.right - 16, self.rect_toggle_audio.centery
+        pygame.draw.polygon(self.tela, BRANCO, [(sx - 5, sy - 2), (sx + 5, sy - 2), (sx, sy + 4)])
 
     def _tocar(self):
         """Prepara as notas no sintetizador e começa a reprodução da grade."""
@@ -326,6 +332,8 @@ class RenderizadorCriadorTablatura:
                 return True
         elif evento.type == pygame.MOUSEBUTTONDOWN:
             if evento.button == 1:
+                if self.gaveta.tratar_clique(evento.pos, getattr(self, 'rect_toggle_audio', None), self.synth):
+                    return True
                 if evento.pos[1] < 110:
                     for rect, key in self.rect_btn_instrumentos:
                         if rect.collidepoint(evento.pos): 
@@ -333,9 +341,6 @@ class RenderizadorCriadorTablatura:
                             self.dados.alternar_instrumento(key)
                             self.synth.alternar_instrumento_synth(key)
                             return True
-                    if hasattr(self, 'rect_toggle_audio') and self.rect_toggle_audio.collidepoint(evento.pos):
-                        self.synth.proximo_som()   # Clean > Crunch > Drive > High gain > Realista > Sintético
-                        return True
                     if self.rect_play.collidepoint(evento.pos):
                         if self.dados.playing: self.dados.stop()
                         else: self._tocar()

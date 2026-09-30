@@ -12,6 +12,7 @@ Motor de áudio do ESTUDOS > Tempo.
 """
 from __future__ import annotations
 
+import os
 import time
 from fractions import Fraction
 from typing import Optional, Tuple
@@ -114,6 +115,101 @@ def renderizar(p, q_ini: Fraction, q_fim: Fraction, bpm: float, taxa: int = 4410
     elif canais > 2:
         out = np.concatenate([out] + [out[:, :1]] * (canais - 2), axis=1)
     return np.ascontiguousarray(out), n / taxa
+
+
+# ----------------------------------------------------------------------------
+# Música inteira pré-renderizada: o play sai na hora, só recortando o trecho
+# ----------------------------------------------------------------------------
+CAUDA_COMPLETA = 1.5      # segundos de "rabo" depois da última nota
+
+
+def renderizar_guitarra_completa(p, bpm: float, taxa: int = 44100, timbre: str = "sintetico",
+                                 info: Optional[dict] = None) -> np.ndarray:
+    """Guitarra da música inteira (sem metrônomo) em float32 (n, 2), no BPM pedido.
+    Normalizada uma vez só para a música toda (o volume não muda entre trechos)."""
+    fator = bpm / p.bpm_inicial
+    s0 = p.segundos(Fraction(0))
+
+    def seg(q):
+        return (p.segundos(q) - s0) / fator
+
+    dur = seg(p.fim) + CAUDA_COMPLETA
+    notas = []
+    for nt in p.notas:
+        if nt.altura is None:
+            continue
+        t0 = seg(nt.inicio)
+        notas.append(sint.NotaAudio(t0, seg(nt.fim) - t0, nt.altura, nt.velocidade,
+                                    nt.bend_semitons, nt.tecnica, nt.corda))
+    buf, usado = sint.render_notas(notas, dur, taxa, timbre, loop=False, pico=0.6)
+    if info is not None:
+        info["backend"] = usado
+    return buf.astype(np.float32, copy=False)
+
+
+def montar_trecho(p, completo: np.ndarray, q_ini: Fraction, q_fim: Fraction, bpm: float,
+                  taxa: int = 44100, canais: int = 2, metronomo: bool = True, guitarra: bool = True,
+                  loop: bool = True, vol_met: float = 0.8, vol_gtr: float = 0.9,
+                  subdivisao: bool = False) -> Tuple[np.ndarray, float]:
+    """Recorta o trecho da guitarra já pronta e soma o metrônomo: leva milissegundos.
+    No loop, o rabo das notas do fim entra no começo (emenda sem estalo)."""
+    fator = bpm / p.bpm_inicial
+    s0 = p.segundos(Fraction(0))
+    t_ini = (p.segundos(q_ini) - s0) / fator
+    t_fim = (p.segundos(q_fim) - s0) / fator
+    i0, i1 = int(round(t_ini * taxa)), int(round(t_fim * taxa))
+    n = max(1, i1 - i0)
+    gtr = np.zeros((n, 2), np.float32)
+    if guitarra and completo is not None:
+        pedaco = completo[i0:i1]
+        gtr[:len(pedaco)] = pedaco
+        if loop:
+            rabo = completo[i1:i1 + int(CAUDA_COMPLETA * taxa)]
+            m = min(len(rabo), n)
+            if m:
+                # só o que ainda soa depois do fim do trecho (as notas de dentro dele)
+                gtr[:m] += rabo[:m] * np.linspace(1, 0, m, dtype=np.float32)[:, None]
+    met = np.zeros(n, np.float32)
+    if metronomo:
+        forte, fraco = _click(taxa, True), _click(taxa, False)
+        sub = fraco * 0.35
+        for c in p.compassos:
+            if c.fim <= q_ini or c.inicio >= q_fim:
+                continue
+            for k in range(c.num):
+                qb = c.inicio + c.dur_tempo * k
+                if q_ini <= qb < q_fim:
+                    _somar(met, forte if k == 0 else fraco,
+                           int(round(((p.segundos(qb) - s0) / fator - t_ini) * taxa)), False)
+                if subdivisao:
+                    qm = qb + c.dur_tempo / 2
+                    if q_ini <= qm < q_fim:
+                        _somar(met, sub, int(round(((p.segundos(qm) - s0) / fator - t_ini) * taxa)), False)
+    mix = np.clip(gtr * vol_gtr + met[:, None] * vol_met, -1, 1)
+    out = (mix * 32000).astype(np.int16)
+    if canais == 1:
+        out = out.mean(axis=1).astype(np.int16)
+    elif canais > 2:
+        out = np.concatenate([out] + [out[:, :1]] * (canais - 2), axis=1)
+    return np.ascontiguousarray(out), n / taxa
+
+
+def salvar_audio(caminho: str, buf: np.ndarray, taxa: int) -> None:
+    import soundfile as sf
+    tmp = caminho + ".tmp"
+    sf.write(tmp, np.clip(buf, -1, 1), taxa, subtype="PCM_16", format="FLAC")
+    os.replace(tmp, caminho)
+
+
+def ler_audio(caminho: str, taxa: int) -> Optional[np.ndarray]:
+    try:
+        import soundfile as sf
+        dados, fs = sf.read(caminho, dtype="float32", always_2d=True)
+    except Exception:
+        return None
+    if fs != taxa or dados.shape[1] != 2:
+        return None
+    return dados
 
 
 # ----------------------------------------------------------------------------
