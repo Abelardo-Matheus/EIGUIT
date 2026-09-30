@@ -8,7 +8,6 @@ from config.app_settings import *
 from config.design_system import TEMA, ds
 from Jogos.Jogos_interativos import GerenciadorJogos
 import core.modulos.modulos_estudos as modulo_estudos
-from ui.renderizador_tablatura import RenderizadorTablatura
 from ui.components import (
     desenhar_painel_superior, 
     desenhar_controles_instrumento,
