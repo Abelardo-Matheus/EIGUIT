@@ -1,6 +1,4 @@
 import pygame
-import math
-import core.modulos.escalas as escalas
 from config.theme import *
 from config.ui_metrics import *
 from config.app_settings import *

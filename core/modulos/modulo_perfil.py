@@ -79,7 +79,6 @@ class GerenciadorPerfil:
             Para que serve: Realiza as tarefas fundamentais de 'restaurar padrao' dentro do contexto do módulo.
             Onde é usada: Utilizado internamente para gerenciar comportamentos de 'restaurar padrao'.
         """
-        import pygame
         import json
         
         # Layout padrao vem do canvas de design (config/layout_padrao.py),

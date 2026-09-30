@@ -10,7 +10,7 @@ from ui.blocks.painel_acordes import painel_da_sub_aba
 from core.i18n import _t
 from ui.components.config_componentes import (
     BOTTOM_MARGIN_X, CONFIG_OFFSET_Y_INTERNO, ESTUDOS_OFFSET_Y_INTERNO,
-    ESTUDOS_DESC_OFFSET_X, BOTTOM_OFFSET_AREA_DESENHO,
+    BOTTOM_OFFSET_AREA_DESENHO,
 )
 
 GAP_PAINEL = 10

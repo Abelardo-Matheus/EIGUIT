@@ -1,4 +1,3 @@
-import pygame
 
 def desenhar_controles_playback(tela, estado, meu_metronomo, fonte_ui, configs):
     """

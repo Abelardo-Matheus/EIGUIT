@@ -1,12 +1,9 @@
 import os
-import json
-import shutil
 import subprocess
 from celery import Celery
 from basic_pitch.inference import predict_and_save
 from basic_pitch import ICASSP_2022_MODEL_PATH
 import music21
-import uuid
 import librosa
 
 # Configuração do Celery

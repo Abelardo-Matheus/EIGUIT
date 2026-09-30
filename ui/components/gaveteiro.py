@@ -111,7 +111,6 @@ def guardar(estado, nome):
 
 def _ocupado(estado, ignorar):
     """Retangulos que ja estao na tela: os fixos e os blocos que sairam."""
-    from config.layout_padrao import MARGEM_ESQUERDA
     rects = []
     fixos = ('dragger_guitarra', 'dragger_controles_topo',
              'dragger_painel_inferior')

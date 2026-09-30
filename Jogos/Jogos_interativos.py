@@ -1,6 +1,4 @@
 import pygame
-import os
-import sys
 from Jogos.acerte_a_nota import AcerteANota
 from Jogos.jogo2 import RhythmHero
 
