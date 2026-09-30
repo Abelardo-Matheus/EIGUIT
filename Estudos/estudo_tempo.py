@@ -1047,7 +1047,7 @@ class EstudoTempo:
                 self._completos[chave] = buf              # já pode tocar; o disco vem depois
                 while len(self._completos) > 3:
                     self._completos.pop(next(iter(self._completos)))
-                if novo and arquivo:
+                if novo and arquivo and os.path.isdir(os.path.dirname(arquivo)):   # (removida da biblioteca: não grava)
                     try:
                         mt.salvar_audio(arquivo, buf, taxa)
                     except Exception as e:
