@@ -8,7 +8,9 @@ com a figura rítmica em cima e a tablatura embaixo; a barra colorida atrás
 de cada casa mostra por quanto tempo a nota soa.
 
 Controles
-  clique / arrastar em compassos .... seleciona o trecho (Shift+clique estende)
+  clique na partitura ............... põe o risco vermelho ali (a música toca dali)
+  segurar e arrastar ................ seleciona os compassos do loop (segurar parado = 1 compasso)
+  Shift + clique .................... estende o loop até o compasso clicado
   botão direito / Esc ............... limpa a seleção (volta a tocar tudo)
   Espaço ............................ play / pause
   L / M / G / T ..................... loop / metrônomo / guitarra / timbre
@@ -254,6 +256,24 @@ class Diagramacao:
         b = min(int(rel), len(cl["bw"]) - 1)
         off = float(rel - b)
         return si, cl["x"] + cl["pad"] + sum(cl["bw"][:b]) + off * cl["bw"][b]
+
+    def q_em(self, x: float, y: float) -> Optional[Fraction]:
+        """Posição na música (semínimas) no ponto (x, y) da partitura."""
+        i = self.compasso_em(x, y)
+        if i is None:
+            return None
+        si, k = self.onde[i]
+        cl = self.sistemas[si]["comps"][k]
+        c = self.p.compassos[i]
+        rel = x - cl["x"] - cl["pad"]
+        if rel <= 0:
+            return c.inicio
+        for b, bw in enumerate(cl["bw"]):
+            if rel < bw or b == len(cl["bw"]) - 1:
+                frac = Fraction(max(0.0, min(rel / bw, 0.999))).limit_denominator(96)
+                return c.inicio + c.dur_tempo * (b + frac)
+            rel -= bw
+        return c.inicio
 
     def compasso_em(self, x: float, y: float) -> Optional[int]:
         si = int(y // self.alt_sist)
@@ -708,6 +728,9 @@ class Botao:
 # ----------------------------------------------------------------------------
 # Tela
 # ----------------------------------------------------------------------------
+SEGURAR_S = 0.45          # segurar o botão parado por este tempo seleciona o compasso para loop
+
+
 class EstudoTempo:
     TITULO = "Estudo de Tempo"
     BPM_MIN, BPM_MAX = 20, 320
@@ -1544,6 +1567,11 @@ class EstudoTempo:
                 self.avisar(f"Não consegui ler: {val}")
         self._rodar_audio_completo()
         self._songsterr_aplicar()
+        # segurando o botão parado: depois de um instante já mostra o compasso do loop
+        if (self.arrastando and not getattr(self, "_selecionando", True)
+                and time.time() - self._aperto[0] >= SEGURAR_S and self.ancora is not None):
+            self._selecionando = True
+            self.sel = (self.ancora, self.ancora)
         if self._render_pedido and time.time() >= self._debounce:
             self._rodar_render()
         if self._render_ok:
@@ -1571,6 +1599,8 @@ class EstudoTempo:
     def _seguir_cursor(self):
         if not self.diag or self._pos_q is None or self.rep.pausado:
             return
+        if time.time() < getattr(self, "_rolagem_manual_ate", 0):
+            return          # o usuário acabou de rolar: não puxa a tela de volta enquanto ele procura
         _, vista, _ = self._areas()
         si, _ = self.diag.x_de_q(self._pos_q)
         y = self.diag.sistemas[si]["y"]
@@ -1680,6 +1710,7 @@ class EstudoTempo:
             if vista.collidepoint(m) and self.diag:
                 maxs = max(0, self.diag.altura - vista.h + 40)
                 self.scroll = max(0, min(maxs, self.scroll - ev.y * 70))
+                self._rolagem_manual_ate = time.time() + 4
                 return True
             return False
         if ev.type == pygame.MOUSEBUTTONDOWN:
@@ -1696,31 +1727,64 @@ class EstudoTempo:
                     i = self._comp_no_mouse(pos)
                     if i is not None:
                         if pygame.key.get_mods() & pygame.KMOD_SHIFT and self.ancora is not None:
-                            self.sel = (min(self.ancora, i), max(self.ancora, i))
+                            self.sel = (min(self.ancora, i), max(self.ancora, i))   # Shift: estende o loop
+                            self._reiniciar_se_tocando()
                         else:
+                            # ainda não sabemos se é clique (põe o cursor) ou segurar/arrastar (loop)
                             self.ancora = i
-                            self.sel = (i, i)
                             self.arrastando = True
+                            self._aperto = (time.time(), pos, self._q_no_mouse(pos))
+                            self._selecionando = False
                         self.foco = i
                         self.scroll_det = 0
                     return True
             elif ev.button in (4, 5) and vista.collidepoint(pos) and self.diag:
                 maxs = max(0, self.diag.altura - vista.h + 40)
                 self.scroll = max(0, min(maxs, self.scroll + (-70 if ev.button == 4 else 70)))
+                self._rolagem_manual_ate = time.time() + 4
                 return True
             elif ev.button == 3 and vista.collidepoint(pos):
                 self.limpar_selecao()
                 return True
         if ev.type == pygame.MOUSEMOTION and self.arrastando:
-            i = self._comp_no_mouse(pos)
-            if i is not None and self.ancora is not None:
-                self.sel = (min(self.ancora, i), max(self.ancora, i))
+            _, p0, _ = self._aperto
+            if self._selecionando or abs(pos[0] - p0[0]) + abs(pos[1] - p0[1]) > 8:
+                self._selecionando = True             # segurou e arrastou: seleciona o loop
+                i = self._comp_no_mouse(pos)
+                if i is not None and self.ancora is not None:
+                    self.sel = (min(self.ancora, i), max(self.ancora, i))
             return True
         if ev.type == pygame.MOUSEBUTTONUP and ev.button == 1 and self.arrastando:
             self.arrastando = False
-            self._reiniciar_se_tocando()
+            t0, _, q = self._aperto
+            if self._selecionando or time.time() - t0 >= SEGURAR_S:
+                if not self._selecionando and self.ancora is not None:
+                    self.sel = (self.ancora, self.ancora)   # segurou parado: loop deste compasso
+                self._reiniciar_se_tocando()
+            elif q is not None:
+                self.posicionar_cursor(q)                  # clique: só leva o risco vermelho
             return True
         return False
+
+    def posicionar_cursor(self, q: Fraction) -> None:
+        """Clique na partitura: o risco vermelho vai para lá e a música toca dali.
+        Se o ponto está fora do loop selecionado, o loop é desfeito."""
+        if self.sel and not (self.p.compassos[self.sel[0]].inicio <= q < self.p.compassos[self.sel[1]].fim):
+            self.sel = None
+        self._pos_q = q
+        self._rolagem_manual_ate = 0
+        if self.rep.tocando and not self.rep.pausado:
+            self._pedir_render(q)                          # continua tocando, a partir do clique
+            self._debounce = 0.0
+        elif self.rep.pausado:
+            self.rep.parar()                               # pausado: o play volta daqui
+            self._pos_q = q
+
+    def _q_no_mouse(self, pos) -> Optional[Fraction]:
+        if not self.diag:
+            return None
+        _, vista, _ = self._areas()
+        return self.diag.q_em(pos[0] - vista.x - 12, pos[1] - vista.y + self.scroll - 14)
 
     def _comp_no_mouse(self, pos) -> Optional[int]:
         if not self.diag:

@@ -78,9 +78,20 @@ def interface(largura, altura, tema):
     cl = m.diag.sistemas[si]['comps'][k]
     pos = (int(vista.x + 12 + cl['x'] + cl['w'] / 2),
            int(vista.y + 14 - m.scroll + m.diag.sistemas[si]['y'] + m.diag.head + 30))
+    # clique simples: so leva o risco vermelho para o ponto clicado (nao seleciona loop)
     ger.tratar_eventos(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {'pos': pos, 'button': 1}), pos, ctx.estado)
     ger.tratar_eventos(pygame.event.Event(pygame.MOUSEBUTTONUP, {'pos': pos, 'button': 1}), pos, ctx.estado)
-    s.checar(m.sel == (1, 1), f'clique no compasso 2 nao selecionou (sel={m.sel})')
+    c2 = m.p.compassos[1]
+    s.checar(m.sel is None, f'clique simples nao deveria selecionar loop (sel={m.sel})')
+    s.checar(m._pos_q is not None and c2.inicio <= m._pos_q < c2.fim,
+             f'clique no compasso 2 nao levou o cursor para la ({m._pos_q})')
+    # segurar e arrastar: seleciona o loop
+    pos2 = (pos[0] + 25, pos[1])
+    ger.tratar_eventos(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {'pos': pos, 'button': 1}), pos, ctx.estado)
+    ger.tratar_eventos(pygame.event.Event(pygame.MOUSEMOTION, {'pos': pos2, 'rel': (25, 0), 'buttons': (1, 0, 0)}),
+                       pos2, ctx.estado)
+    ger.tratar_eventos(pygame.event.Event(pygame.MOUSEBUTTONUP, {'pos': pos2, 'button': 1}), pos2, ctx.estado)
+    s.checar(m.sel == (1, 1), f'segurar e arrastar no compasso 2 nao selecionou o loop (sel={m.sel})')
 
     # espaco toca o trecho em loop
     ger.tratar_eventos(pygame.event.Event(pygame.KEYDOWN, {'key': pygame.K_SPACE, 'unicode': ' ', 'mod': 0}),
@@ -91,6 +102,22 @@ def interface(largura, altura, tema):
         time.sleep(0.02)
     s.checar(m.rep.tocando, 'o play nao comecou')
     s.checar(m._atual[1] > 2.3 and m._atual[1] < 2.5, 'o loop nao tem a duracao de 1 compasso a 100 BPM')
+    # clique durante o play (fora do loop): desfaz o loop e toca a partir dali
+    si3, k3 = m.diag.onde[3]
+    cl3 = m.diag.sistemas[si3]['comps'][k3]
+    m.scroll = m.diag.sistemas[si3]['y']          # garante o compasso 4 na tela (720p)
+    pos3 = (int(vista.x + 12 + cl3['x'] + cl3['w'] / 2),
+            int(vista.y + 14 - m.scroll + m.diag.sistemas[si3]['y'] + m.diag.head + 30))
+    ger.tratar_eventos(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {'pos': pos3, 'button': 1}), pos3, ctx.estado)
+    ger.tratar_eventos(pygame.event.Event(pygame.MOUSEBUTTONUP, {'pos': pos3, 'button': 1}), pos3, ctx.estado)
+    limite = time.time() + 20
+    c4 = m.p.compassos[3]
+    while time.time() < limite and not (m._atual and m._atual[2][0] == Fraction(0)):
+        _quadro(ger, ctx)
+        time.sleep(0.02)
+    q_agora = m.posicao_q()
+    s.checar(m.sel is None and q_agora is not None and c4.inicio <= q_agora < c4.fim + 1,
+             f'clique durante o play nao levou a musica para o compasso 4 ({q_agora})')
     _quadro(ger, ctx)
 
     reprodutor = m.rep
