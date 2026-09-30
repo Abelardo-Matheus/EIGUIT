@@ -202,6 +202,37 @@ def processar(di: np.ndarray, preset: str, taxa: int, rapido: bool = False,
     return (x / (np.abs(x).max() + 1e-9) * 0.9).astype(np.float32)
 
 
+PICO_ENTRADA_FIXO = 1.2      # nível de referência do DI (acordes somam mais e "empurram" o amp, como no real)
+_GANHO_FIXO: dict = {}
+
+
+def ganho_fixo(preset: str, taxa: int) -> float:
+    """Ganho de saída de cada preset, medido uma vez num riff de referência do próprio
+    sampler: todos os blocos da música saem no mesmo nível sem precisar do áudio inteiro."""
+    chave = (preset, taxa)
+    if chave not in _GANHO_FIXO:
+        from . import sampler_guitarra as sg
+        from .sintetizador import NotaAudio
+        ref = []
+        for k, (corda, alt) in enumerate(((6, 40), (5, 47), (4, 52))):      # power chord de Mi
+            ref.append(NotaAudio(0.0, 0.9, alt, 118, corda=corda))
+        for k, alt in enumerate((64, 67, 69, 71, 72, 74)):
+            ref.append(NotaAudio(1.0 + 0.2 * k, 0.2, alt, 110, corda=1 if alt >= 64 else 2))
+        di = sg.render_di(ref, 2.4, taxa, dobrar=True, cauda=0.3)
+        pico = float(np.abs(processar(di, preset, taxa, pico_entrada=PICO_ENTRADA_FIXO, ganho_saida=1.0)).max())
+        _GANHO_FIXO[chave] = 1.0 / (pico + 1e-9)
+    return _GANHO_FIXO[chave]
+
+
+def processar_bloco(di: np.ndarray, ini: int, fim: int, preset: str, taxa: int, saida: np.ndarray,
+                    pico_saida: float = 0.6, contexto_s: float = 0.8) -> None:
+    """Passa pelo amp só o trecho [ini, fim) do DI (com contexto antes) e grava em `saida`."""
+    a = max(0, ini - int(contexto_s * taxa))
+    g = ganho_fixo(preset, taxa) * pico_saida
+    pedaco = processar(di[a:fim], preset, taxa, pico_entrada=PICO_ENTRADA_FIXO, ganho_saida=g)
+    saida[ini:fim] = np.clip(pedaco[ini - a:], -1, 1)
+
+
 def processar_em_blocos(di: np.ndarray, preset: str, taxa: int, pico_saida: float = 0.6,
                         bloco_s: float = 10.0, contexto_s: float = 0.8, progresso=None) -> np.ndarray:
     """Amp na música inteira sem estourar a memória: processa em blocos de ~10 s

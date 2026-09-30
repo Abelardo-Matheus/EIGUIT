@@ -319,12 +319,16 @@ def _tocar(inst: Instrumento, reg: Regiao, altura: int, curva_semi: np.ndarray, 
     return (smp[i] * (1 - fr) + smp[i + 1] * fr).astype(np.float32) * (10 ** (reg._f("volume") / 20))
 
 
-def _render_tomada(inst, notas_prep, n_total, taxa, rng, folga=(0.0, 0.0), detune=0.0) -> np.ndarray:
-    out = np.zeros(n_total, np.float32)
+def _render_tomada(inst, notas_prep, n_total, taxa, rng, folga=(0.0, 0.0), detune=0.0,
+                   out: np.ndarray = None) -> np.ndarray:
+    if out is None:
+        out = np.zeros(n_total, np.float32)
     rel = int(0.09 * taxa)
     for k_nota, (n, fim, ant, cortada) in enumerate(notas_prep):
         if k_nota % 6 == 5:
             time.sleep(0)          # render em 2º plano: devolve a vez para a tela não engasgar
+            if _cancelado():
+                raise RuntimeError("render cancelado (programa fechando)")
         if n.altura is None:
             continue
         tec = n.tecnica or ""
@@ -344,7 +348,7 @@ def _render_tomada(inst, notas_prep, n_total, taxa, rng, folga=(0.0, 0.0), detun
             reg = inst.escolher(n.altura, vel, rng)
             if reg is None:
                 continue
-            m = int((dur + 0.09) * taxa)
+            m = int(min(dur + 0.09, 8.0) * taxa)      # o sample acaba antes disso; não gasta à toa
             t = np.arange(m, dtype=np.float32) / taxa
             curva = _curva_pitch(n, ant, t, dur)
             offset = int(0.025 * taxa) if legato else 0
@@ -383,11 +387,57 @@ def _render_tomada(inst, notas_prep, n_total, taxa, rng, folga=(0.0, 0.0), detun
     return out
 
 
+def _cancelado() -> bool:
+    try:
+        from .motor_tempo import PARAR
+    except ImportError:
+        return False
+    return PARAR.is_set()
+
+
 def aquecer(taxa: int = 44100) -> None:
     """Carrega a biblioteca e todos os samples na memória (chame numa thread ao abrir o programa)."""
     inst = instrumento()
     for r in inst.ataque + inst.release + inst.abafadas:
         _carregar(r["sample"], taxa)
+
+
+def render_di_em_blocos(notas, dur: float, taxa: int = 44100, dobrar: bool = True, semente: int = 11,
+                        bloco_s: float = 6.0, ao_bloco=None, cancelado=None) -> np.ndarray:
+    """Como render_di, mas bloco a bloco (pela ordem do tempo). Depois de cada bloco chama
+    ao_bloco(ini, fim, di): tudo antes de `fim` já está pronto — dá para passar pelo amp e
+    tocar o começo da música sem esperar o resto."""
+    inst = instrumento()
+    n_total = max(1, int(round(dur * taxa)))
+    prep = sorted(_preparar(notas), key=lambda x: x[0].t0)
+    a = np.zeros(n_total, np.float32)
+    b = np.zeros(n_total, np.float32) if dobrar else None
+    di = np.zeros((n_total, 2), np.float32)
+    rng_a = np.random.default_rng(semente)
+    rng_b = np.random.default_rng(semente + 101)
+    bloco = max(1, int(bloco_s * taxa))
+    k = 0
+    for ini in range(0, n_total, bloco):
+        fim = min(n_total, ini + bloco)
+        grupo = []
+        while k < len(prep) and prep[k][0].t0 * taxa < fim:
+            grupo.append(prep[k])
+            k += 1
+        if grupo:
+            _render_tomada(inst, grupo, n_total, taxa, rng_a, out=a)
+            if dobrar:
+                _render_tomada(inst, grupo, n_total, taxa, rng_b, folga=(0.005, 0.012), detune=3.0, out=b)
+        if dobrar:
+            di[ini:fim, 0] = 0.8 * a[ini:fim] + 0.35 * b[ini:fim]
+            di[ini:fim, 1] = 0.35 * a[ini:fim] + 0.8 * b[ini:fim]
+        else:
+            di[ini:fim, 0] = di[ini:fim, 1] = a[ini:fim]
+        if ao_bloco:
+            ao_bloco(ini, fim, di)
+        time.sleep(0)
+        if _cancelado() or (cancelado and cancelado()):
+            raise RuntimeError("render cancelado")
+    return di
 
 
 def render_di(notas, dur: float, taxa: int = 44100, dobrar: bool = True, semente: int = 11,

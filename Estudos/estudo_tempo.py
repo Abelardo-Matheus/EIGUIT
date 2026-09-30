@@ -32,6 +32,7 @@ import time
 from fractions import Fraction
 from typing import List, Optional, Tuple
 
+import numpy as np
 import pygame
 
 try:                                          # design system e tradução do EIGUIT (se existirem)
@@ -877,15 +878,26 @@ class EstudoTempo:
         completo = self._completos.get(chave)
         taxa, can = mt.Reprodutor.formato()
         if completo is not None or not gtr:
-            # música inteira já pronta: só recorta o trecho (milissegundos)
+            longo = (p.segundos(q1) - p.segundos(q0)) * p.bpm_inicial / bpm > 20
+            if longo:
+                # trecho longo: toca em pedaços (não monta minutos de áudio de uma vez)
+                pronto = {"buf": completo, "pronto": len(completo) if completo is not None else 0,
+                          "total": len(completo) if completo is not None else 1}
+                self._tocar_em_pedacos(params, q_tocar, pronto, taxa, can)
+                return
+            # trecho curto: recorta e monta o loop inteiro (milissegundos)
             buf, dur = mt.montar_trecho(p, completo, q0, q1, bpm, taxa, can, met, gtr, loop, subdivisao=sub)
             self._render_ok = (buf, dur, params, q_tocar, p)
             return
         par = getattr(self, "_parcial", None)
         if par is None or par["chave"] != chave:
-            self._preparar_audio_completo()          # ainda não começou: começa agora
-            par = None
-        if par is not None and not par["erro"]:
+            # o áudio deste som/BPM ainda não começou (ou o anterior está sendo largado):
+            # pede e espera — nunca gera outro áudio pesado em paralelo
+            self._preparar_audio_completo()
+            self._render_pedido = (self._params(), q_tocar)
+            self._esperando_desde = getattr(self, "_esperando_desde", None) or time.time()
+            return
+        if not par["erro"]:
             # o começo da música já pode estar pronto (o resto continua em segundo plano)
             s0 = p.segundos(Fraction(0))
             precisa = int(((p.segundos(q1) - s0) * p.bpm_inicial / bpm
@@ -893,6 +905,11 @@ class EstudoTempo:
             if par["buf"] is not None and par["pronto"] >= min(precisa, par["total"]):
                 buf, dur = mt.montar_trecho(p, par["buf"], q0, q1, bpm, taxa, can, met, gtr, loop, subdivisao=sub)
                 self._render_ok = (buf, dur, params, q_tocar, p)
+                return
+            # o começo do trecho já está pronto? toca em pedaços enquanto o resto é preparado
+            inicio = int(((p.segundos(q_tocar if q_tocar is not None else q0) - s0) * p.bpm_inicial / bpm) * taxa)
+            if par["buf"] is not None and par["pronto"] >= min(inicio + int(1.5 * taxa), par["total"]):
+                self._tocar_em_pedacos(params, q_tocar, par, taxa, can)
                 return
             # espera (sem gerar outro áudio em paralelo): toca sozinho quando ficar pronto
             self._render_pedido = (self._params(), q_tocar)
@@ -916,6 +933,7 @@ class EstudoTempo:
                 self.avisar(f"Erro no áudio: {e}")
 
         self._render_thread = threading.Thread(target=job, daemon=True)
+        mt.registrar_thread(self._render_thread)
         self._render_thread.start()
 
     def _seg_de_q(self, params, q: Fraction) -> float:
@@ -997,18 +1015,22 @@ class EstudoTempo:
     def _rodar_audio_completo(self):
         if not self.p or not self._completo_pendente or time.time() < self._completo_pendente:
             return
-        if self._completo_job and self._completo_job.is_alive():
-            return
-        self._completo_pendente = 0.0
         p, timbre, bpm = self.p, self.timbre, round(self.bpm, 2)
         chave = (id(p), timbre, bpm)
+        antigo = getattr(self, "_parcial", None)
+        if self._completo_job and self._completo_job.is_alive():
+            if antigo is not None and antigo["chave"] != chave:
+                antigo["cancelado"] = True          # trocou som/BPM/música: larga o render velho
+            return                                  # (ele para no próximo bloco; aí começa o novo)
+        self._completo_pendente = 0.0
         if chave in self._completos:
             return
         arquivo = self._arquivo_audio(timbre, bpm)
         taxa, _ = mt.Reprodutor.formato()
         total = int(((p.segundos(p.fim) - p.segundos(Fraction(0))) * p.bpm_inicial / bpm
                      + mt.CAUDA_COMPLETA) * taxa)
-        parcial = {"chave": chave, "buf": None, "pronto": 0, "total": max(1, total), "erro": None}
+        parcial = {"chave": chave, "buf": None, "pronto": 0, "total": max(1, total), "erro": None,
+                   "cancelado": False}
         self._parcial = parcial
 
         def progresso(prontas, buf):
@@ -1019,24 +1041,69 @@ class EstudoTempo:
                 buf = mt.ler_audio(arquivo, taxa) if arquivo and os.path.exists(arquivo) else None
                 novo = buf is None
                 if novo:
-                    buf = mt.renderizar_guitarra_completa(p, bpm, taxa, timbre, progresso=progresso)
+                    buf = mt.renderizar_guitarra_completa(p, bpm, taxa, timbre, progresso=progresso,
+                                                          cancelado=lambda: parcial["cancelado"])
                 parcial.update(buf=buf, pronto=len(buf), total=len(buf))
                 self._completos[chave] = buf              # já pode tocar; o disco vem depois
                 while len(self._completos) > 3:
                     self._completos.pop(next(iter(self._completos)))
-                if novo and arquivo:
+                if novo and arquivo and os.path.isdir(os.path.dirname(arquivo)):   # (removida da biblioteca: não grava)
                     try:
                         mt.salvar_audio(arquivo, buf, taxa)
                     except Exception as e:
                         print("[tempo] não consegui guardar o áudio:", e)
             except Exception as e:
+                if mt.PARAR.is_set() or parcial["cancelado"]:
+                    return
                 import traceback
                 traceback.print_exc()
                 parcial["erro"] = f"{type(e).__name__}: {e}"
                 self.avisar(f"Erro ao preparar o áudio: {parcial['erro']}")
 
         self._completo_job = threading.Thread(target=job, daemon=True)
+        mt.registrar_thread(self._completo_job)
         self._completo_job.start()
+
+    def _tocar_em_pedacos(self, params, q_tocar, par, taxa, can):
+        p = self.p
+        q0, q1, bpm, loop, met, gtr, sub, timbre = params
+        s0 = p.segundos(Fraction(0))
+        fator = bpm / p.bpm_inicial
+        base = int(round((p.segundos(q0) - s0) / fator * taxa))
+        n = max(1, int(round((p.segundos(q1) - s0) / fator * taxa)) - base)
+        cliques = mt.cliques_do_trecho(p, q0, q1, bpm, taxa, sub) if met else []
+
+        def obter(i0, i1):
+            g = par["buf"]
+            if gtr and (g is None or par["pronto"] < min(base + i1, par["total"])):
+                return None
+            m = i1 - i0
+            mix = np.zeros((m, 2), np.float32)
+            if gtr:
+                pedaco = g[base + i0:base + i1]
+                mix[:len(pedaco)] = pedaco * np.float32(0.9 * 32000)
+            if cliques:
+                mix += (mt.metronomo_janela(cliques, i0, i1, taxa) * np.float32(0.8 * 32000))[:, None]
+            out = np.clip(mix, -32767, 32767).astype(np.int16)
+            if can == 1:
+                return out.mean(axis=1).astype(np.int16)
+            if can > 2:
+                return np.concatenate([out] + [out[:, :1]] * (can - 2), axis=1)
+            return out
+
+        pos = 0.0
+        if q_tocar is not None and q0 <= q_tocar < q1:
+            pos = (p.segundos(q_tocar) - p.segundos(q0)) / fator
+        try:
+            self.rep.tocar_em_pedacos(obter, n, loop, pos)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self.avisar(f"Não consegui tocar: {type(e).__name__}: {e}")
+            return
+        self._atual = (None, n / taxa, params)
+        self._esperando_desde = None
+        self._render_pedido = None
 
     def progresso_audio(self) -> Optional[float]:
         """0..1 do áudio da música inteira (None se não está sendo preparado)."""
