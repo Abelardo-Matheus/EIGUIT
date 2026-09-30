@@ -210,3 +210,13 @@ aplicar_e_unificar.ps1
 
 # Conexao com o banco (tem senha) - nunca versionar
 banco.local.txt
+
+# Estado local do app (gerado em tempo de execucao)
+sessao_cache.json
+translation_cache.json
+config_eiguit.json
+Perfis/Meu_*.json
+rec_*.wav
+temp_recording.wav
+*.rar
+_preview_design/
