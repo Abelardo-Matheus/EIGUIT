@@ -94,7 +94,7 @@ def main():
                                          gate_db=estado.afinador_noise_gate)
         estado.freq_detectada = motor_audio.freq_detectada
         estado.notas_detectadas_ia = motor_audio.notas_polifonicas
-        import math
+        import math 
         agora = pygame.time.get_ticks()
         nota_instante = '--'
         try:
