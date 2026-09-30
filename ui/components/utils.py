@@ -1,4 +1,3 @@
-from core.modulos.escalas import equivalencia_notas
 _NOTAS_IDX = {n: i for i, n in enumerate(['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'])}
 
 def obter_grau(tonica, nota):

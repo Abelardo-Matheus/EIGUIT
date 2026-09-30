@@ -1,12 +1,8 @@
 import pygame
-import math
-import core.modulos.escalas as escalas
-from ui import gerenciador_interface
 from config.theme import *
 from config.ui_metrics import *
 from config.app_settings import *
 from config.design_system import TEMA, ds
-from Jogos.Jogos_interativos import GerenciadorJogos
 import core.modulos.modulos_estudos as modulo_estudos
 from ui.components import (
     desenhar_painel_superior, 
@@ -22,7 +18,6 @@ from ui.components import (
     bloco_visivel
 )
 from ui.blocks.guitar_neck import desenhar_guitarra
-from ui.components.utils import obter_grau, equivalencia_notas
 
 # Instâncias globais de renderizadores
 render_tab_viewer = None

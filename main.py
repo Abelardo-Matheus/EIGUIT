@@ -1,6 +1,6 @@
 import pygame
 import sys
-from core import config, i18n
+from core import config
 import core.modulos.modulo_metronomo as modulo_metronomo
 import core.modulos.modulo_processamento as modulo_processamento
 from core.modulos.modulo_campo_harmonico import CampoHarmonico
@@ -10,8 +10,6 @@ from ui import renderizador_ui
 from core import controlador_eventos
 from Jogos.Jogos_interativos import GerenciadorJogos
 from core.modulos.modulo_perfil import GerenciadorPerfil
-import core.modulos.modulo_camera as modulo_camera
-from audio.global_audio import GlobalAudioEngine
 from ui import tela_login
 from config.design_system import TEMA, ds
 from core.sessao_estudo import SessaoEstudo

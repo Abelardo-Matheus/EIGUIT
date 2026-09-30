@@ -6,7 +6,6 @@ from config.theme import *
 from config.ui_metrics import *
 from config.app_settings import *
 from config.design_system import TEMA, ds
-from ui.components.config_componentes import CHORD_OFFSET_Y_INTERNO
 
 
 def desenhar_acordes_arrastaveis(tela, estado, meu_campo_harmonico, fontes):

@@ -9,7 +9,7 @@ import core.modulos.modulos_exoticas as exoticas
 import core.modulos.modulos_acordes as acordes
 from config.theme import BRANCO
 from ui.ui_componentes import DesenhoEscala
-from ui.components.config_componentes import CARDS_GAP_HORIZONTAL, CARDS_GAP_VERTICAL, CARDS_ESC_LARGURA, CARDS_OFFSET_X_INICIAL, FABRICA_Y_BASE_OFFSET, FABRICA_LARG_UTIL_MARGIN
+from ui.components.config_componentes import CARDS_GAP_HORIZONTAL, CARDS_GAP_VERTICAL, CARDS_OFFSET_X_INICIAL, FABRICA_Y_BASE_OFFSET, FABRICA_LARG_UTIL_MARGIN
 
 def gerar_modulos(estado, configs):
     """

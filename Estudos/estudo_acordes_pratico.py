@@ -4,7 +4,6 @@ from config.theme import *
 from config.ui_metrics import *
 from config.app_settings import *
 import core.modulos.escalas as escalas
-from config.app_settings import lista_afinacoes
 
 class EstudoAcordesPratico:
     """

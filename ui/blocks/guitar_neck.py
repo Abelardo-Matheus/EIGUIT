@@ -9,8 +9,7 @@ from config.app_settings import *
 from config.design_system import TEMA, ds
 from ui.components.utils import obter_grau, equivalencia_notas
 from ui.components.config_componentes import (
-    GUITAR_RAIO_NOTA, GUITAR_RAIO_DETECTADA,
-    GUITAR_ALPHA_NORMAL, GUITAR_ALPHA_INATIVO,
+    GUITAR_RAIO_NOTA, GUITAR_ALPHA_NORMAL, GUITAR_ALPHA_INATIVO,
 )
 
 # Casas que recebem marcador de posicao (padrao de guitarra)

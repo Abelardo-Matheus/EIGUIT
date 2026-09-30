@@ -13,7 +13,7 @@ import time
 import pygame
 
 from config.design_system import TEMA, ds
-from config.instrumentos import NOTAS, config_instrumento
+from config.instrumentos import NOTAS
 from core.i18n import _t
 from core.modulos.modulo_dados_tab import GerenciadorDadosTablatura
 
