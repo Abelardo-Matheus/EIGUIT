@@ -48,6 +48,7 @@ class MotorAudioDual:
         self.profissional_ok = False
         self.instrumento_atual = "Guitarra"
         self.timbre = "real_clean"
+        self.volume_mestre = self._ler_volume()
 
         # Setup do Pygame/Numpy (Modo Sintético)
         mixer_init = pygame.mixer.get_init()
@@ -183,6 +184,32 @@ class MotorAudioDual:
                 or (m == "realista" and self.motor_realista_ok)
                 or (m == "profissional" and self.profissional_ok)]
 
+    # ------------------------------------------------------------ volume geral
+    @staticmethod
+    def _arquivo_prefs():
+        base = os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), ".config")
+        return os.path.join(base, "EIGUIT", "som_tablatura.json")
+
+    def _ler_volume(self):
+        try:
+            import json
+            with open(self._arquivo_prefs(), encoding="utf-8") as f:
+                return float(json.load(f).get("volume", 0.9))
+        except Exception:
+            return 0.9
+
+    def definir_volume(self, v):
+        """Volume geral da tablatura (0 a 1). Vale na hora, sem gerar o som de novo."""
+        self.volume_mestre = round(max(0.0, min(1.0, float(v))), 2)
+        try:
+            import json
+            os.makedirs(os.path.dirname(self._arquivo_prefs()), exist_ok=True)
+            with open(self._arquivo_prefs(), "w", encoding="utf-8") as f:
+                json.dump({"volume": self.volume_mestre}, f)
+        except OSError:
+            pass
+        return self.volume_mestre
+
     def definir_timbre(self, timbre):
         """Timbre da guitarra no modo profissional: real_clean, real_crunch, real_drive,
         real_highgain ou real_di (veja audio/sintetizador.TIMBRES)."""
@@ -255,7 +282,7 @@ class MotorAudioDual:
                 self.fs.pitch_bend(canal_midi, 8192 + 2000)
             else:
                 self.fs.pitch_bend(canal_midi, 8192)
-            self.fs.noteon(canal_midi, midi_note, volume)
+            self.fs.noteon(canal_midi, midi_note, max(1, min(127, int(volume * self.volume_mestre))))
 
             def desligar():
                 pygame.time.wait(int(duracao * 1000))
@@ -291,7 +318,8 @@ class MotorAudioDual:
             som = pygame.sndarray.make_sound(audio)
             canal = self.canais_cordas[corda - 1]
             p_l, p_r = self.pans_cordas[corda - 1]
-            canal.set_volume(p_l * (volume / 100.0), p_r * (volume / 100.0))
+            canal.set_volume(p_l * (volume / 100.0) * self.volume_mestre,
+                             p_r * (volume / 100.0) * self.volume_mestre)
             canal.play(som)
         except Exception as e:
             print(f"[ERRO SYNTH] {e}")
@@ -301,30 +329,25 @@ class MotorAudioDual:
                 corda, casa, (tecnica or "").strip().lower(), round(max(0.05, duracao) * 20) / 20,
                 int(volume) // 8, is_bateria)
 
-    def _render_array(self, chave, rapido):
+    def _render_array(self, chave, rapido=False):
+        """Sempre a melhor qualidade e o mesmo nível para todas as notas (nada de
+        normalizar nota a nota nem de versão 'rápida' diferente da definitiva)."""
         modo, inst, timbre, corda, casa, tec_txt, dur, vol8, is_bateria = chave
         vel = int(np.clip(vol8 * 8 + 4, 1, 127))
         tec, bend = self.traduzir_tecnica(tec_txt)
         taxa = self.sample_rate
         if is_bateria:
             buf = sint.render_gm(36 + casa + (corda - 1), dur, vel, 0, taxa, bateria=True)
-        elif inst != "Guitarra":
+            return None if buf is None else buf * np.float32(sint.ganho_gm(0, taxa, True))
+        if inst != "Guitarra":
+            programa = self.instrumentos_presets.get(inst, 27)
             base = self.midi_base[corda - 1] - (12 if inst == "Baixo" else 0)
-            buf = sint.render_gm(base + casa, dur, vel, self.instrumentos_presets.get(inst, 27),
-                                 taxa, bend=bend)
-        else:
-            nota = sint.NotaAudio(0.0, dur, self.midi_base[corda - 1] + casa, vel, bend, tec, corda)
-            tb = timbre if modo == "profissional" else "clean"
-            cauda = 0.12 if "dead note" in tec else 0.35
-            buf, _ = sint.render_notas([nota], dur + cauda, taxa, tb, loop=False, pico=0.8,
-                                       dobrar=not rapido, rapido=rapido, cauda=0.2)
-            # o render normaliza cada nota: devolve a dinâmica pela intensidade
-            buf = buf * (0.35 + 0.65 * (vel / 127.0) ** 1.3)
-        if buf is None:
-            return None
-        if not is_bateria and inst != "Guitarra":
-            pico = float(np.abs(buf).max()) or 1.0
-            buf = buf / pico * 0.8 * (0.35 + 0.65 * vel / 127.0)
+            buf = sint.render_gm(base + casa, dur, vel, programa, taxa, bend=bend)
+            return None if buf is None else buf * np.float32(sint.ganho_gm(programa, taxa))
+        nota = sint.NotaAudio(0.0, dur, self.midi_base[corda - 1] + casa, vel, bend, tec, corda)
+        tb = timbre if modo == "profissional" else "clean"
+        cauda = 0.12 if "dead note" in tec else 0.35
+        buf, _ = sint.render_nota_fixa(nota, dur + cauda, taxa, tb)
         return buf
 
     def _para_som(self, buf):
@@ -353,21 +376,18 @@ class MotorAudioDual:
         chave = self._chave(corda, casa, tecnica, duracao, volume, is_bateria)
         item = self._cache.get(chave)
         if item is None:
-            profissional_guitarra = (self.modo == "profissional" and self.instrumento_atual == "Guitarra"
-                                     and not is_bateria)
-            buf = self._render_array(chave, rapido=profissional_guitarra)
+            buf = self._render_array(chave)               # sempre a versão definitiva
             if buf is None:
                 return False
-            item = (self._para_som(buf), not profissional_guitarra)
+            item = (self._para_som(buf), True)
             self._guardar(chave, item)
-            if profissional_guitarra:
-                self._agendar(chave)
         else:
             self._cache.move_to_end(chave)
         som = item[0]
         canal = self.canais_cordas[corda - 1]      # nota nova na mesma corda corta a anterior
         p_l, p_r = self.pans_cordas[corda - 1]
-        canal.set_volume(0.5 + p_l * 0.5, 0.5 + p_r * 0.5)
+        v = self.volume_mestre
+        canal.set_volume((0.5 + p_l * 0.5) * v, (0.5 + p_r * 0.5) * v)
         canal.play(som)
         return True
 
@@ -430,8 +450,10 @@ class MotorAudioDual:
     def preparar_grade(self, grade, seg_por_coluna, sustain=1.5):
         """Pré-renderiza todas as notas de uma grade de tablatura antes do play."""
         notas = []
-        for corda_idx, linha in enumerate(grade[:6]):
-            for celula in linha:
+        linhas = grade[:6]
+        for col in range(max((len(l) for l in linhas), default=0)):      # na ordem em que tocam
+            for corda_idx, linha in enumerate(linhas):
+                celula = linha[col] if col < len(linha) else "-"
                 if celula == "-":
                     continue
                 lida = self.ler_celula(celula)

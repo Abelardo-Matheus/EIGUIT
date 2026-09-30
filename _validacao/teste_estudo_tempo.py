@@ -203,6 +203,10 @@ def audio_pronto_e_gaveta():
     ger.tratar_eventos(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {'pos': alvo.center, 'button': 1}),
                        alvo.center, ctx.estado)
     s.checar(m.timbre == 'sintetico' and not m.gaveta_som, 'a gaveta nao trocou o som')
+    v0 = m.rep.volume
+    m.mudar_volume(-0.2)
+    s.checar(abs(m.rep.volume - max(0.0, v0 - 0.2)) < 1e-6, 'botao de volume do estudo nao mudou o volume')
+    m.mudar_volume(+0.2)
 
 
 def musica_longa_toca_em_pedacos():
@@ -249,6 +253,46 @@ def musica_longa_toca_em_pedacos():
         time.sleep(0.02)
     s.checar(m.rep.tocando and m._atual[2][-1] == outro, 'depois de trocar o som o play nao tocou')
     m.parar()
+
+
+def volume_igual_para_todas_as_notas():
+    """Todas as alturas no mesmo volume (antes: ate 9 dB de diferenca entre notas)."""
+    import numpy as np
+    from audio import amp_guitarra as amp, motor_tempo as mt, sintetizador as sint
+    T = 44100
+    p = lp.Partitura(titulo='niveis')
+    p.mapa_bpm = [(Fraction(0), 120.0)]
+    q, notas = Fraction(0), []
+    for corda in range(1, 7):
+        for casa in (0, 5, 12):
+            notas.append(lp.Nota(q, Fraction(1), p.afinacao[corda - 1] + casa, corda, casa, '', 100))
+            q += 2
+    p.notas = notas
+    p.eventos = lp._agrupar_eventos(notas)
+    p.compassos = lp._montar_compassos([], q, p)
+    lp.analisar(p)
+    timbres = ['sintetico'] + (['real_clean', 'real_highgain'] if sint.sampler_disponivel()[0] else [])
+    for tb in timbres:
+        buf = mt.renderizar_guitarra_completa(p, 120, T, tb)
+        niveis = [20 * np.log10(amp.nivel_percebido(buf[i * T:i * T + int(0.35 * T)], T)) for i in range(len(notas))]
+        s.checar(max(niveis) - min(niveis) < 3.0, f'{tb}: {max(niveis) - min(niveis):.1f} dB entre notas')
+    # motor da tablatura (nota a nota)
+    from audio.tab_synth import MotorAudioDual
+    m = MotorAudioDual()
+    niveis = [20 * np.log10(amp.nivel_percebido(m._render_array(m._chave(c, k, '', 0.5, 100, False))[:int(0.35 * T)], T))
+              for c in (1, 3, 6) for k in (0, 7, 15)]
+    s.checar(max(niveis) - min(niveis) < 1.5, f'tablatura: {max(niveis) - min(niveis):.1f} dB entre notas')
+    # volume geral
+    v0 = m.volume_mestre
+    from ui.components.gaveta_som import GavetaSom
+    g = GavetaSom()
+    g.aberta = True
+    g.desenhar(pygame.display.get_surface() or pygame.Surface((800, 600)), pygame.Rect(10, 10, 120, 30),
+               pygame.font.SysFont(None, 18), m)
+    r = [r for r, c in g._itens if c == 'vol-'][0]
+    g.tratar_clique(r.center, pygame.Rect(10, 10, 120, 30), m)
+    s.checar(abs(m.volume_mestre - max(0.0, v0 - 0.1)) < 1e-6 and g.aberta, 'o volume da gaveta nao mudou')
+    m.definir_volume(v0)
 
 
 def songsterr_simulado():
@@ -349,6 +393,7 @@ s.teste('zoom e papel claro', zoom_e_papel)
 s.teste('audio da musica pronto, play imediato e gaveta de sons', audio_pronto_e_gaveta)
 s.teste('importar do Songsterr pela busca (rede simulada)', songsterr_simulado)
 s.teste('musica longa: play logo ao abrir toca em pedacos', musica_longa_toca_em_pedacos)
+s.teste('mesmo volume para todas as notas e volume geral', volume_igual_para_todas_as_notas)
 s.teste('motor da tablatura: modos, instrumentos e botao de som', motor_tablatura)
 s.teste('celula da grade lida igual ao player', celula_lida_igual_ao_player)
 for _tema in harness.TEMAS:

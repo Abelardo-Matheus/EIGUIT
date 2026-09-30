@@ -615,6 +615,7 @@ class EstudoTempo:
         self.zoom = float(prefs.get("zoom", 1.35))
         self.papel = bool(prefs.get("papel", True))
         self.mostrar_duracao = bool(prefs.get("duracao", True))
+        self.rep.definir_volume(float(prefs.get("volume", 0.9)))
         self.bib: Optional[bib_mod.Biblioteca] = None
         self._usuario_bib = object()
         self.mostrar_bib = False
@@ -660,6 +661,9 @@ class EstudoTempo:
             Botao(lambda: f"Faixa: {self._nome_faixa()}", self.proxima_faixa),
             Botao(_t("Tocar tudo"), self.limpar_selecao),
             Botao(_t("Detalhes"), self.alternar_det, ligado=lambda: self.detalhes),
+            Botao("Vol −", lambda: self.mudar_volume(-0.1), largura=58),
+            Botao(lambda: f"{self.rep.volume * 100:.0f}%", None, largura=56),
+            Botao("Vol +", lambda: self.mudar_volume(+0.1), largura=58),
             Botao("A−", lambda: self.mudar_zoom(-0.15), largura=40),
             Botao(lambda: f"{self.zoom * 100:.0f}%", None, largura=58),
             Botao("A+", lambda: self.mudar_zoom(+0.15), largura=40),
@@ -782,7 +786,13 @@ class EstudoTempo:
     def _gravar_prefs(self):
         bib_mod.Biblioteca.gravar_preferencias(
             {"zoom": self.zoom, "papel": self.papel, "duracao": self.mostrar_duracao,
-             "detalhes": self.detalhes})
+             "detalhes": self.detalhes, "volume": self.rep.volume})
+
+    def mudar_volume(self, d: float):
+        """Volume geral do estudo: muda na hora, mesmo tocando (não gera o som de novo)."""
+        v = self.rep.definir_volume(self.rep.volume + d)
+        self.avisar(f"Volume {v * 100:.0f}%")
+        self._gravar_prefs()
 
     def mudar_zoom(self, d: float):
         self.zoom = round(max(0.8, min(2.4, self.zoom + d)), 2)
@@ -1006,7 +1016,8 @@ class EstudoTempo:
     def _arquivo_audio(self, timbre, bpm):
         if not self._id_atual or self.bib is None:
             return None
-        return os.path.join(self.bib.pasta, self._id_atual, f"audio_{timbre}_{bpm:g}.flac")
+        # "v3": áudio com volume nivelado por nota; os arquivos antigos (desnivelados) são ignorados
+        return os.path.join(self.bib.pasta, self._id_atual, f"audio_v3_{timbre}_{bpm:g}.flac")
 
     def _preparar_audio_completo(self, atraso: float = 0.0):
         """Agenda o render da guitarra da música inteira (timbre e BPM atuais)."""
@@ -1503,6 +1514,11 @@ class EstudoTempo:
                 return True
             if barra.collidepoint(m) and self.botoes2[1].rect.collidepoint(m):
                 self.mudar_bpm(ev.y)
+                return True
+            vol = next((b for b in self.botoes2 if b.acao is None and b.rect.collidepoint(m)
+                        and "%" in (b.texto() if callable(b.texto) else b.texto)), None)
+            if vol is not None and vol is not self.botoes2[1]:
+                self.mudar_volume(0.05 * ev.y)
                 return True
             if vista.collidepoint(m) and pygame.key.get_mods() & pygame.KMOD_CTRL:
                 self.mudar_zoom(0.1 * ev.y)             # Ctrl + roda = zoom

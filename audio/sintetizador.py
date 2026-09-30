@@ -31,6 +31,7 @@ Arquivos de som ficam em assets/audio/ (a mesma pasta de assets do EIGUIT):
 """
 from __future__ import annotations
 
+import functools
 import glob
 import os
 import shutil
@@ -401,9 +402,10 @@ def render_notas(notas: List[NotaAudio], dur: float, taxa: int = 44100, timbre: 
             buf = None
     if buf is None:
         buf = _render_sintetico(notas, dur, taxa, loop)
-    m = float(np.abs(buf).max()) if buf.size else 0.0
-    if m > 0:
-        buf *= pico / m
+    if pico is not None:
+        m = float(np.abs(buf).max()) if buf.size else 0.0
+        if m > 0:
+            buf *= pico / m
     return buf, usado
 
 
@@ -448,3 +450,86 @@ def render_gm(altura: int, dur: float, vel: int = 100, programa: int = 33, taxa:
         gerar(n_total)
         synth.sounds_off(ch)
     return out
+
+
+# ----------------------------------------------------------------------------
+# Nota avulsa com NÍVEL FIXO (motor da tablatura): nenhuma nota é normalizada
+# sozinha, então todas saem no mesmo volume e com o mesmo tratamento
+# ----------------------------------------------------------------------------
+PICO_ALVO = 0.75
+_GANHOS_FIXOS: dict = {}
+
+
+def _ganho_calibrado(chave, gerar_referencia) -> float:
+    if chave not in _GANHOS_FIXOS:
+        ref = gerar_referencia()
+        pico = float(np.abs(ref).max()) if ref is not None and ref.size else 0.0
+        _GANHOS_FIXOS[chave] = (PICO_ALVO / pico) if pico > 1e-6 else 1.0
+    return _GANHOS_FIXOS[chave]
+
+
+ALVO_PERCEBIDO = 0.079      # ≈ -22 dB de volume percebido: o mesmo para todo timbre e toda nota
+
+
+def _nivel_percebido(x: np.ndarray, taxa: int) -> float:
+    from .amp_guitarra import nivel_percebido
+    return nivel_percebido(x, taxa)
+
+
+def _curva_vel(vel: float) -> float:
+    v = max(1.0, min(127.0, float(vel))) / 127.0
+    return 0.18 + 0.82 * v ** 1.6
+
+
+def render_nota_fixa(nota: NotaAudio, dur: float, taxa: int = 44100, timbre: str = "real_clean") -> Tuple[np.ndarray, str]:
+    """Uma nota da guitarra, sempre na melhor qualidade disponível e com o MESMO volume
+    percebido para qualquer altura, corda, técnica, camada de sample ou timbre."""
+    alvo = next((p for i, _, p in TIMBRES if i == timbre), None)
+    if isinstance(alvo, str) and alvo.startswith("amp:") and sampler_disponivel()[0]:
+        from . import amp_guitarra as amp
+        from . import sampler_guitarra as sg
+        di = sg.render_di([nota], dur, taxa, dobrar=True, cauda=0.0)
+        preset = alvo[4:]
+        out = di if preset == "di" else amp.processar(di, preset, taxa, pico_entrada=amp.PICO_ENTRADA_FIXO,
+                                                      ganho_saida=1.0)
+        usado = "sampler"
+    elif timbre != "sintetico" and soundfont_disponivel()[0]:
+        tb = timbre if isinstance(alvo, tuple) else "clean"
+        out, usado = _render_soundfont([nota], dur, taxa, tb, False), "soundfont"
+    else:
+        out, usado = _render_sintetico([nota], dur, taxa, False), "sintetico"
+    nivel = _nivel_percebido(out[: int(0.35 * taxa)], taxa)
+    alvo_nota = ALVO_PERCEBIDO * _curva_vel(nota.vel) / _curva_vel(100)
+    if nivel > 1e-9:
+        out = out * np.float32(alvo_nota / nivel)
+    return np.clip(out, -1, 1).astype(np.float32), usado
+
+
+@functools.lru_cache(maxsize=2048)
+def nivel_nota_timbre(timbre: str, altura: int, taxa: int) -> float:
+    """Volume percebido de uma nota (intensidade 100) neste timbre, sem nenhum ajuste."""
+    alvo = next((p for i, _, p in TIMBRES if i == timbre), None)
+    corda = 6 if altura < 45 else 5 if altura < 50 else 4 if altura < 55 else 3 if altura < 59 else 2 if altura < 64 else 1
+    n = NotaAudio(0.0, 0.6, int(altura), 100, corda=corda)
+    if isinstance(alvo, str) and alvo.startswith("amp:") and sampler_disponivel()[0]:
+        from . import amp_guitarra as amp
+        return amp.nivel_nota(alvo[4:], int(altura), taxa)
+    if timbre != "sintetico" and soundfont_disponivel()[0]:
+        tb = timbre if isinstance(alvo, tuple) else "clean"
+        out = _render_soundfont([n], 0.7, taxa, tb, False)
+    else:
+        out = _render_sintetico([n], 0.7, taxa, False)
+    return _nivel_percebido(out[: int(0.35 * taxa)], taxa)
+
+
+def ganho_por_altura(timbre: str, altura: int, taxa: int) -> float:
+    """Ganho que põe a nota desta altura no volume alvo (limitado a ±12 dB)."""
+    nivel = max(nivel_nota_timbre(timbre, int(altura), taxa), 1e-9)
+    return float(min(ALVO_PERCEBIDO / nivel, 50.0))
+
+
+def ganho_gm(programa: int, taxa: int, bateria: bool = False) -> float:
+    """Nível fixo por instrumento GM (baixo, voz, bateria) medido numa nota de referência."""
+    alt = 38 if bateria else (40 if programa in range(32, 40) else 60)
+    return _ganho_calibrado(("gm", programa, bateria, taxa),
+                            lambda: render_gm(alt, 0.6, 127, programa, taxa, bateria=bateria))

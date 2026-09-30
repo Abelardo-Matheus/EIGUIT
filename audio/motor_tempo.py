@@ -125,9 +125,46 @@ def renderizar(p, q_ini: Fraction, q_fim: Fraction, bpm: float, taxa: int = 4410
 CAUDA_COMPLETA = 1.5      # segundos de "rabo" depois da última nota
 
 
+def _limitar(x: np.ndarray, joelho: float = 0.7, teto: float = 0.92) -> np.ndarray:
+    """Limitador suave: acordes fortes não estouram (sem o chiado de um clip seco)."""
+    a = np.abs(x)
+    acima = a > joelho
+    if not acima.any():
+        return x
+    y = x.copy()
+    y[acima] = np.sign(x[acima]) * (joelho + (teto - joelho) * np.tanh((a[acima] - joelho) / (teto - joelho)))
+    return y
+
+
+def _automacao_de_volume(notas, taxa: int, timbre: str):
+    """Ganho que muda a cada ataque (suavizado em ~5 ms) para toda nota soar no mesmo
+    volume percebido, seja qual for a altura ou o timbre. Devolve f(ini, fim) -> ganhos."""
+    from scipy.signal import butter, sosfilt, sosfilt_zi
+    ataques: dict = {}
+    for n in notas:
+        ataques.setdefault(int(round(n.t0 * taxa)), []).append(sint.ganho_por_altura(timbre, n.altura, taxa))
+    pos_at = np.array(sorted(ataques), dtype=np.int64)
+    gan_at = np.array([float(np.exp(np.mean(np.log(ataques[k])))) for k in pos_at], dtype=np.float32)
+    suave = butter(1, 30, fs=taxa, output="sos")
+    estado = {"zi": None}
+
+    def ganhos(ini, fim):
+        if not len(pos_at):
+            return np.ones(fim - ini, np.float32)
+        idx = np.searchsorted(pos_at, np.arange(ini, fim), side="right") - 1
+        g = np.where(idx >= 0, gan_at[np.clip(idx, 0, len(gan_at) - 1)], gan_at[0]).astype(np.float32)
+        if estado["zi"] is None:
+            estado["zi"] = sosfilt_zi(suave) * g[0]
+        g, estado["zi"] = sosfilt(suave, g, zi=estado["zi"])
+        return g.astype(np.float32)
+
+    return ganhos
+
+
 def renderizar_guitarra_completa(p, bpm: float, taxa: int = 44100, timbre: str = "sintetico",
                                  info: Optional[dict] = None, progresso=None, cancelado=None) -> np.ndarray:
     """Guitarra da música inteira (sem metrônomo) em float32 (n, 2), no BPM pedido.
+    Toda nota sai no mesmo volume percebido (qualquer altura, qualquer timbre).
     Com o sampler, o amp roda em blocos (memória baixa) e `progresso(prontas, buffer)`
     é chamado a cada bloco, para o começo da música já poder tocar."""
     fator = bpm / p.bpm_inicial
@@ -142,8 +179,11 @@ def renderizar_guitarra_completa(p, bpm: float, taxa: int = 44100, timbre: str =
         if nt.altura is None:
             continue
         t0 = seg(nt.inicio)
-        notas.append(sint.NotaAudio(t0, seg(nt.fim) - t0, nt.altura, nt.velocidade,
+        # dinâmica do arquivo mais contida: estudo precisa ouvir todas as notas
+        vel = int(max(1, min(127, 96 + (nt.velocidade - 96) * 0.5)))
+        notas.append(sint.NotaAudio(t0, seg(nt.fim) - t0, nt.altura, vel,
                                     nt.bend_semitons, nt.tecnica, nt.corda))
+    automacao = _automacao_de_volume(notas, taxa, timbre)
     alvo = next((pr for tid, _, pr in sint.TIMBRES if tid == timbre), None)
     if isinstance(alvo, str) and alvo.startswith("amp:") and sint.sampler_disponivel()[0]:
         from . import amp_guitarra as amp
@@ -153,24 +193,23 @@ def renderizar_guitarra_completa(p, bpm: float, taxa: int = 44100, timbre: str =
         preset = alvo[4:]
         n = max(1, int(round(dur * taxa)))
         saida = np.zeros((n, 2), np.float32)
-        if preset != "di":
-            amp.ganho_fixo(preset, taxa)                 # mede o nível uma vez (rápido)
 
         def ao_bloco(ini, fim, di):
             # DI pronto até `fim`: passa este bloco pelo amp e já libera para tocar
             if preset == "di":
-                saida[ini:fim] = np.clip(di[ini:fim] * np.float32(0.6 / amp.PICO_ENTRADA_FIXO), -1, 1)
+                saida[ini:fim] = di[ini:fim]
             else:
-                amp.processar_bloco(di, ini, fim, preset, taxa, saida)
+                amp.processar_bloco(di, ini, fim, preset, taxa, saida, ganho=1.0)
+            saida[ini:fim] = _limitar(saida[ini:fim] * automacao(ini, fim)[:, None])
             if progresso:
                 progresso(fim, saida)
 
         sg.render_di_em_blocos(notas, dur, taxa, dobrar=True, ao_bloco=ao_bloco, cancelado=cancelado)
         return saida
-    buf, usado = sint.render_notas(notas, dur, taxa, timbre, loop=False, pico=0.6)
+    buf, usado = sint.render_notas(notas, dur, taxa, timbre, loop=False, pico=None)
     if info is not None:
         info["backend"] = usado
-    buf = buf.astype(np.float32, copy=False)
+    buf = _limitar(buf.astype(np.float32, copy=False) * automacao(0, len(buf))[:, None])
     if progresso:
         progresso(len(buf), buf)
     return buf
@@ -324,6 +363,7 @@ class Reprodutor:
         self._t0 = 0.0
         self._tp = 0.0
         self._stream = None       # tocando em pedaços enquanto o resto ainda é preparado
+        self.volume = 0.9         # volume geral (0 a 1), vale na hora
 
     # -- mixer --
     @staticmethod
@@ -333,6 +373,15 @@ class Reprodutor:
             pygame.mixer.init(44100, -16, 2, 512)
         taxa, _, can = pygame.mixer.get_init()
         return taxa, can
+
+    def definir_volume(self, v: float) -> float:
+        self.volume = round(max(0.0, min(1.0, float(v))), 2)
+        self._aplicar_volume()
+        return self.volume
+
+    def _aplicar_volume(self):
+        if self.canal is not None:
+            self.canal.set_volume(self.volume)
 
     def _garantir(self):
         import pygame
@@ -377,6 +426,7 @@ class Reprodutor:
         som = pygame.sndarray.make_sound(np.ascontiguousarray(pedaco))
         if ocioso:
             self.canal.play(som)
+            self._aplicar_volume()
             if st["faminto"] is not None:
                 self._t0 += time.perf_counter() - st["faminto"]
                 st["faminto"] = None
@@ -405,6 +455,7 @@ class Reprodutor:
             self.canal.play(self.som)
             if loop:
                 self.canal.queue(self.som)
+        self._aplicar_volume()
         self._t0 = time.perf_counter() - pos
         self.tocando, self.pausado = True, False
 

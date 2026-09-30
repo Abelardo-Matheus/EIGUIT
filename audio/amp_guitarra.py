@@ -145,6 +145,20 @@ def _valvula(x: np.ndarray, g: float, assim: float) -> np.ndarray:
     return y
 
 
+_FILTRO_PERCEP: dict = {}
+
+
+def nivel_percebido(x: np.ndarray, taxa: int) -> float:
+    """RMS com ponderação parecida com a do ouvido (menos peso para graves e agudos extremos)."""
+    if taxa not in _FILTRO_PERCEP:
+        _FILTRO_PERCEP[taxa] = (butter(2, 300, "highpass", fs=taxa, output="sos"),
+                                butter(1, 6000, fs=taxa, output="sos"))
+    hp, lp = _FILTRO_PERCEP[taxa]
+    # potência de cada lado separado (somar os lados antes criaria "filtro pente")
+    y = sosfilt(lp, sosfilt(hp, x, axis=0), axis=0)
+    return float(np.sqrt(np.mean(y ** 2)) + 1e-12)
+
+
 def processar(di: np.ndarray, preset: str, taxa: int, rapido: bool = False,
               pico_entrada: float = None, ganho_saida: float = None) -> np.ndarray:
     """di: float32 (n, 2). -> float32 (n, 2).
@@ -224,11 +238,31 @@ def ganho_fixo(preset: str, taxa: int) -> float:
     return _GANHO_FIXO[chave]
 
 
+@functools.lru_cache(maxsize=512)
+def nivel_nota(preset: str, altura: int, taxa: int) -> float:
+    """Volume percebido de UMA nota (intensidade 100) depois do amp. O amp e a caixa
+    deixam umas alturas bem mais altas que outras (no high gain, até 8 dB); com esta
+    medida cada nota da música é corrigida para o mesmo volume."""
+    from . import sampler_guitarra as sg
+    from .sintetizador import NotaAudio
+    corda = 6 if altura < 45 else 5 if altura < 50 else 4 if altura < 55 else 3 if altura < 59 else 2 if altura < 64 else 1
+    di = sg.render_di([NotaAudio(0.0, 0.6, int(altura), 100, corda=corda)], 0.7, taxa, dobrar=True, cauda=0.0)
+    out = processar(di, preset, taxa, pico_entrada=PICO_ENTRADA_FIXO, ganho_saida=1.0) if preset != "di" else di
+    return nivel_percebido(out[: int(0.35 * taxa)], taxa)
+
+
+def correcao_altura(preset: str, altura: int, taxa: int) -> float:
+    """Ganho (linear) que leva a nota ao volume de referência (Lá 3), limitado a ±10 dB."""
+    ref = nivel_nota(preset, 57, taxa)
+    db = 20 * np.log10(ref / max(nivel_nota(preset, int(altura), taxa), 1e-9))
+    return float(10 ** (max(-10.0, min(10.0, db)) / 20))
+
+
 def processar_bloco(di: np.ndarray, ini: int, fim: int, preset: str, taxa: int, saida: np.ndarray,
-                    pico_saida: float = 0.6, contexto_s: float = 0.8) -> None:
+                    pico_saida: float = 0.6, contexto_s: float = 0.8, ganho: float = None) -> None:
     """Passa pelo amp só o trecho [ini, fim) do DI (com contexto antes) e grava em `saida`."""
     a = max(0, ini - int(contexto_s * taxa))
-    g = ganho_fixo(preset, taxa) * pico_saida
+    g = ganho if ganho is not None else ganho_fixo(preset, taxa) * pico_saida
     pedaco = processar(di[a:fim], preset, taxa, pico_entrada=PICO_ENTRADA_FIXO, ganho_saida=g)
     saida[ini:fim] = np.clip(pedaco[ini - a:], -1, 1)
 

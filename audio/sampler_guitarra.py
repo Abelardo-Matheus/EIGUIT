@@ -304,6 +304,36 @@ def _curva_pitch(n, ant, t: np.ndarray, dur: float) -> np.ndarray:
     return s
 
 
+ALVO_RMS = 0.08        # nível percebido de todo sample, medido no ataque (todas as notas saem iguais)
+
+
+@functools.lru_cache(maxsize=4096)
+def _nivel(caminho: str, taxa: int) -> float:
+    """RMS do ataque do sample (250 ms a partir do início do som)."""
+    x = _carregar(caminho, taxa)
+    if not len(x):
+        return 1.0
+    pico = float(np.abs(x).max()) or 1.0
+    i0 = int(np.argmax(np.abs(x) > 0.1 * pico))
+    trecho = x[i0:i0 + int(0.35 * taxa)]
+    # mede como o ouvido: menos peso para o grave do corpo e para o chiado agudo
+    # (medir só o RMS deixava round-robins e alturas com até 5 dB de diferença percebida)
+    from scipy.signal import butter, sosfilt
+    y = sosfilt(butter(1, 6000, fs=taxa, output="sos"), sosfilt(butter(2, 300, "highpass", fs=taxa, output="sos"), trecho))
+    return float(np.sqrt(np.mean(y ** 2))) or 1.0
+
+
+def ganho_regiao(reg: "Regiao", taxa: int) -> float:
+    """Leva qualquer sample (qualquer altura, camada ou round-robin) ao mesmo nível."""
+    return ALVO_RMS / _nivel(reg["sample"], taxa)
+
+
+def curva_velocidade(vel: float) -> float:
+    """Volume pela intensidade: suave e previsível (a camada do sample muda só o timbre)."""
+    v = max(1.0, min(127.0, float(vel))) / 127.0
+    return 0.18 + 0.82 * v ** 1.6
+
+
 def _tocar(inst: Instrumento, reg: Regiao, altura: int, curva_semi: np.ndarray, taxa: int,
            offset: int, detune_cents: float) -> np.ndarray:
     smp = _carregar(reg["sample"], taxa)
@@ -316,7 +346,7 @@ def _tocar(inst: Instrumento, reg: Regiao, altura: int, curva_semi: np.ndarray, 
         return np.zeros(0, np.float32)
     i = pos[:n].astype(np.int64)
     fr = (pos[:n] - i).astype(np.float32)
-    return (smp[i] * (1 - fr) + smp[i + 1] * fr).astype(np.float32) * (10 ** (reg._f("volume") / 20))
+    return (smp[i] * (1 - fr) + smp[i + 1] * fr).astype(np.float32) * np.float32(ganho_regiao(reg, taxa))
 
 
 def _render_tomada(inst, notas_prep, n_total, taxa, rng, folga=(0.0, 0.0), detune=0.0,
@@ -334,15 +364,18 @@ def _render_tomada(inst, notas_prep, n_total, taxa, rng, folga=(0.0, 0.0), detun
         tec = n.tecnica or ""
         t0 = n.t0 + (float(rng.uniform(*folga)) if folga[1] else 0.0)
         dur = max(0.02, fim - n.t0)
-        vel = int(np.clip(n.vel + rng.integers(-5, 6), 1, 127))
+        # a camada é escolhida pela intensidade escrita (sem sorteio: sorteio trocava de
+        # camada e dava saltos de volume); a variação humana fica só em ±0,7 dB
+        vel = int(np.clip(n.vel, 1, 127))
         legato = "hammer" in tec or "pull" in tec or ("slide" in tec and "out" not in tec and ant is not None)
         if legato:
-            vel = int(vel * 0.75)
+            vel = int(vel * 0.8)
+        ganho = curva_velocidade(vel) * float(10 ** (rng.uniform(-0.7, 0.7) / 20))
         pm = "P.M." in tec or "palm" in tec.lower()
         morta = "dead note" in tec
         if morta and inst.abafadas:
             reg = inst.escolher(n.altura, vel, rng, inst.abafadas)
-            sinal = _carregar(reg["sample"], taxa).copy() * (vel / 127) * 0.8
+            sinal = _carregar(reg["sample"], taxa).copy() * np.float32(ganho_regiao(reg, taxa) * ganho * 0.8)
             dur = len(sinal) / taxa
         else:
             reg = inst.escolher(n.altura, vel, rng)
@@ -355,8 +388,7 @@ def _render_tomada(inst, notas_prep, n_total, taxa, rng, folga=(0.0, 0.0), detun
             sinal = _tocar(inst, reg, n.altura, curva, taxa, offset, detune)
             if not len(sinal):
                 continue
-            # dinâmica: a camada já muda o timbre; ajuste fino de volume dentro da camada
-            sinal *= 0.55 + 0.45 * (vel / 127)
+            sinal *= np.float32(ganho)
             if legato:
                 a = min(len(sinal), int(0.006 * taxa))
                 sinal[:a] *= np.linspace(0.2, 1, a, dtype=np.float32)
@@ -379,7 +411,8 @@ def _render_tomada(inst, notas_prep, n_total, taxa, rng, folga=(0.0, 0.0), detun
         if inst.release and not pm and not morta and not cortada and dur > 0.12:
             rr = inst.escolher(n.altura, vel, rng, inst.release)
             if rr is not None:
-                ruido = _carregar(rr["sample"], taxa) * (10 ** (rr._f("volume") / 20)) * 0.5 * (vel / 127)
+                ruido = _carregar(rr["sample"], taxa) * np.float32(
+                    (10 ** (rr._f("volume") / 20)) * 0.5 * ganho)
                 a = int(round((t0 + dur) * taxa))
                 if a < n_total:
                     b = min(n_total, a + len(ruido))
@@ -428,8 +461,10 @@ def render_di_em_blocos(notas, dur: float, taxa: int = 44100, dobrar: bool = Tru
             if dobrar:
                 _render_tomada(inst, grupo, n_total, taxa, rng_b, folga=(0.005, 0.012), detune=3.0, out=b)
         if dobrar:
-            di[ini:fim, 0] = 0.8 * a[ini:fim] + 0.35 * b[ini:fim]
-            di[ini:fim, 1] = 0.35 * a[ini:fim] + 0.8 * b[ini:fim]
+            # uma tomada em cada lado, sem misturar: misturar as duas com 5-12 ms de
+            # diferença criava "filtro pente" (cada nota com um timbre e um volume)
+            di[ini:fim, 0] = a[ini:fim]
+            di[ini:fim, 1] = b[ini:fim]
         else:
             di[ini:fim, 0] = di[ini:fim, 1] = a[ini:fim]
         if ao_bloco:
@@ -452,5 +487,5 @@ def render_di(notas, dur: float, taxa: int = 44100, dobrar: bool = True, semente
         return np.stack([a, a], axis=1)
     b = _render_tomada(inst, prep, n_total, taxa, np.random.default_rng(semente + 101),
                        folga=(0.005, 0.012), detune=3.0)
-    # 1ª tomada mais à esquerda, 2ª mais à direita (como duas guitarras gravadas)
-    return np.stack([0.8 * a + 0.35 * b, 0.35 * a + 0.8 * b], axis=1)
+    # 1ª tomada à esquerda, 2ª à direita (como duas guitarras gravadas), sem misturar
+    return np.stack([a, b], axis=1)

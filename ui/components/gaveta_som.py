@@ -62,7 +62,7 @@ class GavetaSom:
         texto, suave = _cor('texto', (235, 237, 242)), _cor('texto_suave', (150, 156, 168))
         acento, sobre = _cor('acento', (50, 150, 255)), _cor('texto_sobre_cor', (255, 255, 255))
         grupos = self.grupos(synth)
-        alt = sum((22 if nome else 4) + self.ALTURA_ITEM * len(itens) for nome, itens, _ in grupos) + 10
+        alt = sum((22 if nome else 4) + self.ALTURA_ITEM * len(itens) for nome, itens, _ in grupos) + 10 + 40
         area = pygame.Rect(rect_botao.x, rect_botao.bottom + 4, self.LARGURA, alt)
         tela_r = tela.get_rect()
         if area.bottom > tela_r.bottom - 4:               # sem espaco embaixo: abre para cima
@@ -96,6 +96,22 @@ class GavetaSom:
                 if ok:
                     self._itens.append((r, chave))
                 y += self.ALTURA_ITEM
+        # volume geral (muda na hora; a gaveta continua aberta)
+        y += 6
+        pygame.draw.line(tela, borda, (area.x + 10, y), (area.right - 10, y))
+        y += 6
+        tela.blit(fonte.render('VOLUME', True, suave), (area.x + 12, y + 6))
+        vol = getattr(synth, 'volume_mestre', 0.9)
+        menos = pygame.Rect(area.right - 130, y, 30, 26)
+        mais = pygame.Rect(area.right - 40, y, 30, 26)
+        for r, t in ((menos, '-'), (mais, '+')):
+            pygame.draw.rect(tela, borda, r, border_radius=6)
+            img = fonte.render(t, True, texto)
+            tela.blit(img, img.get_rect(center=r.center))
+        img = fonte.render(f'{vol * 100:.0f}%', True, texto)
+        tela.blit(img, img.get_rect(center=((menos.right + mais.x) // 2, menos.centery)))
+        self._itens.append((menos, 'vol-'))
+        self._itens.append((mais, 'vol+'))
 
     def tratar_clique(self, pos, rect_botao, synth):
         """True se o clique foi da gaveta (abrir, fechar ou escolher)."""
@@ -106,6 +122,10 @@ class GavetaSom:
             return False
         for r, chave in self._itens:
             if r.collidepoint(pos):
+                if chave in ('vol-', 'vol+'):
+                    if hasattr(synth, 'definir_volume'):
+                        synth.definir_volume(synth.volume_mestre + (0.1 if chave == 'vol+' else -0.1))
+                    return True
                 if chave.startswith('prof:'):
                     synth.definir_timbre(chave[5:])
                     synth.alternar_modo('profissional')
