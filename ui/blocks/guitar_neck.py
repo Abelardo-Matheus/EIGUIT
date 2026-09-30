@@ -7,7 +7,8 @@ from config.theme import *
 from config.ui_metrics import *
 from config.app_settings import *
 from config.design_system import TEMA, ds
-from ui.components.utils import obter_grau, equivalencia_notas
+from ui.components.utils import obter_grau
+from core.modulos.escalas import equivalencia_notas
 from ui.components.config_componentes import (
     GUITAR_RAIO_NOTA, GUITAR_ALPHA_NORMAL, GUITAR_ALPHA_INATIVO,
 )
