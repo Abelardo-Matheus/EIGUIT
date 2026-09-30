@@ -295,6 +295,37 @@ def volume_igual_para_todas_as_notas():
     m.definir_volume(v0)
 
 
+def tecnicas_desenhadas_e_cursor():
+    """Bend com arco e 'full', ligadura H/P, slide, vibrato e P.M. desenhados; cursor
+    atrasado pela latencia da placa e preso ao relogio do audio."""
+    from Estudos import estudo_tempo as et
+    from audio import motor_tempo as mt
+    import numpy as np
+    parte = {"tuning": [64, 59, 55, 50, 45, 40], "measures": [{"signature": [4, 4], "voices": [{"beats": [
+        {"duration": [1, 4], "notes": [{"string": 1, "fret": 15, "bend": {"tone": 100}}]},
+        {"duration": [1, 8], "notes": [{"string": 2, "fret": 12}]},
+        {"duration": [1, 8], "notes": [{"string": 2, "fret": 14, "hp": True}]},
+        {"duration": [1, 4], "notes": [{"string": 3, "fret": 14, "slide": "shift"}]},
+        {"duration": [1, 4], "notes": [{"string": 0, "fret": 12, "vibrato": True}], "palmMute": True}]}]}]}
+    p = lp.partitura_de_songsterr(parte, {"artist": "t", "title": "t"})
+    d = et.Diagramacao(p, 900, 1.35)
+    F = et.Fontes(1.35)
+    sup = pygame.Surface((920, d.alt_sist))
+    sup.fill((255, 255, 255))
+    et.desenhar_sistema(sup, d, 0, 0, 0, et.TEMA_PAPEL, F)
+    acima = pygame.surfarray.array3d(sup)[:, :d.tab_y(1) - 4, :]
+    s.checar((acima.sum(axis=2) < 300).sum() > 150, 'nada foi desenhado acima da pauta (bend/vibrato/P.M.)')
+    # cursor: atraso da placa aplicado e relogio corrigido pela emenda da fila
+    r = mt.Reprodutor()
+    r.latencia = 0.2
+    r.tocar(np.zeros((44100 * 2, 2), np.int16), 2.0, True, 0.0)
+    time.sleep(0.1)
+    s.checar(r.posicao() == 0.0, 'o cursor deveria esperar o atraso da placa de som')
+    r._ressincronizar(1.0)
+    s.checar(abs(r.posicao() - (1.0 - 0.2)) < 0.05, 'o cursor nao foi acertado pelo relogio do audio')
+    r.parar()
+
+
 def songsterr_simulado():
     import json as _json
     from Estudos import importar_songsterr as imp
@@ -394,6 +425,7 @@ s.teste('audio da musica pronto, play imediato e gaveta de sons', audio_pronto_e
 s.teste('importar do Songsterr pela busca (rede simulada)', songsterr_simulado)
 s.teste('musica longa: play logo ao abrir toca em pedacos', musica_longa_toca_em_pedacos)
 s.teste('mesmo volume para todas as notas e volume geral', volume_igual_para_todas_as_notas)
+s.teste('tecnicas desenhadas (bend, H/P, slide, vibrato, P.M.) e cursor sincronizado', tecnicas_desenhadas_e_cursor)
 s.teste('motor da tablatura: modos, instrumentos e botao de som', motor_tablatura)
 s.teste('celula da grade lida igual ao player', celula_lida_igual_ao_player)
 for _tema in harness.TEMAS:

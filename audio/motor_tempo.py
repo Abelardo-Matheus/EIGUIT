@@ -364,6 +364,14 @@ class Reprodutor:
         self._tp = 0.0
         self._stream = None       # tocando em pedaços enquanto o resto ainda é preparado
         self.volume = 0.9         # volume geral (0 a 1), vale na hora
+        # atraso da placa de som: o som sai um pouco depois do play. O cursor usa o
+        # mesmo atraso para andar junto com o que se OUVE (ajustável em "Sincronia")
+        self.latencia = 0.08
+        # relógio do cursor preso ao relógio da PLACA DE SOM: a cada emenda da fila
+        # sabemos a posição exata do áudio; daí sai também a velocidade real da placa
+        self._taxa_relogio = 1.0
+        self._marca = None        # (instante, posição do áudio "desenrolada") da última emenda
+        self._voltas = 0
 
     # -- mixer --
     @staticmethod
@@ -403,14 +411,31 @@ class Reprodutor:
         tam = max(1, int(pedaco_s * taxa))
         i = int(max(0.0, min(pos, self.dur - 0.01)) * taxa)
         self._stream = {"obter": obter, "n": n_total, "tam": tam, "prox": i, "taxa": taxa,
-                        "faminto": None, "tocou": False}
+                        "faminto": None, "tocou": False, "na_fila": None, "linha": pos}
         self._t0 = time.perf_counter() - pos
+        self._marca, self._voltas = None, 0
         self.tocando, self.pausado = True, False
         self._alimentar()
+
+    def _ressincronizar(self, posicao_real: float):
+        """Neste instante a placa de som está em `posicao_real` (segundos "desenrolados",
+        contando as voltas do loop). Acerta o relógio do cursor e mede a velocidade real
+        da placa (placas reais correm 0,01–0,1% diferente do relógio do PC; a do teste, 4%)."""
+        agora = time.perf_counter() - 0.008                        # detecção é por quadro (~8 ms)
+        if self._marca is not None:
+            d_aud, d_rel = posicao_real - self._marca[1], agora - self._marca[0]
+            if d_aud > 0.5 and d_rel > 0.3:
+                self._taxa_relogio = 0.6 * self._taxa_relogio + 0.4 * max(0.9, min(1.1, d_aud / d_rel))
+        self._marca = (agora, posicao_real)
+        self._t0 = agora - posicao_real / self._taxa_relogio
 
     def _alimentar(self):
         import pygame
         st = self._stream
+        # o pedaço que estava na fila começou a tocar agora: sabemos a posição exata
+        if st.get("na_fila") is not None and self.canal.get_queue() is None and self.canal.get_busy():
+            self._ressincronizar(st["na_fila"])
+            st["na_fila"] = None
         if st["prox"] >= st["n"]:
             if not self.loop:
                 return
@@ -424,14 +449,18 @@ class Reprodutor:
                 st["faminto"] = time.perf_counter()        # acabou o pronto: segura o cursor
             return
         som = pygame.sndarray.make_sound(np.ascontiguousarray(pedaco))
+        inicio_linha = st["linha"]                 # onde este pedaço cai na linha do tempo
+        st["linha"] += (i1 - i0) / st["taxa"]
         if ocioso:
             self.canal.play(som)
             self._aplicar_volume()
             if st["faminto"] is not None:
                 self._t0 += time.perf_counter() - st["faminto"]
                 st["faminto"] = None
+                self._marca = None
         elif self.canal.get_queue() is None:
             self.canal.queue(som)
+            st["na_fila"] = inicio_linha
         else:
             return
         st["tocou"] = True
@@ -457,6 +486,7 @@ class Reprodutor:
                 self.canal.queue(self.som)
         self._aplicar_volume()
         self._t0 = time.perf_counter() - pos
+        self._marca, self._voltas = None, 0
         self.tocando, self.pausado = True, False
 
     def trocar_loop(self, loop: bool) -> None:
@@ -477,6 +507,7 @@ class Reprodutor:
         if self.canal and self.pausado:
             self.canal.unpause()
             self._t0 += time.perf_counter() - self._tp
+            self._marca = None
             self.pausado = False
 
     def parar(self) -> None:
@@ -491,7 +522,7 @@ class Reprodutor:
         agora = self._tp if self.pausado else time.perf_counter()
         if self._stream is not None and self._stream["faminto"] is not None:
             agora = self._stream["faminto"]
-        t = agora - self._t0
+        t = max(0.0, (agora - self._t0) * self._taxa_relogio - self.latencia)
         if self.loop and self.dur > 0:
             return t % self.dur
         return min(t, self.dur)
@@ -510,6 +541,9 @@ class Reprodutor:
             return True
         if self.loop:
             if self.canal.get_queue() is None and self.som is not None:
+                # a cópia que estava na fila acabou de começar: é o início de uma volta
+                self._voltas += 1
+                self._ressincronizar(self._voltas * self.dur)
                 self.canal.queue(self.som)
         elif time.perf_counter() - self._t0 >= self.dur + 0.05 and not self.canal.get_busy():
             self.tocando = False

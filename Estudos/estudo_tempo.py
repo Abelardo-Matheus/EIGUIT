@@ -163,7 +163,7 @@ class Diagramacao:
     def __init__(self, p: lp.Partitura, largura: int, esc: float = 1.0):
         self.p, self.esc, self.largura = p, esc, largura
         s = esc
-        self.head = int(24 * s)            # número do compasso / BPM
+        self.head = int(36 * s)            # número do compasso, BPM e o espaço dos bends/vibratos
         self.ls = int(15 * s)              # distância entre as cordas
         self.abaixo_tab = int(9 * s)
         self.ritmo = int(38 * s)           # hastes e barras
@@ -341,6 +341,7 @@ def desenhar_sistema(surf, d: Diagramacao, si: int, ox: int, oy: int, T: dict, F
             y = oy + d.tab_y(n.corda)
             pygame.draw.rect(surf, T["sustain"], (ox + xa, y - alt_s // 2, max(2, xb - xa - 2), alt_s),
                              border_radius=2)
+    caixas = {}                                 # id(nota) -> retângulo do número (para os arcos)
     for n in vis:
         if n.inicio < q0:
             continue
@@ -348,15 +349,147 @@ def desenhar_sistema(surf, d: Diagramacao, si: int, ox: int, oy: int, T: dict, F
         corda = n.corda or 1
         y = oy + d.tab_y(corda)
         rot = "x" if "dead note" in n.tecnica else n.rotulo()
+        if "harmônico" in n.tecnica:
+            rot = f"<{rot}>"
         tocando = q_atual is not None and n.inicio <= q_atual < n.fim
         cor = T.get("tocando", T["destaque"]) if tocando else (T["texto"] if n.corda else T["aviso"])
         img = (F.casa if n.casa is not None else F.peq_b).render(rot, True, cor)
         r = img.get_rect(center=(ox + xa + img.get_width() / 2 - 1, y))
         pygame.draw.rect(surf, T["nota_bg"], r.inflate(int(4 * s), -int(2 * s)), border_radius=int(3 * s))
         surf.blit(img, r)
-        ab = ABREV.get(n.tecnica, n.tecnica[:3] if n.tecnica else "")
-        if ab and ab != "x":
+        caixas[id(n)] = r
+        resto = n.tecnica
+        for desenhada in ("bend 1 tom", "bend ½", "bend ¼", "release", "hammer", "pull", "slide out",
+                          "slide", "vibrato", "P.M.", "dead note", "harmônico"):
+            resto = resto.replace(desenhada, "")
+        ab = ABREV.get(resto.strip(), resto.strip()[:3])
+        if ab:
             _txt(surf, F.peq_b, ab, T["destaque"], (r.right + 1, y - 3 * s), "bottomleft")
+    desenhar_tecnicas(surf, d, si, ox, oy, T, F, vis, caixas)
+
+
+# ---------------------------------------------------------------------------- técnicas (estilo Songsterr)
+def _curva(p0, p1, p2, passos=14):
+    """Pontos de uma curva de Bézier quadrática."""
+    pts = []
+    for k in range(passos + 1):
+        t = k / passos
+        x = (1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * p1[0] + t * t * p2[0]
+        y = (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * p1[1] + t * t * p2[1]
+        pts.append((x, y))
+    return pts
+
+
+def _seta(surf, cor, ponta, direcao, tam):
+    """Ponta de seta em `ponta`, apontando para `direcao` ('cima' ou 'baixo')."""
+    x, y = ponta
+    if direcao == "cima":
+        pts = [(x, y), (x - tam * 0.6, y + tam), (x + tam * 0.6, y + tam)]
+    else:
+        pts = [(x, y), (x - tam * 0.6, y - tam), (x + tam * 0.6, y - tam)]
+    pygame.draw.polygon(surf, cor, pts)
+
+
+def _rotulo_bend(semis: float) -> str:
+    if semis >= 3.5:
+        return "2"
+    if semis >= 2.5:
+        return "1½"
+    if semis >= 1.5:
+        return "full"
+    if semis >= 0.75:
+        return "½"
+    return "¼"
+
+
+def desenhar_tecnicas(surf, d, si, ox, oy, T, F, vis, caixas):
+    """Arco do bend (sobe para fora da pauta, com 'full'/'½'), ligadura com H/P entre
+    as notas do hammer-on/pull-off, linha do slide, vibrato ondulado e P.M. — como no Songsterr."""
+    s = d.esc
+    sist = d.sistemas[si]
+    q0, q1 = sist["q0"], sist["q1"]
+    cor = T["texto"]
+    fina = max(1, int(1.5 * s))
+    y_topo = oy + d.tab_y(1)
+    x_ini_sist = ox + sist["comps"][0]["x"]
+    anteriores = {}                         # corda -> nota anterior (para ligaduras e slides)
+    todas = sorted((n for n in d.p.notas if n.corda and n.inicio < q1), key=lambda n: n.inicio)
+    for n in todas:
+        ant = anteriores.get(n.corda)
+        anteriores[n.corda] = n
+        if n.inicio < q0 or id(n) not in caixas:
+            continue
+        r = caixas[id(n)]
+        y = oy + d.tab_y(n.corda)
+        tec = n.tecnica or ""
+        # ----- hammer-on / pull-off: ligadura acima das duas notas + H ou P
+        if ("hammer" in tec or "pull" in tec) and ant is not None:
+            ra = caixas.get(id(ant))
+            xa = ra.centerx if ra else x_ini_sist
+            xb = r.centerx
+            if xb - xa > 4:
+                topo = y - d.ls * 0.95
+                pts = _curva((xa, y - d.ls * 0.45), ((xa + xb) / 2, topo - d.ls * 0.35), (xb, y - d.ls * 0.45))
+                pygame.draw.lines(surf, cor, False, pts, fina)
+                letra = "P" if "pull" in tec else "H"
+                _txt(surf, F.peq_b, letra, cor, ((xa + xb) / 2, topo - d.ls * 0.25), "midbottom")
+        # ----- slide: linha inclinada entre as notas (sobe ou desce com a altura)
+        if "slide" in tec and "out" not in tec and ant is not None:
+            ra = caixas.get(id(ant))
+            if ra is not None:
+                sobe = (n.altura or 0) >= (ant.altura or 0)
+                d_y = d.ls * 0.28
+                pygame.draw.line(surf, cor, (ra.right + 2, y + (d_y if sobe else -d_y)),
+                                 (r.left - 2, y + (-d_y if sobe else d_y)), fina)
+        if "slide out" in tec:
+            pygame.draw.line(surf, cor, (r.right + 2, y - d.ls * 0.2), (r.right + 14 * s, y + d.ls * 0.35), fina)
+        # ----- bend: arco saindo do número e subindo para fora da pauta, seta e 'full'/'½'
+        if "bend" in tec or (n.bend_semitons and n.bend_semitons > 0.2):
+            semis = n.bend_semitons or (2.0 if "1 tom" in tec else 1.0 if "½" in tec else 0.5)
+            _, x_fim = d.x_de_q(min(n.fim, q1), fim=True)
+            larg = max(16 * s, min(34 * s, ox + x_fim - r.right - 4 * s))
+            x0, y0 = r.right + 1, y
+            x1, y1 = x0 + larg, y_topo - 12 * s
+            pts = _curva((x0, y0), (x1, y0), (x1, y1 + 5 * s))
+            pygame.draw.lines(surf, cor, False, pts, fina)
+            _seta(surf, cor, (x1, y1), "cima", 6 * s)
+            _txt(surf, F.peq_b, _rotulo_bend(semis), cor, (x1, y1 - 2 * s), "midbottom")
+            if "release" in tec:
+                x2 = x1 + max(14 * s, larg * 0.8)
+                pts = _curva((x1, y1 + 4 * s), (x2, y1 + 4 * s), (x2, y - 6 * s))
+                for k in range(0, len(pts) - 1, 2):              # tracejado, como no Songsterr
+                    pygame.draw.line(surf, cor, pts[k], pts[k + 1], fina)
+                _seta(surf, cor, (x2, y - 2 * s), "baixo", 6 * s)
+        # ----- vibrato: linha ondulada acima da pauta durante a nota
+        if "vibrato" in tec:
+            _, x_fim = d.x_de_q(min(n.fim, q1), fim=True)
+            xa, xb = r.left, max(r.right + 18 * s, ox + x_fim - 4 * s)
+            yv = y_topo - 16 * s
+            pts, x, k = [], xa, 0
+            while x <= xb:
+                pts.append((x, yv + (3 * s if k % 2 == 0 else -3 * s)))
+                x += 4 * s
+                k += 1
+            if len(pts) > 1:
+                pygame.draw.lines(surf, cor, False, pts, fina)
+    # ----- P.M.: rótulo e linha tracejada acima da pauta, juntando notas seguidas
+    grupos = []
+    for n in sorted((n for n in vis if "P.M." in (n.tecnica or "") and n.inicio >= q0 and id(n) in caixas),
+                    key=lambda n: n.inicio):
+        _, xb = d.x_de_q(min(n.fim, q1), fim=True)
+        xa = caixas[id(n)].left
+        if grupos and xa - grupos[-1][1] < 26 * s:
+            grupos[-1][1] = max(grupos[-1][1], ox + xb)
+        else:
+            grupos.append([xa, ox + xb])
+    for xa, xb in grupos:
+        ypm = y_topo - 9 * s
+        rot = _txt(surf, F.peq_b, "P.M.", cor, (xa, ypm), "midleft")
+        x = rot.right + 3 * s
+        while x < xb - 3 * s:
+            pygame.draw.line(surf, cor, (x, ypm), (min(x + 4 * s, xb), ypm), fina)
+            x += 8 * s
+        pygame.draw.line(surf, cor, (xb, ypm - 4 * s), (xb, ypm + 4 * s), fina)
 
 
 def _desenhar_ritmo(surf, d: Diagramacao, cl: dict, c: lp.Compasso, ox, oy, T, F) -> None:
@@ -616,6 +749,7 @@ class EstudoTempo:
         self.papel = bool(prefs.get("papel", True))
         self.mostrar_duracao = bool(prefs.get("duracao", True))
         self.rep.definir_volume(float(prefs.get("volume", 0.9)))
+        self.rep.latencia = float(prefs.get("latencia", 0.08))
         self.bib: Optional[bib_mod.Biblioteca] = None
         self._usuario_bib = object()
         self.mostrar_bib = False
@@ -786,7 +920,7 @@ class EstudoTempo:
     def _gravar_prefs(self):
         bib_mod.Biblioteca.gravar_preferencias(
             {"zoom": self.zoom, "papel": self.papel, "duracao": self.mostrar_duracao,
-             "detalhes": self.detalhes, "volume": self.rep.volume})
+             "detalhes": self.detalhes, "volume": self.rep.volume, "latencia": self.rep.latencia})
 
     def mudar_volume(self, d: float):
         """Volume geral do estudo: muda na hora, mesmo tocando (não gera o som de novo)."""
@@ -1321,7 +1455,7 @@ class EstudoTempo:
         botao = next(b for b in self.botoes1 if b.acao == self.alternar_gaveta)
         grupos = self._itens_gaveta()
         larg = 300
-        alt = sum(26 + 30 * len(itens) for _, itens, _ in grupos) + 12
+        alt = sum(26 + 30 * len(itens) for _, itens, _ in grupos) + 12 + 58
         r = pygame.Rect(botao.rect.x, botao.rect.bottom + 4, larg, alt)
         if r.right > self.rect.right - 8:
             r.x = self.rect.right - 8 - larg
@@ -1346,6 +1480,21 @@ class EstudoTempo:
                 if ok:
                     self._rects_gaveta.append((ri, tid))
                 y += 30
+        # sincronia do cursor com o som (atraso da placa de som deste computador)
+        y += 4
+        pygame.draw.line(tela, T["borda"], (r.x + 10, y), (r.right - 10, y))
+        _txt(tela, F.peq_b, "SINCRONIA DO CURSOR", T["fraco"], (r.x + 14, y + 6))
+        _txt(tela, F.peq, "se o risco vermelho corre na frente do som, aumente", T["fraco"], (r.x + 14, y + 22))
+        y += 38
+        menos = pygame.Rect(r.x + 14, y, 30, 24)
+        mais = pygame.Rect(r.x + 120, y, 30, 24)
+        for rb, t in ((menos, "−"), (mais, "+")):
+            pygame.draw.rect(tela, T["painel2"], rb, border_radius=6)
+            _txt(tela, F.med_b, t, T["texto"], rb.center, "center")
+        _txt(tela, F.med_b, f"{self.rep.latencia * 1000:.0f} ms", T["texto"],
+             ((menos.right + mais.x) // 2, menos.centery), "center")
+        self._rects_gaveta.append((menos, "lat-"))
+        self._rects_gaveta.append((mais, "lat+"))
 
     def proximo_timbre(self):
         sf_ok, _ = sint.soundfont_disponivel()
@@ -1446,6 +1595,11 @@ class EstudoTempo:
         if self.gaveta_som and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
             for r, tid in self._rects_gaveta:
                 if r.collidepoint(pos):
+                    if tid in ("lat-", "lat+"):
+                        self.rep.latencia = round(max(0.0, min(0.5, self.rep.latencia +
+                                                               (0.01 if tid == "lat+" else -0.01))), 3)
+                        self._gravar_prefs()
+                        return True                     # a gaveta continua aberta
                     self.escolher_timbre(tid)
                     return True
             botao = next(b for b in self.botoes1 if b.acao == self.alternar_gaveta)
