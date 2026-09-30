@@ -124,9 +124,10 @@ CAUDA_COMPLETA = 1.5      # segundos de "rabo" depois da última nota
 
 
 def renderizar_guitarra_completa(p, bpm: float, taxa: int = 44100, timbre: str = "sintetico",
-                                 info: Optional[dict] = None) -> np.ndarray:
+                                 info: Optional[dict] = None, progresso=None) -> np.ndarray:
     """Guitarra da música inteira (sem metrônomo) em float32 (n, 2), no BPM pedido.
-    Normalizada uma vez só para a música toda (o volume não muda entre trechos)."""
+    Com o sampler, o amp roda em blocos (memória baixa) e `progresso(prontas, buffer)`
+    é chamado a cada bloco, para o começo da música já poder tocar."""
     fator = bpm / p.bpm_inicial
     s0 = p.segundos(Fraction(0))
 
@@ -141,10 +142,28 @@ def renderizar_guitarra_completa(p, bpm: float, taxa: int = 44100, timbre: str =
         t0 = seg(nt.inicio)
         notas.append(sint.NotaAudio(t0, seg(nt.fim) - t0, nt.altura, nt.velocidade,
                                     nt.bend_semitons, nt.tecnica, nt.corda))
+    alvo = next((pr for tid, _, pr in sint.TIMBRES if tid == timbre), None)
+    if isinstance(alvo, str) and alvo.startswith("amp:") and sint.sampler_disponivel()[0]:
+        from . import amp_guitarra as amp
+        from . import sampler_guitarra as sg
+        di = sg.render_di(notas, dur, taxa, dobrar=True, cauda=0.0)
+        n = max(1, int(round(dur * taxa)))
+        di = di[:n]
+        if info is not None:
+            info["backend"] = "sampler"
+        if alvo == "amp:di":
+            out = (di * np.float32(0.6 / (float(np.abs(di).max()) + 1e-9))).astype(np.float32)
+            if progresso:
+                progresso(len(out), out)
+            return out
+        return amp.processar_em_blocos(di, alvo[4:], taxa, pico_saida=0.6, progresso=progresso)
     buf, usado = sint.render_notas(notas, dur, taxa, timbre, loop=False, pico=0.6)
     if info is not None:
         info["backend"] = usado
-    return buf.astype(np.float32, copy=False)
+    buf = buf.astype(np.float32, copy=False)
+    if progresso:
+        progresso(len(buf), buf)
+    return buf
 
 
 def montar_trecho(p, completo: np.ndarray, q_ini: Fraction, q_fim: Fraction, bpm: float,

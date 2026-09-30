@@ -807,7 +807,7 @@ class EstudoTempo:
         self._render_ok = None
         self._atual = None
         self._cache_linhas = {}
-        self._preparar_audio_completo(0.3)
+        self._preparar_audio_completo()           # já começa a preparar o áudio da música inteira
         self.avisar(f"{p.titulo}: {len(p.compassos)} compassos, BPM {p.bpm_inicial:g} (metrônomo ajustado)")
         if p.notas:
             primeira = p.compasso_em(min(n.inicio for n in p.notas))
@@ -873,12 +873,30 @@ class EstudoTempo:
         self._render_pedido = None
         p = self.p
         q0, q1, bpm, loop, met, gtr, sub, timbre = params
-        completo = self._completos.get((id(p), timbre, round(bpm, 2)))
+        chave = (id(p), timbre, round(bpm, 2))
+        completo = self._completos.get(chave)
+        taxa, can = mt.Reprodutor.formato()
         if completo is not None or not gtr:
             # música inteira já pronta: só recorta o trecho (milissegundos)
-            taxa, can = mt.Reprodutor.formato()
             buf, dur = mt.montar_trecho(p, completo, q0, q1, bpm, taxa, can, met, gtr, loop, subdivisao=sub)
             self._render_ok = (buf, dur, params, q_tocar, p)
+            return
+        par = getattr(self, "_parcial", None)
+        if par is None or par["chave"] != chave:
+            self._preparar_audio_completo()          # ainda não começou: começa agora
+            par = None
+        if par is not None and not par["erro"]:
+            # o começo da música já pode estar pronto (o resto continua em segundo plano)
+            s0 = p.segundos(Fraction(0))
+            precisa = int(((p.segundos(q1) - s0) * p.bpm_inicial / bpm
+                           + (mt.CAUDA_COMPLETA if loop else 0)) * taxa)
+            if par["buf"] is not None and par["pronto"] >= min(precisa, par["total"]):
+                buf, dur = mt.montar_trecho(p, par["buf"], q0, q1, bpm, taxa, can, met, gtr, loop, subdivisao=sub)
+                self._render_ok = (buf, dur, params, q_tocar, p)
+                return
+            # espera (sem gerar outro áudio em paralelo): toca sozinho quando ficar pronto
+            self._render_pedido = (self._params(), q_tocar)
+            self._esperando_desde = getattr(self, "_esperando_desde", None) or time.time()
             return
 
         def job():
@@ -931,11 +949,11 @@ class EstudoTempo:
         q0, q1 = self._faixa_q()
         q = self._pos_q if (self._pos_q is not None and q0 <= self._pos_q < q1) else q0
         self._pedir_render(q)
-        if not self.audio_pronto():
-            self.avisar("Preparando o áudio…")
+        self._debounce = 0.0
 
     def parar(self):
         """Para o áudio (botão Parar e também chamado pelo gerenciador ao sair do estudo)."""
+        self._esperando_desde = None
         self.rep.parar()
         self._pos_q = None
         self._render_pedido = None
@@ -987,26 +1005,45 @@ class EstudoTempo:
         if chave in self._completos:
             return
         arquivo = self._arquivo_audio(timbre, bpm)
+        taxa, _ = mt.Reprodutor.formato()
+        total = int(((p.segundos(p.fim) - p.segundos(Fraction(0))) * p.bpm_inicial / bpm
+                     + mt.CAUDA_COMPLETA) * taxa)
+        parcial = {"chave": chave, "buf": None, "pronto": 0, "total": max(1, total), "erro": None}
+        self._parcial = parcial
+
+        def progresso(prontas, buf):
+            parcial["buf"], parcial["pronto"] = buf, prontas
 
         def job():
             try:
-                taxa, _ = mt.Reprodutor.formato()
                 buf = mt.ler_audio(arquivo, taxa) if arquivo and os.path.exists(arquivo) else None
-                if buf is None:
-                    buf = mt.renderizar_guitarra_completa(p, bpm, taxa, timbre)
-                    if arquivo:
-                        try:
-                            mt.salvar_audio(arquivo, buf, taxa)
-                        except Exception as e:
-                            print("[tempo] não consegui guardar o áudio:", e)
-                self._completos[chave] = buf
+                novo = buf is None
+                if novo:
+                    buf = mt.renderizar_guitarra_completa(p, bpm, taxa, timbre, progresso=progresso)
+                parcial.update(buf=buf, pronto=len(buf), total=len(buf))
+                self._completos[chave] = buf              # já pode tocar; o disco vem depois
                 while len(self._completos) > 3:
                     self._completos.pop(next(iter(self._completos)))
+                if novo and arquivo:
+                    try:
+                        mt.salvar_audio(arquivo, buf, taxa)
+                    except Exception as e:
+                        print("[tempo] não consegui guardar o áudio:", e)
             except Exception as e:
-                print("[tempo] falha no áudio completo:", e)
+                import traceback
+                traceback.print_exc()
+                parcial["erro"] = f"{type(e).__name__}: {e}"
+                self.avisar(f"Erro ao preparar o áudio: {parcial['erro']}")
 
         self._completo_job = threading.Thread(target=job, daemon=True)
         self._completo_job.start()
+
+    def progresso_audio(self) -> Optional[float]:
+        """0..1 do áudio da música inteira (None se não está sendo preparado)."""
+        par = getattr(self, "_parcial", None)
+        if not self.p or par is None or par["chave"] != (id(self.p), self.timbre, round(self.bpm, 2)):
+            return None
+        return min(1.0, par["pronto"] / max(1, par["total"]))
 
     def audio_pronto(self) -> bool:
         return bool(self.p) and (id(self.p), self.timbre, round(self.bpm, 2)) in self._completos
@@ -1285,9 +1322,16 @@ class EstudoTempo:
         if self._render_ok:
             buf, dur, params, q_tocar, p = self._render_ok
             self._render_ok = None
+            self._esperando_desde = None
             if p is self.p and not self._render_pedido:
                 pos = self._seg_de_q(params, q_tocar) if q_tocar is not None else 0.0
-                self.rep.tocar(buf, dur, params[3], pos)
+                try:
+                    self.rep.tocar(buf, dur, params[3], pos)
+                except Exception as e:                 # nunca fica "mudo" sem explicar
+                    import traceback
+                    traceback.print_exc()
+                    self.avisar(f"Não consegui tocar: {type(e).__name__}: {e}")
+                    return
                 self._atual = (buf, dur, params)
                 self.msg = "" if self.msg.startswith("Preparando") else self.msg
         if self.rep.tocando:
@@ -1492,6 +1536,10 @@ class EstudoTempo:
         ys = barra.bottom - 22
         if self.carregando:
             status, cor = self.carregando, T["destaque"]
+        elif self._render_pedido and getattr(self, "_esperando_desde", None):
+            prog = self.progresso_audio() or 0
+            status = f"Preparando o áudio da música: {prog * 100:.0f}% — começa a tocar sozinho quando ficar pronto"
+            cor = T["destaque"]
         elif self.msg and time.time() - self.msg_t < 8:
             status, cor = self.msg, T["texto"]
         elif self.p:
@@ -1593,7 +1641,9 @@ class EstudoTempo:
             self._desenhar_detalhes(tela, det)
         # indicador: o áudio da música inteira já está pronto?
         pronto = self.audio_pronto()
-        rot = "áudio pronto" if pronto else "preparando áudio…"
+        prog = self.progresso_audio()
+        rot = "áudio pronto" if pronto else (f"preparando áudio {prog * 100:.0f}%" if prog is not None
+                                             else "preparando áudio…")
         img = F.peq_b.render(rot, True, (40, 170, 90) if pronto else T["fraco"])
         tela.blit(img, img.get_rect(bottomright=(barra.right - 12, barra.bottom - 6)))
         self._desenhar_sobreposicoes(tela, vista)

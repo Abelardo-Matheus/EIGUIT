@@ -17,6 +17,7 @@ import functools
 import glob
 import math
 import os
+import time
 from typing import Optional
 
 import numpy as np
@@ -144,23 +145,26 @@ def _valvula(x: np.ndarray, g: float, assim: float) -> np.ndarray:
     return y
 
 
-def processar(di: np.ndarray, preset: str, taxa: int, rapido: bool = False) -> np.ndarray:
-    """di: float32 (n, 2). -> float32 (n, 2) normalizado em 0.9.
+def processar(di: np.ndarray, preset: str, taxa: int, rapido: bool = False,
+              pico_entrada: float = None, ganho_saida: float = None) -> np.ndarray:
+    """di: float32 (n, 2). -> float32 (n, 2).
+    Sem ganho_saida, normaliza o resultado em 0.9 (uso para trechos curtos).
+    pico_entrada/ganho_saida fixos: usados no processamento em blocos, para todos os
+    blocos da música terem exatamente o mesmo nível. Tudo em float32 (memória baixa).
     rapido=True: sem oversampling e sem sala (para tocar nota a nota em tempo real)."""
     if preset not in AMPS:
         return di
     p = AMPS[preset]
-    pico = float(np.abs(di).max()) + 1e-9
-    x = (di / pico * 0.5).astype(np.float64)
+    pico = (pico_entrada if pico_entrada else float(np.abs(di).max())) + 1e-9
+    x = (di * np.float32(0.5 / pico)).astype(np.float32)
     envelope_in = None
     if p["gate"] is not None:
-        envelope_in = sosfilt(butter(1, 25, fs=taxa, output="sos"), np.abs(x).max(axis=1))
-    x = _filtrar(butter(1, p["pre_hp"], "highpass", fs=taxa, output="sos"), x)
+        envelope_in = sosfilt(butter(1, 25, fs=taxa, output="sos"), np.abs(x).max(axis=1)).astype(np.float32)
+    x = _filtrar(butter(1, p["pre_hp"], "highpass", fs=taxa, output="sos"), x).astype(np.float32)
     if p["boost"]:
-        x = _filtrar(_biquad("pico", 720, p["boost"], 0.7, taxa), x)
-    # válvulas com oversampling (4x no ganho alto, 2x no resto) em float32
+        x = _filtrar(_biquad("pico", 720, p["boost"], 0.7, taxa), x).astype(np.float32)
+    # válvulas com oversampling (4x no ganho alto, 2x no resto)
     ov = 1 if rapido else (4 if p["ganho"] > 20 else 2)
-    x = x.astype(np.float32)
     if ov > 1:
         x = resample_poly(x, ov, 1, axis=0).astype(np.float32)
     t4 = taxa * ov
@@ -172,26 +176,55 @@ def processar(di: np.ndarray, preset: str, taxa: int, rapido: bool = False) -> n
         x = sosfilt(dc, x, axis=0).astype(np.float32)
         if k < p["est"] - 1:
             x = sosfilt(lp, x, axis=0).astype(np.float32)
-            x /= np.abs(x).max() + 1e-9
     if ov > 1:
         x = resample_poly(x, 1, ov, axis=0).astype(np.float32)
     # EQ do amp
-    x = _filtrar(_biquad("graves", 110, p["grave"], 0.7, taxa), x)
-    x = _filtrar(_biquad("pico", 650, p["medio"], 0.8, taxa), x)
-    x = _filtrar(_biquad("agudos", 3000, p["agudo"], 0.7, taxa), x)
-    x = _filtrar(_biquad("pico", 4800, p["pres"], 1.2, taxa), x)
+    x = _filtrar(_biquad("graves", 110, p["grave"], 0.7, taxa), x).astype(np.float32)
+    x = _filtrar(_biquad("pico", 650, p["medio"], 0.8, taxa), x).astype(np.float32)
+    x = _filtrar(_biquad("agudos", 3000, p["agudo"], 0.7, taxa), x).astype(np.float32)
+    x = _filtrar(_biquad("pico", 4800, p["pres"], 1.2, taxa), x).astype(np.float32)
     # caixa
     ir = caixa_ir(p["caixa"], taxa)
-    x = np.stack([fftconvolve(x[:, c], ir)[: len(x)] for c in range(2)], axis=1)
-    # sala
+    x = np.stack([fftconvolve(x[:, c], ir)[: len(x)] for c in range(2)], axis=1).astype(np.float32)
+    # sala (nível fixo: não depende do trecho)
     if p["sala"] and not rapido:
         s = _ir_sala(taxa)
         mol = np.stack([fftconvolve(x[:, c], s[:, c])[: len(x)] for c in range(2)], axis=1)
-        x = x + p["sala"] * mol * (np.abs(x).max() / (np.abs(mol).max() + 1e-9))
+        x = x + np.float32(p["sala"] * 0.5) * mol.astype(np.float32)
     # noise gate (pelo nível do DI, com abertura rápida e fechamento suave)
     if envelope_in is not None:
         lim = 10 ** (p["gate"] / 20) * 0.5
         alvo = np.clip((envelope_in - lim) / lim, 0, 1)
         alvo = sosfilt(butter(1, 30, fs=taxa, output="sos"), alvo)
-        x *= np.clip(alvo, 0, 1)[:, None]
+        x *= np.clip(alvo, 0, 1).astype(np.float32)[:, None]
+    if ganho_saida is not None:
+        return (x * np.float32(ganho_saida)).astype(np.float32)
     return (x / (np.abs(x).max() + 1e-9) * 0.9).astype(np.float32)
+
+
+def processar_em_blocos(di: np.ndarray, preset: str, taxa: int, pico_saida: float = 0.6,
+                        bloco_s: float = 10.0, contexto_s: float = 0.8, progresso=None) -> np.ndarray:
+    """Amp na música inteira sem estourar a memória: processa em blocos de ~10 s
+    (com 0,8 s de contexto antes, para filtros, caixa e sala emendarem certinho).
+    `progresso(amostras_prontas, saida)` é chamado a cada bloco: dá para tocar o
+    começo da música antes de o fim ficar pronto."""
+    n = len(di)
+    saida = np.zeros((n, 2), np.float32)
+    if n == 0:
+        return saida
+    pico_in = float(np.abs(di).max()) + 1e-9
+    # mede o nível de saída no trecho mais forte, uma vez só, para todos os blocos
+    i_max = int(np.abs(di).max(axis=1).argmax())
+    a, b = max(0, i_max - int(1.5 * taxa)), min(n, i_max + int(1.5 * taxa))
+    teste = processar(di[a:b], preset, taxa, pico_entrada=pico_in, ganho_saida=1.0)
+    ganho = pico_saida / (float(np.abs(teste).max()) + 1e-9)
+    bloco, ctx = int(bloco_s * taxa), int(contexto_s * taxa)
+    for ini in range(0, n, bloco):
+        fim = min(n, ini + bloco)
+        a = max(0, ini - ctx)
+        pedaco = processar(di[a:fim], preset, taxa, pico_entrada=pico_in, ganho_saida=ganho)
+        saida[ini:fim] = np.clip(pedaco[ini - a:], -1, 1)
+        if progresso:
+            progresso(fim, saida)
+        time.sleep(0)
+    return saida

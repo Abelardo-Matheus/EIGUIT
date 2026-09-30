@@ -169,6 +169,15 @@ def audio_pronto_e_gaveta():
     ctx = Contexto(1600, 900)
     ger, m = _abrir(ctx)
     m._aplicar_partitura(lp.carregar(MIDI))
+    # play logo depois de abrir: espera o audio (com %) e toca sozinho
+    m.sel = (0, 0)
+    m.play_pause()
+    limite = time.time() + 60
+    while time.time() < limite and not m.rep.tocando:
+        _quadro(ger, ctx)
+        time.sleep(0.02)
+    s.checar(m.rep.tocando, 'o play dado logo ao abrir nao tocou quando o audio ficou pronto')
+    m.parar()
     limite = time.time() + 60
     while time.time() < limite and not m.audio_pronto():
         _quadro(ger, ctx)
