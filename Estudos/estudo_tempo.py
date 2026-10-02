@@ -379,8 +379,8 @@ def desenhar_sistema(surf, d: Diagramacao, si: int, ox: int, oy: int, T: dict, F
         surf.blit(img, r)
         caixas[id(n)] = r
         resto = n.tecnica
-        for desenhada in ("bend 1 tom", "bend ½", "bend ¼", "release", "hammer", "pull", "slide out",
-                          "slide", "vibrato", "P.M.", "dead note", "harmônico"):
+        for desenhada in ("bend 1 tom", "bend ½", "bend ¼", "release", "hammer", "pull", "slide in de cima",
+                          "slide in", "slide out", "slide", "vibrato", "P.M.", "dead note", "harmônico"):
             resto = resto.replace(desenhada, "")
         ab = ABREV.get(resto.strip(), resto.strip()[:3])
         if ab:
@@ -454,7 +454,10 @@ def desenhar_tecnicas(surf, d, si, ox, oy, T, F, vis, caixas):
                 letra = "P" if "pull" in tec else "H"
                 _txt(surf, F.peq_b, letra, cor, ((xa + xb) / 2, topo - d.ls * 0.25), "midbottom")
         # ----- slide: linha inclinada entre as notas (sobe ou desce com a altura)
-        if "slide" in tec and "out" not in tec and ant is not None:
+        if "slide in" in tec:                  # entra deslizando: risco curto antes do número
+            d_y = d.ls * 0.3 * (-1 if "de cima" in tec else 1)
+            pygame.draw.line(surf, cor, (r.left - 14 * s, y + d_y), (r.left - 2, y - d_y * 0.4), fina)
+        elif "slide" in tec and "out" not in tec and ant is not None:
             ra = caixas.get(id(ant))
             if ra is not None:
                 sobe = (n.altura or 0) >= (ant.altura or 0)
@@ -793,6 +796,10 @@ class EstudoTempo:
         # gaveta de sons e busca no Songsterr
         self.gaveta_som = False
         self._rects_gaveta: List[Tuple[pygame.Rect, str]] = []
+        # afinação da leitura da tablatura (escolhida aqui dentro)
+        self.gaveta_afin = False
+        self._rects_afin: List[Tuple[pygame.Rect, object]] = []
+        self._area_afin = None
         self.songsterr = None
         self.botoes1 = [
             Botao(_t("Abrir MIDI / PDF"), self.abrir_dialogo),
@@ -816,6 +823,8 @@ class EstudoTempo:
             Botao(lambda: f"Original ({self.p.bpm_inicial:g})" if self.p else "Original",
                   self.bpm_partitura),
             Botao(lambda: f"Faixa: {self._nome_faixa()}", self.proxima_faixa),
+            Botao(lambda: f"Afinação: {self._nome_afin()}", self.alternar_gaveta_afin,
+                  ligado=lambda: self.gaveta_afin, icone="seta"),
             Botao(_t("Tocar tudo"), self.limpar_selecao),
             Botao(_t("Detalhes"), self.alternar_det, ligado=lambda: self.detalhes),
             Botao("Vol −", lambda: self.mudar_volume(-0.1), largura=58),
@@ -966,6 +975,7 @@ class EstudoTempo:
 
     def _aplicar_partitura(self, p: lp.Partitura) -> None:
         self.p = p
+        self.gaveta_afin = False
         self.bpm = p.bpm_inicial           # metrônomo vai direto para o andamento da partitura
         self.sel = None
         self.foco = 0 if p.compassos else None
@@ -1029,8 +1039,11 @@ class EstudoTempo:
         return (q0, q1, round(self.bpm, 2), self.loop, self.metronomo, self.guitarra, self.subdivisao,
                 self.timbre)
 
-    def _pedir_render(self, q_tocar: Optional[Fraction]) -> None:
+    def _pedir_render(self, q_tocar: Optional[Fraction], seguir: bool = False) -> None:
+        """seguir=True: a música continua de onde ESTIVER quando o novo áudio ficar pronto
+        (antes voltava para onde estava no pedido — se o preparo demorava, pulava para trás)."""
         self._render_pedido = (self._params(), q_tocar)
+        self._pedido_segue = seguir
 
     def _rodar_render(self):
         if self._render_thread and self._render_thread.is_alive():
@@ -1040,6 +1053,10 @@ class EstudoTempo:
         params, q_tocar = self._render_pedido
         self._render_pedido = None
         p = self.p
+        if getattr(self, "_pedido_segue", False) and self._atual and self.rep.tocando and not self.rep.pausado:
+            agora = self.posicao_q()
+            if agora is not None and params[0] <= agora < params[1]:
+                q_tocar = agora
         q0, q1, bpm, loop, met, gtr, sub, timbre = params
         chave = (id(p), timbre, round(bpm, 2))
         completo = self._completos.get(chave)
@@ -1150,7 +1167,7 @@ class EstudoTempo:
             q0, q1 = self._faixa_q()
             if q is None or not (q0 <= q < q1):
                 q = q0
-            self._pedir_render(q)
+            self._pedir_render(q, seguir=True)
             self._debounce = time.time() + 0.18
 
     def alternar_loop(self):
@@ -1173,8 +1190,12 @@ class EstudoTempo:
     def _arquivo_audio(self, timbre, bpm):
         if not self._id_atual or self.bib is None:
             return None
-        # "v3": áudio com volume nivelado por nota; os arquivos antigos (desnivelados) são ignorados
-        return os.path.join(self.bib.pasta, self._id_atual, f"audio_v3_{timbre}_{bpm:g}.flac")
+        # "v4": camada de sample fixa + legato do Songsterr corrigido (os antigos são ignorados);
+        # a afinação/capo entram no nome: trocar a afinação nunca toca o áudio velho
+        import hashlib
+        p = self.p
+        assin = hashlib.md5(repr((list(p.afinacao), getattr(p, "capo", 0))).encode()).hexdigest()[:6] if p else "x"
+        return os.path.join(self.bib.pasta, self._id_atual, f"audio_v4_{timbre}_{bpm:g}_{assin}.flac")
 
     def _preparar_audio_completo(self, atraso: float = 0.0):
         """Agenda o render da guitarra da música inteira (timbre e BPM atuais)."""
@@ -1465,6 +1486,115 @@ class EstudoTempo:
         self._preparar_audio_completo()
         self._reiniciar_se_tocando()
 
+    # ------------------------------------------------ afinação da tablatura
+    def _nome_afin(self) -> str:
+        if not self.p:
+            return "—"
+        n = lp.nome_afinacao(self.p.afinacao)
+        curtos = {"Padrão (E A D G B E)": "Padrão", "Meio tom abaixo (Eb)": "Eb (½ tom abaixo)",
+                  "Um tom abaixo (D)": "D (1 tom abaixo)"}
+        n = curtos.get(n, n)
+        capo = getattr(self.p, "capo", 0)
+        return f"{n} · capo {capo}" if capo else n
+
+    def alternar_gaveta_afin(self):
+        if not self.p:
+            self.avisar("Abra uma partitura primeiro.")
+            return
+        self.gaveta_afin = not self.gaveta_afin
+        if self.gaveta_afin:
+            self.gaveta_som = False
+
+    def mudar_afinacao(self, afinacao, capo: int = None) -> None:
+        """Relê a tablatura com outra afinação/capotraste. Tablatura (Songsterr/PDF): o som
+        muda (corda solta + casa). MIDI: a digitação é refeita. Fica salvo na biblioteca."""
+        if not self.p:
+            return
+        capo = getattr(self.p, "capo", 0) if capo is None else max(0, min(12, int(capo)))
+        if list(afinacao) == list(self.p.afinacao) and capo == getattr(self.p, "capo", 0):
+            return
+        tocando = self.rep.tocando and not self.rep.pausado
+        q = self.posicao_q() if tocando else self._pos_q
+        try:
+            novo = lp.aplicar_afinacao(self.p, afinacao, capo)
+        except Exception as e:
+            self.avisar(f"Não consegui trocar a afinação: {e}")
+            return
+        if tocando:
+            self.rep.parar()
+        self.p = novo
+        self.diag = None
+        self._cache_linhas = {}
+        self._render_ok = None
+        self._render_pedido = None
+        self._atual = None
+        self._preparar_audio_completo()
+        self.avisar(f"Afinação: {self._nome_afin()} — "
+                    + ("digitação refeita." if novo.fonte == "midi" else "o som agora segue essa afinação."))
+        if tocando:
+            self._pedir_render(q)
+            self._debounce = 0.0
+        else:
+            self._pos_q = q
+        if self._id_atual:
+            bib, alvo = self._bib(), novo
+
+            def guardar():
+                try:
+                    bib.salvar(alvo, alvo.arquivo)
+                except Exception as e:
+                    print("[biblioteca] não consegui salvar a afinação:", e)
+
+            threading.Thread(target=guardar, daemon=True).start()
+
+    def _desenhar_gaveta_afin(self, tela):
+        T, F = self.T, self.F
+        botao = next(b for b in self.botoes2 if b.acao == self.alternar_gaveta_afin)
+        orig = self.p.afinacao_original if getattr(self.p, "afinacao_original", None) else None
+        itens = []
+        if orig:
+            itens.append((f"Do arquivo: {lp.nome_afinacao(orig)}", list(orig)))
+        itens += [(nome, list(af)) for nome, af in lp.AFINACOES if not orig or list(af) != list(orig)]
+        larg = 300
+        alt = 34 + 30 * len(itens) + 70
+        r = pygame.Rect(botao.rect.x, botao.rect.bottom + 4, larg, alt)
+        if r.right > self.rect.right - 8:
+            r.x = self.rect.right - 8 - larg
+        if r.bottom > self.rect.bottom - 8:
+            r.y = max(self.rect.y + 8, botao.rect.y - 4 - alt)
+        pygame.draw.rect(tela, (0, 0, 0), r.move(0, 4), border_radius=12)
+        pygame.draw.rect(tela, T["painel"], r, border_radius=12)
+        pygame.draw.rect(tela, T["borda"], r, 1, border_radius=12)
+        self._rects_afin, self._area_afin = [], r
+        tipo = "muda a digitação (MIDI)" if self.p.fonte == "midi" else "muda o som da tablatura"
+        _txt(tela, F.peq_b, "AFINAÇÃO — " + tipo.upper(), T["fraco"], (r.x + 14, r.y + 12))
+        y = r.y + 34
+        for rotulo, af in itens:
+            ri = pygame.Rect(r.x + 6, y, larg - 12, 28)
+            atual = af == list(self.p.afinacao)
+            if atual:
+                pygame.draw.rect(tela, T["botao_on"], ri, border_radius=7)
+            elif ri.collidepoint(self._mouse):
+                pygame.draw.rect(tela, T["painel2"], ri, border_radius=7)
+            _txt(tela, F.med_b if atual else F.med, rotulo, T["botao_txt_on"] if atual else T["texto"],
+                 (ri.x + 12, ri.centery), "midleft")
+            self._rects_afin.append((ri, ("af", af)))
+            y += 30
+        y += 4
+        pygame.draw.line(tela, T["borda"], (r.x + 10, y), (r.right - 10, y))
+        _txt(tela, F.peq_b, "CAPOTRASTE", T["fraco"], (r.x + 14, y + 6))
+        y += 26
+        menos = pygame.Rect(r.x + 14, y, 30, 24)
+        mais = pygame.Rect(r.x + 120, y, 30, 24)
+        for rb, t in ((menos, "−"), (mais, "+")):
+            pygame.draw.rect(tela, T["painel2"], rb, border_radius=6)
+            _txt(tela, F.med_b, t, T["texto"], rb.center, "center")
+        capo = getattr(self.p, "capo", 0)
+        _txt(tela, F.med_b, f"casa {capo}" if capo else "sem capo", T["texto"],
+             ((menos.right + mais.x) // 2, menos.centery), "center")
+        self._rects_afin.append((menos, ("capo", -1)))
+        self._rects_afin.append((mais, ("capo", +1)))
+
     def _itens_gaveta(self):
         sm_ok = sint.sampler_disponivel()[0]
         sf_ok = sint.soundfont_disponivel()[0]
@@ -1622,6 +1752,20 @@ class EstudoTempo:
         if self.songsterr:
             if self._songsterr_evento(ev, pos):
                 return True
+        if self.gaveta_afin and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+            for r, (tipo, val) in self._rects_afin:
+                if r.collidepoint(pos):
+                    if tipo == "capo":
+                        self.mudar_afinacao(self.p.afinacao, getattr(self.p, "capo", 0) + val)
+                    else:
+                        self.mudar_afinacao(val)
+                        self.gaveta_afin = False
+                    return True
+            botao = next(b for b in self.botoes2 if b.acao == self.alternar_gaveta_afin)
+            if not botao.rect.collidepoint(pos):
+                self.gaveta_afin = False               # clique fora fecha
+                if self._area_afin is not None and self._area_afin.collidepoint(pos):
+                    return True
         if self.gaveta_som and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
             for r, tid in self._rects_gaveta:
                 if r.collidepoint(pos):
@@ -1955,6 +2099,8 @@ class EstudoTempo:
             self._desenhar_songsterr(tela, vista.inflate(-int(vista.w * 0.14), -30))
         if self.gaveta_som:
             self._desenhar_gaveta(tela)
+        if self.gaveta_afin and self.p:
+            self._desenhar_gaveta_afin(tela)
 
     def _transparente(self, w, h, cor, alfa):
         chave = (int(w), int(h), cor, alfa)

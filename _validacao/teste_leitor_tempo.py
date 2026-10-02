@@ -223,6 +223,24 @@ def testar():
     lig = [n for n in ps.notas if n.corda == 1]
     ok(len(lig) == 1 and lig[0].duracao == 4, f"songsterr: ligadura {[(n.duracao) for n in lig]}")
 
+    # hammer/slide marcados na nota de ORIGEM (padrão Guitar Pro) + capotraste + grace
+    parte2 = {"name": "Lead", "tuning": [64, 59, 55, 50, 45, 40], "capo": 2,
+              "measures": [{"signature": [4, 4], "voices": [{"beats": [
+                  {"type": 4, "notes": [{"string": 2, "fret": 5, "hp": True}]},
+                  {"type": 4, "notes": [{"string": 2, "fret": 7}]},
+                  {"type": 16, "graceNote": "beforeBeat", "notes": [{"string": 1, "fret": 3}]},
+                  {"type": 4, "notes": [{"string": 1, "fret": 5, "slide": "legato"}]},
+                  {"type": 4, "notes": [{"string": 1, "fret": 7}]}]}]}]}
+    po = lp.partitura_de_songsterr(parte2, {"title": "Origem"})
+    ok([n.tecnica for n in po.notas if n.corda == 3] == ["", "hammer"], f"songsterr origem: h {[n.tecnica for n in po.notas if n.corda == 3]}")
+    ok([n.tecnica for n in po.notas if n.corda == 2] == ["", "", "slide"], f"songsterr origem: slide {[n.tecnica for n in po.notas if n.corda == 2]}")
+    ok(po.notas[0].altura == 55 + 2 + 5, "songsterr: capotraste soma na altura")
+    ok(not po.compassos[0].alertas and po.fim == 4, f"songsterr: grace não empurra o compasso {po.compassos[0].alertas}")
+    # trocar a afinação: tablatura muda o som, MIDI muda a digitação
+    pe = lp.aplicar_afinacao(po, [63, 58, 54, 49, 44, 39], 0)
+    ok(pe.notas[0].altura == 54 + 5 and po.notas[0].altura == 62 and pe.notas[0].casa == 5, "afinação: tablatura muda o som")
+    ok(lp.nome_afinacao(pe.afinacao).startswith("Meio tom"), "afinação: nome")
+
     # MIDI com um canal por corda (Guitar Pro) + Drop D
     cam = os.path.join(tempfile.gettempdir(), "teste_canais.mid")
     ev = [(0, 0, b"\xff\x51\x03" + (500000).to_bytes(3, "big")), (0, 0, b"\xff\x58\x04\x04\x02\x18\x08")]

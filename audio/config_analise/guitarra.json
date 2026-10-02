@@ -1,0 +1,16 @@
+{
+  "nome": "Guitarra elétrica",
+  "faixa_f0": [
+    70,
+    1400
+  ],
+  "modelo_di_db": {
+    "graves": -12.7,
+    "medio_graves": -4.2,
+    "medios": -4.2,
+    "medio_agudos": -14.4,
+    "agudos": -22.5,
+    "presenca": -41.5
+  },
+  "_modelo_di": "Espectro médio (dB por banda) de uma guitarra DI limpa (sampler do projeto). A calibração compara o som limpo do usuário com isto para separar o que vem da guitarra do que vem do preset."
+}

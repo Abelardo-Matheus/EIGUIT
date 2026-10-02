@@ -266,7 +266,18 @@ def _preparar(notas) -> list:
         (por_corda.setdefault(n.corda, []) if n.corda else livres).append(n)
     saida = []
     for corda, lst in por_corda.items():
-        lst.sort(key=lambda n: n.t0)
+        lst.sort(key=lambda n: (n.t0, -n.dur))
+        # duas notas na MESMA corda no MESMO instante (voz 2 repetindo a voz 1, digitação
+        # que caiu na mesma corda): antes a primeira virava um "clique" de 20 ms e a
+        # segunda atacava junto — fica só uma, a mais longa
+        unicas = []
+        for n in lst:
+            if unicas and abs(n.t0 - unicas[-1].t0) < 0.004:
+                if n.altura != unicas[-1].altura:
+                    livres.append(n)          # alturas diferentes: toca solta, sem cortar
+                continue
+            unicas.append(n)
+        lst = unicas
         for i, n in enumerate(lst):
             prox = lst[i + 1] if i + 1 < len(lst) else None
             ant = lst[i - 1] if i > 0 else None
@@ -295,7 +306,10 @@ def _curva_pitch(n, ant, t: np.ndarray, dur: float) -> np.ndarray:
     if "vibrato" in tec or tec == "~":
         amp = np.clip((t - 0.25 * dur) / 0.15, 0, 1) * 0.45
         s += amp * np.sin(2 * np.pi * 5.5 * t)
-    if "slide" in tec and "out" not in tec and ant is not None and ant.altura is not None:
+    if "slide in" in tec:                      # entra deslizando de ~3 casas abaixo/acima
+        de = 3.0 if "de cima" in tec else -3.0
+        s += de * (1 - np.clip(t / 0.09, 0, 1))
+    elif "slide" in tec and "out" not in tec and ant is not None and ant.altura is not None:
         de = ant.altura - n.altura
         s += de * (1 - np.clip(t / 0.07, 0, 1))
     if "slide out" in tec:
@@ -304,6 +318,7 @@ def _curva_pitch(n, ant, t: np.ndarray, dur: float) -> np.ndarray:
     return s
 
 
+CAMADA_MIN, CAMADA_MAX = 81, 120     # faixa de intensidade da camada "mf" da Emilyguitar
 ALVO_RMS = 0.08        # nível percebido de todo sample, medido no ataque (todas as notas saem iguais)
 
 
@@ -367,18 +382,23 @@ def _render_tomada(inst, notas_prep, n_total, taxa, rng, folga=(0.0, 0.0), detun
         # a camada é escolhida pela intensidade escrita (sem sorteio: sorteio trocava de
         # camada e dava saltos de volume); a variação humana fica só em ±0,7 dB
         vel = int(np.clip(n.vel, 1, 127))
-        legato = "hammer" in tec or "pull" in tec or ("slide" in tec and "out" not in tec and ant is not None)
+        legato = "hammer" in tec or "pull" in tec or (
+            "slide" in tec and "out" not in tec and "slide in" not in tec and ant is not None)
         if legato:
             vel = int(vel * 0.8)
+        # CAMADA do sample sempre a mesma (mf): a intensidade muda só o volume.
+        # Antes hammer/pull (vel×0,8), notas fantasma e MIDI com intensidades variadas
+        # caíam na camada p/mp — outro timbre, "sintetização diferente" no meio da frase.
+        vel_camada = int(np.clip(n.vel, CAMADA_MIN, CAMADA_MAX))
         ganho = curva_velocidade(vel) * float(10 ** (rng.uniform(-0.7, 0.7) / 20))
         pm = "P.M." in tec or "palm" in tec.lower()
         morta = "dead note" in tec
         if morta and inst.abafadas:
-            reg = inst.escolher(n.altura, vel, rng, inst.abafadas)
+            reg = inst.escolher(n.altura, vel_camada, rng, inst.abafadas)
             sinal = _carregar(reg["sample"], taxa).copy() * np.float32(ganho_regiao(reg, taxa) * ganho * 0.8)
             dur = len(sinal) / taxa
         else:
-            reg = inst.escolher(n.altura, vel, rng)
+            reg = inst.escolher(n.altura, vel_camada, rng)
             if reg is None:
                 continue
             m = int(min(dur + 0.09, 8.0) * taxa)      # o sample acaba antes disso; não gasta à toa
@@ -409,7 +429,7 @@ def _render_tomada(inst, notas_prep, n_total, taxa, rng, folga=(0.0, 0.0), detun
         j = min(n_total, i0 + len(sinal))
         out[i0:j] += sinal[:j - i0]
         if inst.release and not pm and not morta and not cortada and dur > 0.12:
-            rr = inst.escolher(n.altura, vel, rng, inst.release)
+            rr = inst.escolher(n.altura, vel_camada, rng, inst.release)
             if rr is not None:
                 ruido = _carregar(rr["sample"], taxa) * np.float32(
                     (10 ** (rr._f("volume") / 20)) * 0.5 * ganho)

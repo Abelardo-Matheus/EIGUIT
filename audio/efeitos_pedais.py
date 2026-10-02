@@ -243,6 +243,19 @@ def _ler_atrasado(x, atraso_amostras):
     return np.interp(pos, n, x)
 
 
+def _conv_linear(x, ir):
+    """Convolucao comum (audio que nao e loop): a cauda alem do fim e cortada."""
+    from scipy.signal import fftconvolve
+    return fftconvolve(x, ir)[:x.size]
+
+
+def _convolver(x, ir, ctx):
+    """Circular no loop do estudo de Pedais; linear no audio de verdade (analisador)."""
+    if ctx.get('circular', True):
+        return _conv_circular(x, ir)
+    return _conv_linear(x, ir)
+
+
 def _conv_circular(x, ir):
     """Convolucao circular: a cauda que passa do loop volta para o comeco."""
     n = x.size
@@ -464,7 +477,7 @@ def fx_delay(x, t, sr, p, ctx):
         ganho *= fb
     seco = 1 - p['mix'] * 0.35
     ir[0] = seco
-    return _conv_circular(x, ir)
+    return _convolver(x, ir, ctx)
 
 
 def fx_reverb(x, t, sr, p, ctx):
@@ -489,7 +502,7 @@ def fx_reverb(x, t, sr, p, ctx):
         ir /= np.sqrt(np.sum(ir ** 2)) + 1e-9
         pre = int(p['predelay'] / 1000.0 * sr)
         ir = np.concatenate([np.zeros(pre), ir])
-        molhado = _conv_circular(x, ir) * 1.6
+        molhado = _convolver(x, ir, ctx) * 1.6
         saidas.append(x * (1 - p['mix'] * 0.6) + molhado * p['mix'])
     return np.stack(saidas, axis=1)
 
@@ -602,6 +615,81 @@ def renderizar(chave_efeito, params, chave_base='riff', ligado=True, sr=SR_PADRA
     if pico > 0.95:                     # limitador de seguranca
         y = np.tanh(y / pico * 1.4) / np.tanh(1.4) * 0.95
     return y.astype(np.float32)
+
+
+# ===========================================================================
+# AUDIO DE VERDADE (sem loop) E CADEIA DE PEDAIS
+# ===========================================================================
+
+def _ataques_simples(x, sr):
+    """Instantes de ataque (s) por subida rapida do envelope. Usado pelo Volume."""
+    env = _envelope(x, sr, 0.005)
+    db = 20 * np.log10(env + 1e-9)
+    passo = max(1, int(0.005 * sr))
+    d = db[::passo]
+    subida = d[3:] - d[:-3]
+    limiar = max(6.0, np.percentile(subida, 97) * 0.5)
+    ataques, ultimo = [], -1e9
+    teto = np.max(d) if d.size else 0.0
+    for i in np.flatnonzero(subida > limiar):
+        t = (i + 3) * passo / sr
+        if t - ultimo > 0.08 and d[i + 3] > teto - 40:
+            ataques.append(t)
+            ultimo = t
+    return ataques or [0.0]
+
+
+def aplicar_efeito(x, sr, chave_efeito, params, ctx=None):
+    """
+        Como funciona: aplica um pedal do motor em um audio qualquer (nao
+        loop): delay e reverb usam convolucao linear e o Volume procura os
+        ataques no proprio audio. Entrada mono ou estereo (N, 2); com
+        estereo, cada canal passa pelo pedal separado.
+        Para que serve: o Analisador IA (analise por sintese) e os testes
+        que precisam de efeitos conhecidos sobre gravacoes reais.
+        Onde e usada: renderizar_cadeia, audio/cadeia_pedais.py, _validacao.
+    """
+    x = np.asarray(x, dtype=np.float64)
+    if chave_efeito not in EFEITOS:
+        raise KeyError(f'efeito desconhecido: {chave_efeito}')
+    if x.ndim == 2:
+        canais = [aplicar_efeito(x[:, c], sr, chave_efeito, params, ctx) for c in range(x.shape[1])]
+        canais = [c.mean(axis=1) if c.ndim == 2 else c for c in canais]
+        return np.stack(canais, axis=1)
+    contexto = {'duracao': x.size / sr, 'circular': False}
+    if chave_efeito == 'volume':
+        contexto['ataques_s'] = _ataques_simples(x, sr)
+    if ctx:
+        contexto.update(ctx)
+    t = np.arange(x.size) / sr
+    y = np.asarray(EFEITOS[chave_efeito](x, t, sr, dict(params), contexto), dtype=np.float64)
+    return np.nan_to_num(y)
+
+
+def renderizar_cadeia(x, sr, cadeia, limitar=True):
+    """
+        Como funciona: passa o audio por varios pedais em sequencia, na ordem
+        da lista. 'cadeia' e uma lista de (id_do_pedal, parametros) ou de
+        dicts {'id':..., 'params':..., 'ligado': bool}. Um pedal estereo
+        (chorus, reverb) faz o resto da cadeia seguir em estereo.
+        Devolve float64 mono (N,) ou estereo (N, 2), com limitador de pico.
+        Para que serve: montar uma pedaleira virtual (preset sugerido).
+        Onde e usada: audio/cadeia_pedais.py e o Analisador IA.
+    """
+    y = np.asarray(x, dtype=np.float64)
+    for item in cadeia:
+        if isinstance(item, dict):
+            if not item.get('ligado', True):
+                continue
+            chave, params = item['id'], item.get('params', {})
+        else:
+            chave, params = item
+        y = aplicar_efeito(y, sr, chave, params)
+    if limitar:
+        pico = float(np.max(np.abs(y))) if y.size else 0.0
+        if pico > 0.95:
+            y = np.tanh(y / pico * 1.4) / np.tanh(1.4) * 0.95
+    return y
 
 
 def para_int16(estereo, canais=2):

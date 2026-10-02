@@ -1,0 +1,13 @@
+{
+  "nome": "Violão",
+  "faixa_f0": [70, 1400],
+  "bandas_macro": {
+    "graves": [70, 200],
+    "medio_graves": [200, 500],
+    "medios": [500, 1500],
+    "medio_agudos": [1500, 3500],
+    "agudos": [3500, 7000],
+    "presenca": [7000, 12000]
+  },
+  "ganho": {"crista_limpa": 14.0}
+}

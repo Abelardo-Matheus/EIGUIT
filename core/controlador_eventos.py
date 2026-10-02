@@ -571,6 +571,13 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                             if meu_gerenciador_jogos.tratar_clique_aba(evento.pos, estado):
                                 clicou_conteudo = True
                                 break
+                        elif sub_aba_ia == 2:
+                            rect_an = getattr(estado, 'rect_cartao_analisador', None)
+                            if rect_an is not None and rect_an.collidepoint(evento.pos):
+                                estado.tela_estudo_ativa = True
+                                estado.estudo_ativo = 'Analisador IA'
+                                clicou_conteudo = True
+                                break
                     elif secao['conteudo'] == 'configuracao':
                         configs.y = y_start
                         configs.x = dx_inf + 20

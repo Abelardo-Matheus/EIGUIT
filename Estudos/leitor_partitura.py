@@ -152,6 +152,8 @@ class Partitura:
     faixas: List[str] = field(default_factory=list)
     faixa_idx: int = 0
     _dados_midi: object = None                  # para trocar de faixa sem reler
+    capo: int = 0                               # casa do capotraste (as casas são contadas a partir dele)
+    afinacao_original: Optional[List[int]] = None   # a que veio do arquivo (antes de o usuário trocar)
 
     # ---- tempo musical <-> segundos (no BPM original da partitura) ----
     @property
@@ -451,6 +453,7 @@ def ler_midi(caminho: str, faixa: Optional[int] = None,
             if nome_af != "Padrão (E A D G B E)":
                 p.avisos.append(f"Afinação detectada pelas notas mais graves: {nome_af}.")
         sugerir_digitacao(p.notas, p.afinacao)
+    p.afinacao_original = list(p.afinacao)
     p.eventos = _agrupar_eventos(p.notas)
     analisar(p)
     return p
@@ -486,6 +489,50 @@ def detectar_afinacao(notas: List[Nota]) -> Tuple[str, List[int]]:
         if pontos_melhor is None or pontos > pontos_melhor:
             melhor, pontos_melhor = (nome, af), pontos
     return melhor[0], list(melhor[1])
+
+
+def nome_afinacao(af: List[int]) -> str:
+    """Nome conhecido (Drop D, Eb...) ou as notas da 6ª para a 1ª corda."""
+    for nome, a in AFINACOES:
+        if list(a) == list(af)[:6]:
+            return nome
+    return " ".join(NOMES[x % 12] for x in reversed(list(af)[:6]))
+
+
+def aplicar_afinacao(p: "Partitura", afinacao: List[int], capo: int = 0) -> "Partitura":
+    """Nova partitura lida com outra afinação/capotraste (a original não muda).
+    * Tablatura (Songsterr, PDF): corda e casa são o que está escrito — muda o SOM
+      (altura = corda solta + capo + casa).
+    * MIDI: o som é o que está no arquivo — muda a DIGITAÇÃO (refaz corda/casa)."""
+    import copy
+    dados_midi, p._dados_midi = p._dados_midi, None
+    try:
+        q = copy.deepcopy(p)
+    finally:
+        p._dados_midi = dados_midi
+    q._dados_midi = dados_midi
+    af = [int(x) for x in afinacao][:max(6, len(afinacao))]
+    capo = max(0, min(12, int(capo)))
+    if q.afinacao_original is None:
+        q.afinacao_original = list(p.afinacao)
+    q.afinacao, q.capo = list(af), capo
+    if q.fonte == "midi":
+        soltas = [a + capo for a in af]
+        for n in q.notas:
+            n.corda = n.casa = None
+        sugerir_digitacao(q.notas, soltas)
+        q.digitacao_sugerida = True
+    else:
+        for n in q.notas:
+            if n.corda and n.casa is not None and 1 <= n.corda <= len(af):
+                n.altura = af[n.corda - 1] + capo + n.casa
+    q.avisos = [a for a in q.avisos if not a.startswith(("Afinação", "Capotraste"))]
+    q.avisos.append(f"Afinação: {nome_afinacao(af)}" + (f" · capotraste na casa {capo}" if capo else "") +
+                    (" (digitação refeita para ela)." if q.fonte == "midi" else " (o som segue a tablatura)."))
+    for c in q.compassos:                                   # a análise é refeita (sem repetir alertas)
+        c.alertas = [a for a in c.alertas if not a.startswith(("Tempo ", "A soma das figuras"))]
+    analisar(q)
+    return q
 
 
 def digitacao_por_canal(p: "Partitura") -> bool:
@@ -1087,6 +1134,7 @@ def partitura_de_json(dados: dict, arquivo: str = "") -> Partitura:
         a = _afinacao_de_nomes(dados["afinacao"])
         if a:
             p.afinacao = a
+    p.afinacao_original = list(p.afinacao)
     bpm0 = float(dados.get("bpm") or 0) or None
     if not bpm0:
         bpm0 = 120.0
@@ -1208,7 +1256,11 @@ def carregar(caminho: str, progresso=None) -> Partitura:
         return ler_midi(caminho)
     if ext == ".json":
         with open(caminho, encoding="utf-8") as f:
-            return partitura_de_json(json.load(f), caminho)
+            dados = json.load(f)
+        # a biblioteca guarda a faixa do Songsterr como "original.json": reconhece pelo conteúdo
+        if isinstance(dados, dict) and ("parte" in dados or "measures" in dados):
+            return partitura_de_songsterr(dados.get("parte", dados), dados.get("meta"), caminho)
+        return partitura_de_json(dados, caminho)
     if ext == ".pdf":
         cache = os.path.splitext(caminho)[0] + ".tempo.json"
         if os.path.exists(cache) and os.path.getmtime(cache) >= os.path.getmtime(caminho):
@@ -1278,6 +1330,37 @@ def _duracao_songsterr(beat: dict) -> Fraction:
     return v * 4 * Fraction(den, num)
 
 
+def _legato_songsterr(notas: List[Nota], marcas: dict) -> None:
+    """Põe "hammer"/"slide" na nota que é tocada SEM palhetar.
+    Se a marca estiver na nota de origem (padrão Guitar Pro), quase toda nota marcada
+    tem uma nota colada DEPOIS na mesma corda; se estiver no destino, quase toda nota
+    marcada tem uma colada ANTES. A música mostra qual dos dois é (empate: origem)."""
+    if not marcas:
+        return
+    por_corda: dict = {}
+    for n in sorted(notas, key=lambda n: n.inicio):
+        por_corda.setdefault(n.corda, []).append(n)
+    viz = {}
+    for lst in por_corda.values():
+        for i, n in enumerate(lst):
+            viz[id(n)] = (lst[i - 1] if i else None, lst[i + 1] if i + 1 < len(lst) else None)
+    folga = Fraction(1, 16)
+
+    def colada(a, b):
+        return a is not None and b is not None and b.inicio > a.inicio and b.inicio <= a.fim + folga
+
+    depois = sum(1 for n, _ in marcas.values() if colada(n, viz.get(id(n), (None, None))[1]))
+    antes = sum(1 for n, _ in marcas.values() if colada(viz.get(id(n), (None, None))[0], n))
+    na_origem = depois >= antes
+    for n, tipo in marcas.values():
+        alvo = viz.get(id(n), (None, None))[1] if na_origem else n
+        if alvo is None or (na_origem and not colada(n, alvo)):
+            continue
+        if "slide in" in alvo.tecnica or tipo in alvo.tecnica.split():
+            continue
+        alvo.tecnica = (alvo.tecnica + " " + tipo).strip()
+
+
 def partitura_de_songsterr(parte: dict, meta: Optional[dict] = None, arquivo: str = "") -> Partitura:
     """Converte o JSON de uma faixa do Songsterr (o mesmo que o site desenha)."""
     meta = meta or {}
@@ -1289,6 +1372,11 @@ def partitura_de_songsterr(parte: dict, meta: Optional[dict] = None, arquivo: st
     afin = parte.get("tuning") or AFINACAO_PADRAO
     af = [int(x) for x in afin]
     p.afinacao = af + AFINACAO_PADRAO[len(af):] if len(af) < 6 else af
+    p.afinacao_original = list(p.afinacao)
+    try:
+        p.capo = max(0, int(parte.get("capo") or 0))    # casas contadas a partir do capotraste
+    except (TypeError, ValueError):
+        p.capo = 0
     medidas = parte.get("measures") or []
     # andamento
     bpms = {}
@@ -1302,6 +1390,10 @@ def partitura_de_songsterr(parte: dict, meta: Optional[dict] = None, arquivo: st
     q = Fraction(0)
     num, den = 4, 4
     ultima_por_corda: dict = {}
+    # "hp" e o slide ligado: no Guitar Pro a marca fica na nota de ORIGEM (quem soa em
+    # legato é a PRÓXIMA nota da corda). As notas marcadas são guardadas aqui e, no fim,
+    # _legato_songsterr decide pela própria música de que lado a marca está.
+    marcas: dict = {}                           # id(nota) -> (nota, "hammer" | "slide")
     for mi, m in enumerate(medidas):
         sig = m.get("signature")
         if isinstance(sig, (list, tuple)) and len(sig) == 2:
@@ -1317,6 +1409,13 @@ def partitura_de_songsterr(parte: dict, meta: Optional[dict] = None, arquivo: st
                 notas_json = [n for n in (beat.get("notes") or []) if not n.get("rest")]
                 pausa = bool(beat.get("rest")) or not notas_json
                 pm = bool(beat.get("palmMute"))
+                # nota de enfeite (grace): cai um pouquinho antes do tempo e NÃO empurra
+                # as notas seguintes (antes somava a duração e atrasava o resto do compasso)
+                enfeite = bool(beat.get("graceNote") or beat.get("grace"))
+                pos_nota = pos
+                if enfeite and not pausa:
+                    dur = min(dur, Fraction(1, 8))
+                    pos_nota = max(q, pos - dur)
                 if pausa:
                     if vi == 0:
                         p.eventos.append(Evento(pos, [], dur, pausa=True))
@@ -1328,6 +1427,11 @@ def partitura_de_songsterr(parte: dict, meta: Optional[dict] = None, arquivo: st
                     corda = int(nj.get("string", 0)) + 1
                     casa = nj.get("fret")
                     tec = []
+                    vel = 96
+                    if nj.get("ghost"):
+                        vel = 62
+                    elif nj.get("accentuated") or nj.get("accent") or nj.get("heavyAccentuated"):
+                        vel = 116
                     if nj.get("dead"):
                         tec.append("dead note")
                     if pm:
@@ -1346,39 +1450,46 @@ def partitura_de_songsterr(parte: dict, meta: Optional[dict] = None, arquivo: st
                                 tec.append("release")
                     if nj.get("vibrato") or nj.get("wideVibrato"):
                         tec.append("vibrato")
-                    if nj.get("hp"):
-                        tec.append("hammer")
-                    sl = nj.get("slide")
-                    if sl:
-                        tec.append("slide out" if "out" in str(sl).lower() else "slide")
+                    sl = str(nj.get("slide") or "").lower()
+                    if "out" in sl:
+                        tec.append("slide out")
+                    elif "into" in sl or "in" == sl[:2]:
+                        tec.append("slide in de cima" if "above" in sl else "slide in")
                     if nj.get("harmonic"):
                         tec.append("harmônico")
+                    tipo_leg = "hammer" if nj.get("hp") else "slide" if sl in ("legato", "shift") else None
                     if nj.get("tie") and corda in ultima_por_corda:
                         ant = ultima_por_corda[corda]
                         ant.duracao = pos + dur - ant.inicio
+                        if tipo_leg:
+                            marcas[id(ant)] = (ant, tipo_leg)
                         continue
                     so_ligadas = False
                     if casa is None or corda < 1 or corda > len(p.afinacao):
                         continue
                     casa = int(casa)
-                    alt = p.afinacao[corda - 1] + casa
-                    n = Nota(pos, dur, alt, corda, casa, " ".join(tec), 96, bend)
+                    alt = p.afinacao[corda - 1] + p.capo + casa
+                    n = Nota(pos_nota, dur, alt, corda, casa, " ".join(tec), vel, bend)
                     notas.append(n)
                     ultima_por_corda[corda] = n
+                    if tipo_leg:
+                        marcas[id(n)] = (n, tipo_leg)
                 # hammer/pull: decide pela altura da nota anterior na mesma corda
                 if notas:
                     p.notas += notas
-                    if vi == 0:
+                    if vi == 0 and not enfeite:
                         p.eventos.append(Evento(pos, notas, dur))
                     else:
-                        p.eventos.append(Evento(pos, notas, None))
+                        p.eventos.append(Evento(pos_nota, notas, None))
                 elif so_ligadas and vi == 0:
                     p.eventos.append(Evento(pos, [], dur, ligadura=True))
-                pos += dur
+                if not enfeite:
+                    pos += dur
         p.compassos.append(c)
         q = c.fim
     if not p.compassos:
         raise ValueError("O JSON do Songsterr não tem compassos.")
+    _legato_songsterr(p.notas, marcas)
     # hammer x pull pela altura
     por_corda: dict = {}
     for n in sorted(p.notas, key=lambda n: n.inicio):
@@ -1390,5 +1501,7 @@ def partitura_de_songsterr(parte: dict, meta: Optional[dict] = None, arquivo: st
     for c in p.compassos:
         c.bpm = p.bpm_em(c.inicio)
     p.avisos.append("Tablatura do Songsterr: corda, casa, ritmo e técnicas exatos.")
+    if p.capo:
+        p.avisos.append(f"Capotraste na casa {p.capo} (as casas da tablatura contam a partir dele).")
     analisar(p)
     return p

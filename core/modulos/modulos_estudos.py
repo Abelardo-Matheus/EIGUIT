@@ -14,11 +14,14 @@ import Estudos.estudo_improvisacao as estudo_improvisacao
 import Estudos.estudo_aulas as estudo_aulas
 import Estudos.estudo_pedais as estudo_pedais
 import Estudos.estudo_tempo as estudo_tempo
+import Analisador.analisador_ia as analisador_ia
 
 # Nomes pelos quais o estudo de pedais pode ser aberto (cartao e sub-aba)
 NOMES_PEDAIS = ('Pedais', 'Pedais de Efeito')
 # Idem para o estudo de tempo (partitura/tablatura separada em tempos, com loop e metronomo)
 NOMES_TEMPO = ('Tempo', 'Estudo de Tempo')
+# Analisador IA (ANALISE DE IA > Analisador): timbre do preset x musica de referencia
+NOMES_ANALISADOR = ('Analisador IA', 'Analisador')
 
 
 class EstudoAcordes:
@@ -171,6 +174,7 @@ class GerenciadorEstudos:
         self.modulo_aulas = None
         self.modulo_pedais = None
         self.modulo_tempo = None
+        self.modulo_analisador = None
 
     def desenhar_tela_estudo(self, tela, largura, altura, estado, fontes):
         """
@@ -190,6 +194,8 @@ class GerenciadorEstudos:
         # Botão voltar agora é gerido globalmente pela Top Bar
         
         titulo = f"{_t('Estudo')}: {_t(estado.estudo_ativo)}"
+        if estado.estudo_ativo in NOMES_ANALISADOR:
+            titulo = _t('Análise de IA')
         txt_titulo = fontes['titulo'].render(titulo, True, (0, 160, 255))
         tela.blit(txt_titulo, (meio_x - txt_titulo.get_width() // 2, cam_y + 10)) # Relativo ao viewport
         if estado.estudo_ativo in ['Notas', 'Acerte a Nota', 'Acerte o Som', 'Acerte a Próxima']:
@@ -235,6 +241,10 @@ class GerenciadorEstudos:
             if self.modulo_tempo is None:
                 self.modulo_tempo = estudo_tempo.EstudoTempo()
             self.modulo_tempo.desenhar(tela, estado, fontes, meio_x, meio_y, cam_x, cam_y)
+        elif estado.estudo_ativo in NOMES_ANALISADOR:
+            if self.modulo_analisador is None:
+                self.modulo_analisador = analisador_ia.AnalisadorIA()
+            self.modulo_analisador.desenhar(tela, estado, fontes, meio_x, meio_y, cam_x, cam_y)
         elif estado.estudo_ativo == 'Ciclo de Quintas':
             if self.modulo_ciclo is None:
                 self.modulo_ciclo = estudo_ciclo_quintas.EstudoCicloQuintas()
@@ -263,6 +273,9 @@ class GerenciadorEstudos:
         if self.modulo_tempo is not None:
             self.modulo_tempo.parar()
         self.modulo_tempo = None
+        if self.modulo_analisador is not None:
+            self.modulo_analisador.parar()
+        self.modulo_analisador = None
 
     def tratar_eventos(self, evento, pos_mouse, estado):
         """
@@ -276,6 +289,16 @@ class GerenciadorEstudos:
         pos_mouse_virtual = (cam_x + pos_mouse[0] / zoom, cam_y + pos_mouse[1] / zoom)
         
         if evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
+            # o campo de busca do Analisador usa o Esc para sair do campo
+            if estado.estudo_ativo in NOMES_ANALISADOR and self.modulo_analisador is not None \
+                    and self.modulo_analisador.busca_foco:
+                self.modulo_analisador.busca_foco = False
+                return True
+            # veio do Analisador para ver um pedal: o Esc volta para ele
+            if estado.estudo_ativo in NOMES_PEDAIS and getattr(estado, 'voltar_analisador', False) \
+                    and self.modulo_analisador is not None:
+                self.voltar_ao_analisador(estado)
+                return True
             estado.tela_estudo_ativa = False
             estado.estudo_ativo = ''
             self._limpar_modulos()
@@ -304,6 +327,8 @@ class GerenciadorEstudos:
             modulo_ativo = self.modulo_pedais
         elif estado.estudo_ativo in NOMES_TEMPO:
             modulo_ativo = self.modulo_tempo
+        elif estado.estudo_ativo in NOMES_ANALISADOR:
+            modulo_ativo = self.modulo_analisador
 
         if modulo_ativo and hasattr(modulo_ativo, 'tratar_eventos'):
             if modulo_ativo.tratar_eventos(evento, pos_mouse_virtual, estado):
@@ -321,3 +346,10 @@ class GerenciadorEstudos:
                 if modulo_ativo.tratar_cliques(pos_mouse_virtual, estado):
                     return True
         return False
+
+    def voltar_ao_analisador(self, estado):
+        """Sai do pedal aberto pelo Analisador e volta para a tela de resultado."""
+        if self.modulo_pedais is not None:
+            self.modulo_pedais.parar()
+        estado.voltar_analisador = False
+        estado.estudo_ativo = 'Analisador IA'

@@ -1,0 +1,22 @@
+{
+  "nome": "Baixo",
+  "faixa_f0": [30, 500],
+  "faixa_espectro": [31.5, 10000],
+  "bandas_macro": {
+    "graves": [40, 120],
+    "medio_graves": [120, 350],
+    "medios": [350, 900],
+    "medio_agudos": [900, 2500],
+    "agudos": [2500, 5000],
+    "presenca": [5000, 9000]
+  },
+  "nomes_bandas": {
+    "graves": "Sub/graves",
+    "medio_graves": "Corpo (médio-grave)",
+    "medios": "Médios",
+    "medio_agudos": "Ataque (médio-agudo)",
+    "agudos": "Agudos",
+    "presenca": "Estalo/presença"
+  },
+  "afinacoes": ["Padrão (E)", "Meio tom abaixo (Eb)", "Drop D", "5 cordas (B)", "Outra"]
+}

@@ -369,9 +369,12 @@ class Reprodutor:
         self.latencia = 0.08
         # relógio do cursor preso ao relógio da PLACA DE SOM: a cada emenda da fila
         # sabemos a posição exata do áudio; daí sai também a velocidade real da placa
+        # (fica 1.0: medir a velocidade pela emenda detectada no quadro dava erro de
+        # vários % quando a tela engasgava, e o cursor corria na velocidade errada)
         self._taxa_relogio = 1.0
         self._marca = None        # (instante, posição do áudio "desenrolada") da última emenda
         self._voltas = 0
+        self._quadro_ant = None   # instante da chamada anterior de atualizar()
 
     # -- mixer --
     @staticmethod
@@ -418,16 +421,22 @@ class Reprodutor:
         self._alimentar()
 
     def _ressincronizar(self, posicao_real: float):
-        """Neste instante a placa de som está em `posicao_real` (segundos "desenrolados",
-        contando as voltas do loop). Acerta o relógio do cursor e mede a velocidade real
-        da placa (placas reais correm 0,01–0,1% diferente do relógio do PC; a do teste, 4%)."""
-        agora = time.perf_counter() - 0.008                        # detecção é por quadro (~8 ms)
-        if self._marca is not None:
-            d_aud, d_rel = posicao_real - self._marca[1], agora - self._marca[0]
-            if d_aud > 0.5 and d_rel > 0.3:
-                self._taxa_relogio = 0.6 * self._taxa_relogio + 0.4 * max(0.9, min(1.1, d_aud / d_rel))
+        """Um pedaço acabou de começar na placa de som em `posicao_real` (segundos
+        "desenrolados", contando as voltas do loop). Só percebemos isso no quadro, então
+        o instante verdadeiro está entre o quadro anterior e agora. O relógio do cursor
+        só é corrigido se a previsão dele cair FORA dessa janela — assim um quadro
+        atrasado (tela engasgada pelo render em 2º plano) não puxa o cursor para trás
+        nem inventa uma "velocidade da placa" errada (era isso que fazia o cursor
+        adiantar/atrasar e parar no fim com a música ainda tocando)."""
+        agora = time.perf_counter()
+        antes = self._quadro_ant if self._quadro_ant is not None else agora - 0.02
+        antes = max(antes, agora - 0.25)          # quadro muito velho: janela limitada
+        previsto = self._t0 + posicao_real
+        if previsto > agora:                      # cursor adiantado em relação ao som
+            self._t0 = agora - posicao_real
+        elif previsto < antes:                    # cursor atrasado em relação ao som
+            self._t0 = antes - posicao_real
         self._marca = (agora, posicao_real)
-        self._t0 = agora - posicao_real / self._taxa_relogio
 
     def _alimentar(self):
         import pygame
@@ -440,10 +449,15 @@ class Reprodutor:
             if not self.loop:
                 return
             st["prox"] = 0
+        ocioso = not self.canal.get_busy()
+        if not ocioso and self.canal.get_queue() is not None:
+            return          # já há um pedaço na fila: nada a fazer neste quadro
+        # (antes o pedaço era montado e a linha do tempo avançava 3 s A CADA QUADRO mesmo
+        # sem caber na fila; o pedaço seguinte entrava marcado minutos à frente e o cursor
+        # pulava para o lugar errado / para o fim com a música ainda tocando)
         i0 = st["prox"]
         i1 = min(st["n"], i0 + st["tam"])
         pedaco = st["obter"](i0, i1)
-        ocioso = not self.canal.get_busy()
         if pedaco is None:
             if ocioso and st["faminto"] is None and st["tocou"]:
                 st["faminto"] = time.perf_counter()        # acabou o pronto: segura o cursor
@@ -454,15 +468,16 @@ class Reprodutor:
         if ocioso:
             self.canal.play(som)
             self._aplicar_volume()
-            if st["faminto"] is not None:
-                self._t0 += time.perf_counter() - st["faminto"]
-                st["faminto"] = None
-                self._marca = None
-        elif self.canal.get_queue() is None:
+            # o canal estava parado: este pedaço começa AGORA, na posição exata dele
+            # (vale para o 1º pedaço, para a volta depois de faltar áudio pronto e
+            # para o caso de o canal ter esvaziado entre dois quadros)
+            self._t0 = time.perf_counter() - inicio_linha
+            st["faminto"] = None
+            st["na_fila"] = None
+            self._marca = None
+        else:
             self.canal.queue(som)
             st["na_fila"] = inicio_linha
-        else:
-            return
         st["tocou"] = True
         st["prox"] = i1
 
@@ -508,6 +523,7 @@ class Reprodutor:
             self.canal.unpause()
             self._t0 += time.perf_counter() - self._tp
             self._marca = None
+            self._quadro_ant = None
             self.pausado = False
 
     def parar(self) -> None:
@@ -522,13 +538,23 @@ class Reprodutor:
         agora = self._tp if self.pausado else time.perf_counter()
         if self._stream is not None and self._stream["faminto"] is not None:
             agora = self._stream["faminto"]
-        t = max(0.0, (agora - self._t0) * self._taxa_relogio - self.latencia)
+        bruto = (agora - self._t0) * self._taxa_relogio
+        if self._stream is not None:
+            # o som nunca passa do que já foi entregue à placa: o cursor também não
+            bruto = min(bruto, self._stream["linha"])
+        t = max(0.0, bruto - self.latencia)
         if self.loop and self.dur > 0:
             return t % self.dur
         return min(t, self.dur)
 
     def atualizar(self) -> bool:
         """Chame a cada quadro. Devolve False quando terminou (sem loop)."""
+        try:
+            return self._atualizar()
+        finally:
+            self._quadro_ant = time.perf_counter()
+
+    def _atualizar(self) -> bool:
         if not self.tocando or self.pausado:
             return self.tocando
         if self._stream is not None:

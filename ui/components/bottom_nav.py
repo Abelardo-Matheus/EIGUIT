@@ -229,8 +229,9 @@ def _cartao_acao(tela, rect, titulo, descricao, fontes, largura_texto, x_desc):
 
 
 def _desenhar_aba_ia(tela, dx, y_start, estado, fontes, meu_processador,
-                     meu_gravador, meu_gerenciador_jogos, memoria_sub_aba, configs):
-    """Sub-abas de Analise de IA (afinador avancado e jogos)."""
+                     meu_gravador, meu_gerenciador_jogos, memoria_sub_aba, configs,
+                     largura_conteudo=None):
+    """Sub-abas de Analise de IA (afinador avancado, jogos e o Analisador IA)."""
     if memoria_sub_aba == 0:
         try:
             notas_abertas = lista_afinacoes[estado.indice_afinacao]['notas']
@@ -241,6 +242,21 @@ def _desenhar_aba_ia(tela, dx, y_start, estado, fontes, meu_processador,
                                         notas_abertas, estado)
     elif memoria_sub_aba == 1:
         meu_gerenciador_jogos.desenhar_aba_jogos(tela, dx, y_start, fontes['ui'])
+    elif memoria_sub_aba == 2:
+        # Analisador IA: abre em tela cheia pelo gerenciador de estudos
+        fator = ALTURA_ITEM_LISTA / ALTURA_ITEM_LISTA_BASE
+        largura_botao = int(178 * fator)
+        largura_conteudo = largura_conteudo or 900
+        x_desc = dx + BOTTOM_MARGIN_X + largura_botao + ds.ESPACO_XL
+        largura_texto = largura_conteudo - (x_desc - dx) - BOTTOM_MARGIN_X
+        rect = pygame.Rect(dx + BOTTOM_MARGIN_X, y_start + ESTUDOS_OFFSET_Y_INTERNO + int(22 * fator),
+                           largura_botao, int(52 * fator))
+        _cartao_acao(tela, rect, _t('Analisador IA'),
+                     _t('Toque por cima de uma música com a sua pedaleira e compare o TIMBRE do seu preset '
+                        'com o da guitarra original: ganho, EQ, compressão, modulação, delay e reverb, com '
+                        'sugestões do que falta ou sobra. Tudo offline, sem chave de API.'),
+                     fontes, largura_texto, x_desc)
+        estado.rect_cartao_analisador = rect
 
 
 def _desenhar_aba_configuracao(tela, dx, y_start, largura_conteudo, estado,
@@ -733,7 +749,7 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
         elif secao['conteudo'] == 'analise_ia':
             _desenhar_aba_ia(tela, dx, y_start, estado, fontes, meu_processador,
                              meu_gravador, meu_gerenciador_jogos,
-                             secao['memoria_sub_aba'], configs)
+                             secao['memoria_sub_aba'], configs, largura_conteudo)
         elif secao['conteudo'] == 'configuracao':
             _desenhar_aba_configuracao(tela, dx, y_start, largura_conteudo, estado,
                                        fontes, configs, meu_metronomo,

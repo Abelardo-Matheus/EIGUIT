@@ -49,7 +49,8 @@ cd web_frontend && npm install && npm start   # dev server, talks to the API on 
 ```
 
 ### Tests / lint
-There is **no test suite and no linter/formatter configured.** `robo_testes_ui.py` is an
+The suites live in `_validacao/` (run each with `python3 _validacao/<suite>.py`; see its
+README). There is no linter/formatter configured. `robo_testes_ui.py` is an
 ad-hoc `pyautogui` UI-clicking robot, not an automated test. The `.github/workflows/deploy.yml`
 pygbag→WASM→GitHub Pages job is experimental and does not reflect how the app is normally run.
 
@@ -113,6 +114,16 @@ data files.
   `core/modulos/modulos_estudos.py` via `NOMES_TEMPO`), `Estudos/leitor_partitura.py`
   (MIDI parser + rhythm analysis per measure/beat; PDF via Anthropic API, needs
   `ANTHROPIC_API_KEY`), `audio/motor_tempo.py` (loop render with metronome, mixer channel 60).
+- **ANÁLISE DE IA > Analisador** — `Analisador/analisador_ia.py` (screen, registered in
+  `core/modulos/modulos_estudos.py` via `NOMES_ANALISADOR`; opened from the card in the
+  `analise_ia` drawer). Compares the timbre of the user's preset (recorded from the pedalboard
+  while the reference plays) with a reference song: `audio/analise_timbre.py` (timbre profile),
+  `audio/detectores_efeitos.py` (one rule-based detector per pedal, thresholds only in
+  `audio/config_analise/*.json`), `audio/sugestoes_timbre.py` (indices + suggestions),
+  `audio/dispositivos.py` / `audio/gravacao_playalong.py` (sounddevice I/O, latency, takes),
+  `audio/referencia.py` (library, optional yt-dlp/Demucs), `audio/cadeia_pedais.py` (phase 2,
+  analysis by synthesis) and `audio/treinar_detector.py` (phase 3, local scikit-learn model).
+  No API keys. Details in `Analisador/README.md`; suite `_validacao/teste_analisador.py`.
 - **`audio/global_audio.py → GlobalAudioEngine`** — mic capture + continuous polyphonic pitch
   analysis; `main.py` reads `freq_detectada` / `notas_polifonicas` from it every frame.
 - **`Jogos/`** — gamification (`Jogos_interativos.py` manager + `acerte_a_nota.py` etc.).

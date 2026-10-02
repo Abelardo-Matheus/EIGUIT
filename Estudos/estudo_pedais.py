@@ -758,6 +758,7 @@ class EstudoPedais:
             Para que serve: tela principal do estudo de Pedais.
             Onde e usada: chamada pelo gerenciador de estudos a cada quadro.
         """
+        self._atender_pedido(estado)
         self.reprodutor.atualizar()
         if self._mudou:
             self._pedir_audio()
@@ -769,6 +770,33 @@ class EstudoPedais:
             self._desenhar_lista(tela, area, fontes)
         else:
             self._desenhar_pedal(tela, area, fontes)
+        # aberto pelo Analisador IA: botao para voltar ao resultado
+        if getattr(estado, 'voltar_analisador', False):
+            self.rect_analisador = pygame.Rect(area.right - 230, area.bottom + 8, 230, 30)
+            ds.botao(tela, self.rect_analisador, '< ' + _t('Voltar ao Analisador IA'), self._fonte(12),
+                     variante='suave', hover=self.rect_analisador.collidepoint(pygame.mouse.get_pos()))
+        else:
+            self.rect_analisador = pygame.Rect(0, 0, 0, 0)
+
+    def _atender_pedido(self, estado):
+        """
+            Como funciona: o Analisador IA deixa em estado.pedido_pedal o id do
+            pedal e os valores sugeridos; aqui o pedal abre ja com eles.
+            Para que serve: o link "Abrir pedal" das sugestoes e do preset.
+        """
+        pedido = getattr(estado, 'pedido_pedal', None)
+        if not pedido:
+            return
+        estado.pedido_pedal = None
+        pedal = cur.PEDAIS_POR_ID.get(pedido.get('id'))
+        if pedal is None:
+            return
+        self.abrir_pedal(pedal)
+        for par in pedal['parametros']:
+            v = pedido.get('valores', {}).get(par['id'])
+            if v is not None:
+                self.valores[par['id']] = max(par['min'], min(par['max'], float(v)))
+        self._pedir_audio(forcar=True)
 
     def _limitar_scroll(self):
         excesso = max(0, self.altura_conteudo_lista - self.altura_visivel_lista)
@@ -796,6 +824,15 @@ class EstudoPedais:
 
     def tratar_cliques(self, pos, estado):
         """Clique simples (mouse down)."""
+        if getattr(self, 'rect_analisador', None) and self.rect_analisador.collidepoint(pos):
+            gerenciador = getattr(estado, 'gerenciador_estudos', None)
+            if gerenciador is not None:
+                gerenciador.voltar_ao_analisador(estado)
+            else:
+                estado.voltar_analisador = False
+                estado.estudo_ativo = 'Analisador IA'
+            self.parar()
+            return True
         if self.vista == 'lista':
             if not self.rect_lista.collidepoint(pos):
                 return False

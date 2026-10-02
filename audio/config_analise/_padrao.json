@@ -1,0 +1,341 @@
+{
+  "_sobre": "Valores comuns a todos os instrumentos. Cada <instrumento>.json sobrepõe só o que muda. Limiares dos detectores ficam em 'detectores'; pesos dos índices em 'indices'.",
+  "nome": "Padrão",
+  "faixa_f0": [
+    70,
+    1400
+  ],
+  "faixa_espectro": [
+    40,
+    12500
+  ],
+  "bandas_macro": {
+    "graves": [
+      60,
+      250
+    ],
+    "medio_graves": [
+      250,
+      500
+    ],
+    "medios": [
+      500,
+      1500
+    ],
+    "medio_agudos": [
+      1500,
+      3000
+    ],
+    "agudos": [
+      3000,
+      6000
+    ],
+    "presenca": [
+      6000,
+      11000
+    ]
+  },
+  "nomes_bandas": {
+    "graves": "Graves",
+    "medio_graves": "Médio-graves",
+    "medios": "Médios",
+    "medio_agudos": "Médio-agudos",
+    "agudos": "Agudos",
+    "presenca": "Presença"
+  },
+  "analise": {
+    "alvo_lufs": -23.0,
+    "faixa_ativa_db": 30.0,
+    "margem_piso_db": 10.0,
+    "limiar_aperiodicidade": 0.2,
+    "duracao_minima_s": 3.0
+  },
+  "ganho": {
+    "crista_limpa": 9.0,
+    "crista_saturada": 2.5,
+    "planura_limpa": -42.0,
+    "planura_saturada": -18.0,
+    "curtose_limpa": 3.2,
+    "curtose_saturada": 1.4,
+    "riqueza_limpa": -12.0,
+    "riqueza_saturada": 2.0,
+    "pesos": [
+      1.0,
+      0.3,
+      0.4,
+      0.0
+    ],
+    "faixas_pedal": [
+      [
+        0.0,
+        "limpo"
+      ],
+      [
+        0.3,
+        "boost"
+      ],
+      [
+        0.5,
+        "overdrive"
+      ],
+      [
+        0.8,
+        "distorcao"
+      ]
+    ],
+    "assimetria_fuzz": 0.35
+  },
+  "captadores": {
+    "single": {
+      "nome": "Single-coil",
+      "offset_db": {
+        "agudos": 2.0,
+        "presenca": 3.0,
+        "graves": -1.0
+      }
+    },
+    "humbucker": {
+      "nome": "Humbucker",
+      "offset_db": {
+        "medios": 1.5,
+        "agudos": -1.5,
+        "presenca": -2.5
+      }
+    },
+    "p90": {
+      "nome": "P90",
+      "offset_db": {
+        "medios": 1.0,
+        "agudos": 1.0
+      }
+    },
+    "ativo": {
+      "nome": "Ativo",
+      "offset_db": {
+        "graves": 1.0,
+        "presenca": 1.0
+      }
+    },
+    "piezo": {
+      "nome": "Piezo",
+      "offset_db": {
+        "agudos": 3.0,
+        "presenca": 3.0,
+        "medios": -1.5
+      }
+    },
+    "nenhum": {
+      "nome": "Não sei",
+      "offset_db": {}
+    }
+  },
+  "afinacoes": [
+    "Padrão (E)",
+    "Meio tom abaixo (Eb)",
+    "Um tom abaixo (D)",
+    "Drop D",
+    "Drop C",
+    "Outra"
+  ],
+  "detectores": {
+    "_sobre": "Limiares de decisão de cada detector (audio/detectores_efeitos.py). 'limiar_sim'/'limiar_nao': score a partir do qual o efeito é dado como presente/ausente; entre os dois fica 'incerto'. Os pares *_min/*_max são rampas: no _min o score é 0 e no _max é 1.",
+    "interacoes": {
+      "penalidade_ganho": 0.35,
+      "ganho_inicio": 0.5,
+      "fator_separado_modulacao": 0.6,
+      "fator_delay_por_modulacao": 0.3,
+      "fator_varredura_por_delay": 0.5,
+      "fator_chorus_por_reverb": 0.5,
+      "penalidade_extra_filtros": 0.6,
+      "fator_reverb_por_delay": 0.7
+    },
+    "ganho": {
+      "limiar_sim": 0.6,
+      "limiar_nao": 0.3,
+      "centros": {
+        "boost": 0.4,
+        "overdrive": 0.65,
+        "distorcao": 0.9,
+        "fuzz": 0.9
+      },
+      "largura": 0.15,
+      "assimetria_fuzz_min": 0.5,
+      "assimetria_fuzz_max": 0.8,
+      "teto_vizinho": 0.5,
+      "confianca": 0.85
+    },
+    "delay": {
+      "limiar_sim": 0.6,
+      "limiar_nao": 0.3,
+      "z_min": 45.0,
+      "z_max": 90.0,
+      "amp_min": 0.08,
+      "amp_max": 0.16,
+      "rt_mascara_s": 2.5,
+      "fator_mascara": 0.8,
+      "escala_mix": 1.0,
+      "z_feedback": 8.0,
+      "escala_feedback": 1.0
+    },
+    "reverb": {
+      "limiar_sim": 0.55,
+      "limiar_nao": 0.3,
+      "rt_min": 0.25,
+      "rt_max": 0.8,
+      "cauda_min_db": -40.0,
+      "cauda_max_db": -22.0,
+      "peso_rt": 0.5,
+      "pausas_confiaveis": 4.0,
+      "fator_separado": 0.6,
+      "pausas_minimas": 2
+    },
+    "tremolo": {
+      "limiar_sim": 0.6,
+      "limiar_nao": 0.3,
+      "prom_min": 15.0,
+      "prom_max": 40.0,
+      "pp_min_db": 1.5,
+      "pp_max_db": 4.0,
+      "coer_min": 0.5,
+      "coer_max": 0.8,
+      "taxa_min_hz": 2.0,
+      "taxa_max_hz": 14.0,
+      "trecho_minimo_s": 0.35
+    },
+    "vibrato": {
+      "limiar_sim": 0.6,
+      "limiar_nao": 0.3,
+      "prom_min": 15.0,
+      "prom_max": 40.0,
+      "cents_min": 8.0,
+      "cents_max": 20.0,
+      "coer_min": 0.5,
+      "coer_max": 0.8,
+      "cents_por_depth": 375.0,
+      "taxa_min_hz": 1.5,
+      "taxa_max_hz": 12.0,
+      "aperiodicidade_max": 0.3,
+      "trecho_minimo_s": 0.35
+    },
+    "chorus": {
+      "limiar_sim": 0.6,
+      "limiar_nao": 0.3,
+      "pureza_seco": 0.93,
+      "pureza_chorus": 0.84,
+      "fator_tremolo": 0.4,
+      "wah_osc_min": 0.2,
+      "wah_osc_max": 0.35
+    },
+    "phaser": {
+      "limiar_sim": 0.6,
+      "limiar_nao": 0.3,
+      "flut_min_db": 2.8,
+      "flut_max_db": 3.8,
+      "osc_min_oit": 0.15,
+      "osc_max_oit": 0.3,
+      "pureza_min": 0.9,
+      "pureza_max": 0.95,
+      "trecho_minimo_s": 0.3
+    },
+    "flanger": {
+      "limiar_sim": 0.6,
+      "limiar_nao": 0.3,
+      "pente_min": 0.15,
+      "pente_max": 0.35,
+      "faixa_wah_min": 1.0,
+      "faixa_wah_max": 1.6
+    },
+    "wah": {
+      "limiar_sim": 0.6,
+      "limiar_nao": 0.3,
+      "faixa_min_oit": 0.9,
+      "faixa_max_oit": 1.4,
+      "osc_min_oit": 0.2,
+      "osc_max_oit": 0.35,
+      "resson_min_db": 5.0,
+      "resson_max_db": 9.0,
+      "peso_fixo": 0.7
+    },
+    "autowah": {
+      "limiar_sim": 0.6,
+      "limiar_nao": 0.3,
+      "queda_min_oit": 0.9,
+      "queda_max_oit": 1.4,
+      "monotono_min": 0.6,
+      "monotono_max": 0.85
+    },
+    "octaver": {
+      "limiar_sim": 0.6,
+      "limiar_nao": 0.3,
+      "vozeado_min": 0.5,
+      "impar_min_db": 4.0,
+      "impar_max_db": 7.0,
+      "sub_min_db": -48.0,
+      "sub_max_db": -40.0
+    },
+    "ring": {
+      "limiar_sim": 0.6,
+      "limiar_nao": 0.3,
+      "vozeado_min": 0.5,
+      "inarm_min": 0.08,
+      "inarm_max": 0.2
+    },
+    "compressor": {
+      "limiar_sim": 0.6,
+      "limiar_nao": 0.3,
+      "decai_limpo": 5.0,
+      "decai_comprimido": 1.5,
+      "faixa_limpa_db": 6.0,
+      "faixa_comprimida_db": 2.0,
+      "peso_sustain": 0.8,
+      "ganho_mascara_ini": 0.45,
+      "ganho_mascara_fim": 0.7
+    },
+    "volume": {
+      "limiar_sim": 0.6,
+      "limiar_nao": 0.3,
+      "ataque_min_s": 0.12,
+      "ataque_max_s": 0.25
+    },
+    "gate": {
+      "limiar_sim": 0.6,
+      "limiar_nao": 0.3,
+      "silencio_min": 0.1,
+      "piso_aberto_db": 65.0,
+      "piso_fechado_db": 85.0,
+      "digital_min": 0.2,
+      "digital_max": 0.6
+    }
+  },
+  "indices": {
+    "pesos": {
+      "eq": 1.0,
+      "ganho": 1.0,
+      "dinamica": 0.6,
+      "modulacao": 0.8,
+      "ambiencia": 0.9
+    },
+    "tolerancia_eq_db": 3.0,
+    "escala_eq_db": 4.0,
+    "escala_ganho": 0.25,
+    "escala_sustain_oit": 1.0,
+    "escala_faixa_db": 4.0,
+    "escala_ataque_s": 0.1
+  },
+  "sugestoes": {
+    "limiar_banda_db": 3.0,
+    "limiar_ganho": 0.12,
+    "limiar_possivel": 0.5,
+    "limiar_sustain_oit": 0.8,
+    "tolerancias": {
+      "delay_tempo": 0.1,
+      "delay_mix": 0.15,
+      "delay_feedback": 0.2,
+      "reverb_decay": 0.5,
+      "reverb_mix": 0.2,
+      "modulacao_taxa": 0.15,
+      "modulacao_prof": 0.2
+    },
+    "fator_ganho_ambiencia": 0.5
+  }
+}

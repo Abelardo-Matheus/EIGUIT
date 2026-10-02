@@ -27,7 +27,7 @@ try:
 except ImportError:                                   # rodando fora do pacote
     from Estudos import leitor_partitura as lp        # type: ignore
 
-VERSAO_CACHE = 3          # suba quando a análise mudar: o cache antigo é refeito sozinho
+VERSAO_CACHE = 4          # suba quando a análise mudar: o cache antigo é refeito sozinho
 
 
 def pasta_raiz() -> str:
@@ -92,6 +92,8 @@ class Biblioteca:
             "faixa": p.faixa_idx, "faixa_nome": p.faixas[p.faixa_idx] if p.faixas else "",
             "nome_arquivo": os.path.basename(origem) if caminho_origem else meta_antiga.get("nome_arquivo", ""),
             "criado": meta_antiga.get("criado", agora), "usado": agora,
+            # afinação/capo escolhidos na tela (valem de novo se a análise for refeita)
+            "afinacao": list(p.afinacao), "capo": int(getattr(p, "capo", 0) or 0),
         }
         with open(os.path.join(pasta, "meta.json"), "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=1)
@@ -122,7 +124,14 @@ class Biblioteca:
                 p = lp.ler_midi(original, faixa=meta.get("faixa"))
             else:
                 p = lp.carregar(original)
+            af, capo = meta.get("afinacao"), int(meta.get("capo") or 0)
+            if af and (list(af) != list(p.afinacao) or capo != getattr(p, "capo", 0)):
+                try:
+                    p = lp.aplicar_afinacao(p, af, capo)      # a afinação que o usuário escolheu
+                except Exception:
+                    pass
             self.salvar(p, original)
+            meta = self._meta(pid) or meta
         p.arquivo = os.path.join(pasta, "original" + meta.get("ext", ".mid"))
         meta["usado"] = time.time()
         try:

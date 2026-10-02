@@ -29,6 +29,9 @@ qualquer maquina, inclusive sem microfone.
 | `preview_pedais.py` | PNGs do estudo de pedais (lista, pedais abertos, 720p e a sub-aba) |
 | `teste_estudo_tempo.py` | estudo de tempo pelo gerenciador (cartao, sub-aba, clique, loop, ESC, PDF) em tres resolucoes e dois temas, mais o motor da tablatura (modos, instrumentos, botao de som, leitura da celula) |
 | `teste_leitor_tempo.py` | leitura ritmica: MIDI -> compassos/tempos/subdivisoes, quialteras, bend, digitacao sugerida, JSON do PDF, soma que nao fecha, audio |
+| `teste_analisador.py` | Analisador IA: efeito conhecido -> detectado com parametro na tolerancia (delay +-10%, tremolo/vibrato +-15%), audio limpo sem falso positivo, "Falta: Delay", invariancia a volume, alinhamento com latencia simulada, calibracao, validacao do take, biblioteca/BPM/MIDI, preset sugerido (fase 2), detector treinado (fase 3) e a tela em tres resolucoes e dois temas |
+| `preview_analisador.py` | PNGs do Analisador IA (cada etapa, cada aba do resultado, 720p e a sub-aba) |
+| `sinais_analisador.py` | guitarras de teste (sintetizada "humana" e sampler DI) com efeitos conhecidos, usadas pelas duas acima e pelo treino local |
 | `demo_timbres.py` | gera `_validacao/previews/demo_timbres.wav` com o mesmo riff em cada timbre |
 
 O `teste_blocos.py` cobre tambem a coluna lateral: tudo comeca guardado, a
