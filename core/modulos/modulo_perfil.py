@@ -174,7 +174,11 @@ class GerenciadorPerfil:
         dados['interface'] = {'tema': TEMA.modo}
         dados['atalhos'] = atalhos.diferentes_do_padrao(estado)
         dados['desempenho'] = dict(desempenho.obter(estado))
-        lista_draggers = ['dragger_guitarra', 'dragger_acordes', 'dragger_controles_topo', 'dragger_painel_inferior', 'dragger_metronomo', 'dragger_cores', 'dragger_nota_atual', 'dragger_sessao', 'dragger_circulo', 'dragger_historico', 'dragger_ideias', 'dragger_drone', 'dragger_progressoes', 'dragger_graus', 'dragger_cordas', 'dragger_capo']
+        lista_draggers = ['dragger_guitarra', 'dragger_acordes', 'dragger_controles_topo', 'dragger_painel_inferior', 'dragger_metronomo', 'dragger_cores', 'dragger_nota_atual', 'dragger_sessao', 'dragger_circulo', 'dragger_historico', 'dragger_ideias', 'dragger_drone', 'dragger_progressoes', 'dragger_graus', 'dragger_cordas', 'dragger_capo', 'dragger_paleta_acordes']
+        # Acordes ligados no braco voltam ao abrir o perfil
+        from ui.components.paleta_acordes import exportar as exportar_acordes
+        dados['estado']['acordes_fixados'] = exportar_acordes(estado)
+        dados['estado']['paleta_tonica'] = getattr(estado, 'paleta_tonica', 'C')
         for nome in lista_draggers:
             if hasattr(estado, nome):
                 obj = getattr(estado, nome)
@@ -259,8 +263,16 @@ class GerenciadorPerfil:
                 from ui.components.gaveteiro import NOMES as NOMES_GAVETAS
                 guardados = d_est.get('blocos_guardados')
                 if guardados is not None:
+                    # Bloco que o perfil nem conhecia (criado depois) nasce guardado
+                    conhecidos = set(dados.get('posicoes_draggers', {}))
                     estado.blocos_guardados = {n for n in guardados
-                                               if n in NOMES_GAVETAS}
+                                               if n in NOMES_GAVETAS} | {
+                        n for n in NOMES_GAVETAS if n not in conhecidos}
+                if 'acordes_fixados' in d_est:
+                    from ui.components.paleta_acordes import importar as importar_acordes
+                    importar_acordes(estado, d_est.get('acordes_fixados'))
+                if d_est.get('paleta_tonica'):
+                    estado.paleta_tonica = d_est['paleta_tonica']
                 estado.afinador_sensibilidade = d_est.get('afinador_sensibilidade', 0.5)
             if 'configs' in dados:
                 d_cfg = dados['configs']
