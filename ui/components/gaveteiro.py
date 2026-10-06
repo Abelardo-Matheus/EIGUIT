@@ -34,6 +34,7 @@ MARGEM_ARRASTO = 6      # pixels de mouse antes de virar arrasto de verdade
 
 # Ordem das gavetas na coluna: bloco -> nome que aparece
 GAVETAS = (
+    ('dragger_paleta_acordes', 'Acordes'),
     ('dragger_circulo', 'Quintas'),
     ('dragger_graus', 'Graus'),
     ('dragger_acordes', 'Campo harmonico'),

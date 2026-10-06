@@ -609,8 +609,14 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
     acordes_visivel = any(sec.get('expandido') and sec['conteudo'] == 'acordes'
                           for sec in estado.secoes_inferiores)
     if not acordes_visivel:
-        # Fora da aba, so os acordes fixados continuam no braco
+        # Fora da aba, so os acordes fixados continuam no braco, mais o grau
+        # escolhido no bloco de graus (antes ele sumia no quadro seguinte)
         estado.acordes_no_braco = list(getattr(estado, 'acordes_fixados', []))
+        if getattr(estado, 'grau_selecionado', -1) != -1:
+            from ui.components.blocos_extras import aplicar_grau, _tonica_atual
+            campo = getattr(estado, 'campo_harmonico_ref', None)
+            aplicar_grau(estado, _tonica_atual(estado, campo),
+                         estado.grau_selecionado, campo)
 
     alpha_atual = configs.get_alpha() if configs else 255
     # A barra e fixa no rodape e a gaveta cresce com a tela. As medidas saem
