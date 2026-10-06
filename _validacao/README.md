@@ -23,6 +23,7 @@ qualquer maquina, inclusive sem microfone.
 | `teste_ciclo.py` | estudo do ciclo das quintas e a teoria por tras do bloco |
 | `teste_pedais.py` | estudo de pedais: cada efeito e cada parametro mudam o som, whammy/delay/gate conferidos pela fisica, loop sem estalo e a tela em tres resolucoes |
 | `teste_editor.py` | criacao musical: escrever, andar, exportar |
+| `teste_paleta_acordes.py` | paleta de acordes: forma CAGED da soltura, clique liga/desliga, varios acordes com cores distintas, previa e soltura no braco, chip que tira e muda de regiao, foco, arrasto vindo da aba ACORDES, limites do bloco, perfil e o bloco de graus |
 | `teste_blocos.py` | blocos extras: valores, limites e cliques em tres tamanhos, mais o gaveteiro lateral |
 | `teste_cabecalho.py` | barra superior: todo item de menu tem acao, atalhos (Ctrl+N/O/S/E/Q, F1-F3, F11, F12, zoom), navegacao por teclado, projeto .eiguit (novo/salvar/abrir/formato antigo), exportar txt/MIDI, captura PNG, modais centrados com a camera longe, entrada de audio, idioma, modo de tela, perfil e trocar de conta |
 | `teste_preferencias.py` | teclas de atalho (gravar pelo painel, conflito, letra sozinha recusada, Esc/Backspace, padrao, a tecla nova dispara a funcao, abas e metronomo), desempenho (presets, opcao avulsa, efeitos aplicados), perfil com teclas+desempenho+perfil antigo, auto-salvar, zoom do pedaco visivel igual ao da mesa inteira, editor tocando som |

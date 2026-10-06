@@ -126,6 +126,8 @@ class EstadoGlobal:
         self.dragger_graus = _bloco('dragger_graus')
         self.dragger_cordas = _bloco('dragger_cordas')
         self.dragger_capo = _bloco('dragger_capo')
+        # Paleta de acordes: estudar acordes no braco sem abrir a aba ACORDES
+        self.dragger_paleta_acordes = _bloco('dragger_paleta_acordes')
 
         self.atualizar_medidas()
 
@@ -162,6 +164,8 @@ class EstadoGlobal:
         # Gaveteiro lateral: todos os blocos comecam guardados na coluna
         from ui.components.gaveteiro import preparar as preparar_gaveteiro
         preparar_gaveteiro(self)
+        from ui.components.paleta_acordes import preparar as preparar_paleta
+        preparar_paleta(self)
         self.nota_selecionada_bloco = 'C'
         self.rects_notas_selecao = []
         self.instrumento = 'guitarra'

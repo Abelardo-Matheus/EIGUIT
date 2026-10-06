@@ -20,7 +20,7 @@ def obter_draggers_ativos(estado):
     simples = ['dragger_controles_topo', 'dragger_cores', 'dragger_metronomo', 'dragger_acordes', 'dragger_nota_atual', 'dragger_sessao',
                'dragger_circulo', 'dragger_historico', 'dragger_ideias',
                'dragger_drone', 'dragger_progressoes', 'dragger_graus',
-               'dragger_cordas', 'dragger_capo']
+               'dragger_cordas', 'dragger_capo', 'dragger_paleta_acordes']
     from ui.components.gaveteiro import visivel as bloco_na_tela
     for d in simples:
         if hasattr(estado, d) and bloco_na_tela(estado, d):
@@ -281,6 +281,11 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                 except Exception as e:
                     print(f'[DROP] Erro ao copiar MIDI: {e}')
         if evento.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
+            # Arrasto de acorde (paleta, chips e aba ACORDES) vem antes de tudo:
+            # enquanto um acorde esta preso ao mouse, o resto nao ve o evento
+            from ui.components.paleta_acordes import tratar_evento_paleta
+            if tratar_evento_paleta(estado, evento):
+                continue
             # O gaveteiro lateral vem antes: e ele quem tira e guarda bloco
             from ui.components.gaveteiro import tratar_evento_gaveteiro
             if tratar_evento_gaveteiro(estado, evento):

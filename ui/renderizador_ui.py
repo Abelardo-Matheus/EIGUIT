@@ -66,6 +66,10 @@ def desenhar_workspace(tela, estado, configs, dicionario_escalas, fontes, meu_me
         desenhar_painel_sessao(tela, estado, fontes, configs)
     desenhar_blocos_extras(tela, estado, fontes, configs, meu_campo_harmonico,
                            meu_gravador)
+    # Paleta de acordes: fora de BLOCOS_EXTRAS porque tem tratador proprio
+    # (aperta, arrasta e solta), em ui/components/paleta_acordes.tratar_evento
+    from ui.components.paleta_acordes import desenhar_bloco_paleta
+    desenhar_bloco_paleta(tela, estado, fontes, configs, meu_campo_harmonico)
     if bloco_visivel(estado, 'dragger_metronomo'):
         desenhar_controles_playback(tela, estado, meu_metronomo, fontes['ui'], configs)
     
@@ -77,6 +81,10 @@ def desenhar_workspace(tela, estado, configs, dicionario_escalas, fontes, meu_me
 
     # A coluna das gavetas fica por cima de tudo do workspace
     desenhar_gaveteiro(tela, estado, fontes, configs)
+
+    # Acorde preso ao mouse, por cima ate da coluna
+    from ui.components.paleta_acordes import desenhar_arrasto_acorde
+    desenhar_arrasto_acorde(tela, estado, fontes)
 
 def desenhar_ui_fixa(tela, estado, fontes, meu_gravador, configs, meu_gerenciador_jogos, meu_campo_harmonico=None):
     largura_real = tela.get_width()
