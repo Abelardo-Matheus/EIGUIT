@@ -40,6 +40,8 @@ BLOCOS_REF = {
     'dragger_drone': (40, 684, 296, 156),
     'dragger_progressoes': (352, 684, 434, 196),
     'dragger_capo': (862, 684, 356, 120),
+    # Logo abaixo do braco: o arrasto ate ele fica curto
+    'dragger_paleta_acordes': (400, 372, 620, 196),
     'dragger_metronomo': (1250, 510, 330, 340),
     'dragger_sessao': (1600, 510, 280, 180),
     'dragger_cordas': (1600, 700, 280, 150),
@@ -60,6 +62,7 @@ MINIMOS = {
     'dragger_drone': (180, 120),
     'dragger_progressoes': (240, 120),
     'dragger_capo': (190, 96),
+    'dragger_paleta_acordes': (260, 130),
     'dragger_metronomo': (240, 104),
     'dragger_sessao': (200, 130),
     'dragger_cordas': (180, 100),
