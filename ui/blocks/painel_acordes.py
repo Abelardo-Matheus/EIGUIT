@@ -77,7 +77,7 @@ CORES_FIXADOS = [
     (0, 120, 215), (255, 107, 107), (78, 205, 196),
     (255, 217, 61), (155, 122, 255), (0, 212, 255),
 ]
-MAX_FIXADOS = 4
+MAX_FIXADOS = 6   # o mesmo limite da paleta de acordes: uma cor por acorde
 
 
 def semitons(de, para):
@@ -127,6 +127,7 @@ class PainelAcordes:
         self.rect_btn_projetar = pygame.Rect(0, 0, 0, 0)
         self.rect_btn_fixar = pygame.Rect(0, 0, 0, 0)
         self.rect_btn_limpar = pygame.Rect(0, 0, 0, 0)
+        self.rect_mini_braco = pygame.Rect(0, 0, 0, 0)
 
         self.estado_ref = None
         self._cache_fontes = {}
@@ -215,8 +216,11 @@ class PainelAcordes:
             return False
         if len(fixados) >= MAX_FIXADOS:
             fixados.pop(0)
+        from ui.components.paleta_acordes import proxima_cor
         atual['fixado'] = True
-        atual['cor'] = CORES_FIXADOS[len(fixados) % len(CORES_FIXADOS)]
+        atual['cor'] = proxima_cor(fixados)
+        atual['tonica'] = self.tonica
+        atual['tipo'] = self.tipo_atual
         fixados.append(atual)
         self.aplicar_no_estado(estado)
         return True
@@ -298,6 +302,7 @@ class PainelAcordes:
 
     def _desenhar_braco(self, tela, rect, fontes):
         """Mini-braco: shape CAGED ou o acorde inteiro ao longo das casas."""
+        self.rect_mini_braco = pygame.Rect(rect)
         ds.superficie_translucida(tela, rect, TEMA.fundo, 170, ds.RAIO_MD, TEMA.borda, 1)
         margem_x, margem_y = ds.ESPACO_MD, ds.ESPACO_SM
         altura_num = 13 if rect.height >= 74 else 0
@@ -466,6 +471,10 @@ class PainelAcordes:
         ds.rotulo_secao(tela, col_braco.x, col_braco.y, titulo, fontes['pequena'],
                         TEMA.acento, largura_max=col_braco.width)
         y_braco = col_braco.y + fontes['pequena'].get_height() + ds.ESPACO_SM
+        dica = _t('arraste o cartao ou o desenho ate o braco')
+        if col_braco.width > fontes['pequena'].size(titulo)[0] + self._fonte(11).size(dica)[0] + 24:
+            ds.texto_em(tela, dica, self._fonte(11), (col_braco.right, col_braco.y),
+                        TEMA.texto_apagado, ancora='topright')
 
         if tem_info:
             rect_braco = pygame.Rect(col_braco.x, y_braco, col_braco.width,
@@ -479,6 +488,7 @@ class PainelAcordes:
             col_info = pygame.Rect(col_braco.x, rect_braco.bottom + ds.ESPACO_SM,
                                    col_braco.width, altura_info)
 
+        self.rect_mini_braco = pygame.Rect(0, 0, 0, 0)
         if rect_braco.height >= 40:
             self._desenhar_braco(tela, rect_braco, fontes)
 
@@ -539,8 +549,27 @@ class PainelAcordes:
                 else:
                     self.indice_tipo = i
                 self.aplicar_no_estado(estado)
+                # Segurando e arrastando, o cartao vai para o braco
+                self._iniciar_arrasto(estado, pos)
                 return True
+
+        # O mini-braco tambem pode ser arrastado para o braco principal
+        if self.rect_mini_braco.width and self.rect_mini_braco.collidepoint(pos):
+            self._iniciar_arrasto(estado, pos)
+            return True
         return False
+
+    def _iniciar_arrasto(self, estado, pos):
+        """Prende a selecao atual ao mouse (CAGED leva a propria janela)."""
+        if estado is None:
+            return
+        from ui.components.paleta_acordes import iniciar_arrasto
+        janela, forma = None, ''
+        if self.usa_shapes:
+            base = self.casa_base()
+            janela, forma = (base, base + self.LARGURA_JANELA), self.shape_atual()['nome']
+        iniciar_arrasto(estado, self.tonica, self.tipo_atual, pos, origem='aba',
+                        janela_fixa=janela, forma=forma)
 
 
 # Uma instancia por sub-aba de ACORDES, na ordem em que elas aparecem

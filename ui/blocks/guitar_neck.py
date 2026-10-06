@@ -81,12 +81,18 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador,
                          ds.com_alpha(ds.clarear(cor_madeira, 0.55), 200)[:3])
 
     # --- Realce das janelas dos acordes sobrepostos ------------------------
-    acordes_braco = list(getattr(estado, 'acordes_no_braco', []) or [])
+    # Lista unica: acordes ligados + previa do arrasto da paleta. O foco
+    # (mouse sobre um chip ou cartao) deixa so aquele acorde em evidencia.
+    from ui.components.paleta_acordes import acordes_para_desenhar
+    acordes_braco, foco_acordes = acordes_para_desenhar(estado)
+    etiquetas_usadas = []
+    etiquetas_pendentes = []
     for indice_acorde, acorde in enumerate(acordes_braco):
         janela = acorde.get('janela')
         if not janela:
             continue
         cor_acorde = acorde.get('cor') or TEMA.acento
+        apagado = bool(foco_acordes) and acorde.get('rotulo') not in foco_acordes
         # A janela cobre as CASAS ini..fim; a casa N ocupa a faixa (N-1, N)
         borda_esq = max(0, min(janela[0] - 1, estado.NUM_CASAS))
         borda_dir = max(0, min(janela[1], estado.NUM_CASAS))
@@ -96,11 +102,13 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador,
         largura_janela = (borda_dir - borda_esq) * espaco_casas
         realce = pygame.Surface((int(largura_janela), rect_braco.height),
                                 pygame.SRCALPHA)
-        realce.fill(ds.com_alpha(cor_acorde, 46))
+        realce.fill(ds.com_alpha(cor_acorde, 14 if apagado else 46))
         tela.blit(realce, (int(x_ini), rect_braco.y))
-        pygame.draw.rect(tela, ds.rgb(cor_acorde),
+        pygame.draw.rect(tela, ds.rgb(ds.misturar(cor_acorde, TEMA.madeira, 0.6)
+                                      if apagado else cor_acorde),
                          (int(x_ini), rect_braco.y, int(largura_janela),
-                          rect_braco.height), 2, border_radius=ds.RAIO_SM)
+                          rect_braco.height), 1 if apagado else 2,
+                         border_radius=ds.RAIO_SM)
 
         etiqueta = str(acorde.get('rotulo', ''))
         fonte_etq = fontes['pequena']
@@ -109,11 +117,13 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador,
             # As etiquetas se empilham quando ha mais de um acorde na regiao
             rect_etq = pygame.Rect(int(x_ini) + 4, 0, larg_etq,
                                    fonte_etq.get_height() + 4)
-            rect_etq.centery = rect_braco.y + indice_acorde * (rect_etq.height + 2)
-            pygame.draw.rect(tela, ds.rgb(cor_acorde), rect_etq,
-                             border_radius=ds.RAIO_SM)
-            ds.texto_centralizado(tela, etiqueta, fonte_etq, rect_etq,
-                                  ds.contraste_texto(cor_acorde))
+            rect_etq.centery = rect_braco.y
+            while rect_etq.collidelist(etiquetas_usadas) != -1:
+                rect_etq.y += rect_etq.height + 2
+            etiquetas_usadas.append(rect_etq.copy())
+            # Desenhadas depois das notas, para nenhuma bolinha cobrir o nome
+            etiquetas_pendentes.append((rect_etq, etiqueta, fonte_etq,
+                                        cor_acorde, apagado))
 
     # --- Trastes e numeracao ----------------------------------------------
     # A numeracao some quando as casas ficam estreitas demais para o texto
@@ -161,16 +171,21 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador,
     # --- Filtro de acordes (definido pelo painel da aba ACORDES) ----------
     filtro_acordes = bool(acordes_braco)
 
-    def _acorde_da_posicao(casa_atual, nome_nota):
-        """Primeiro acorde sobreposto que contem esta nota nesta casa."""
-        for item in acordes_braco:
+    acordes_cor = ([a for a in acordes_braco if a.get('rotulo') in foco_acordes]
+                   if foco_acordes else acordes_braco)
+
+    def _acordes_da_posicao(casa_atual, nome_nota):
+        """[(grau, cor)] dos acordes que contem esta nota nesta casa."""
+        achados = []
+        # Acorde posto numa regiao manda nela; o do braco inteiro vem depois
+        for item in sorted(acordes_cor, key=lambda a: not a.get('janela')):
             faixa = item.get('janela')
             if faixa and not (faixa[0] <= casa_atual <= faixa[1]):
                 continue
             grau_item = (item.get('notas') or {}).get(nome_nota)
             if grau_item:
-                return grau_item, item.get('cor') or TEMA.acento
-        return None, None
+                achados.append((grau_item, item.get('cor') or TEMA.acento))
+        return achados
 
     # --- Cordas e notas ----------------------------------------------------
     # As bolinhas acompanham o tamanho do bloco: nunca maiores que a casa
@@ -206,8 +221,13 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador,
 
             # Filtro dos acordes sobrepostos no braco
             grau_acorde = cor_acorde_nota = None
+            cores_extras = []
             if filtro_acordes:
-                grau_acorde, cor_acorde_nota = _acorde_da_posicao(casa, nota)
+                achados = _acordes_da_posicao(casa, nota)
+                if achados:
+                    grau_acorde, cor_acorde_nota = achados[0]
+                    # Nota em comum: um anel por acorde a mais que tambem a tem
+                    cores_extras = [cor for _g, cor in achados[1:4]]
                 if grau_acorde is None:
                     no_acorde = False
                     alpha, raio = GUITAR_ALPHA_INATIVO, max(5, int(raio_base * 0.6))
@@ -237,7 +257,7 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador,
                 raio = int(raio_base * 1.25)
                 alpha = GUITAR_ALPHA_NORMAL
 
-            lado = raio * 2 + 8
+            lado = (raio + 3 * len(cores_extras)) * 2 + 8
             s = pygame.Surface((lado, lado), pygame.SRCALPHA)
             centro = lado // 2
 
@@ -251,6 +271,9 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador,
             cor_contorno = (255, 140, 0) if tocando else ds.escurecer(cor_fundo, 0.45)
             pygame.draw.circle(s, (*ds.rgb(cor_contorno), alpha), (centro, centro),
                                raio, 3 if tocando else 1)
+            for k, cor_extra in enumerate(cores_extras):
+                pygame.draw.circle(s, (*ds.rgb(cor_extra), alpha), (centro, centro),
+                                   raio + 3 * (k + 1), 2)
             tela.blit(s, (int(x_nota - centro), int(y - centro)))
 
             if modo_texto != 'vazio' and mostrar_rotulo:
@@ -265,6 +288,12 @@ def desenhar_guitarra(tela, estado, configs, fontes, meu_processador,
                 surf.set_alpha(alpha)
                 tela.blit(surf, (x_nota - surf.get_width() / 2,
                                  y - surf.get_height() / 2))
+
+    for rect_etq, etiqueta, fonte_etq, cor_acorde, apagado in etiquetas_pendentes:
+        cor_fundo = ds.misturar(cor_acorde, TEMA.madeira, 0.55) if apagado else cor_acorde
+        pygame.draw.rect(tela, ds.rgb(cor_fundo), rect_etq, border_radius=ds.RAIO_SM)
+        ds.texto_centralizado(tela, etiqueta, fonte_etq, rect_etq,
+                              ds.contraste_texto(cor_fundo))
 
     if estado.drag_ativado:
         alvo.desenhar_caixa_selecao(tela, margem=15)
