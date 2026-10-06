@@ -179,9 +179,38 @@ class EditorMusical:
         self.playhead = 0
         self.inicio_play = time.time()
         try:
-            self.dados.play(lambda *a, **k: None)
+            # Antes o callback era vazio: o botao Tocar andava com o cursor mas
+            # nao saia som nenhum
+            self.dados.play(self._tocar_nota)
         except Exception:
             pass
+
+    def _motor_som(self):
+        """Motor de som da tablatura (audio/tab_synth.py), criado no 1o play."""
+        motor = getattr(self, '_motor', None)
+        if motor is None:
+            try:
+                from audio.tab_synth import MotorAudioDual
+                motor = MotorAudioDual()
+            except Exception as erro:
+                print(f'[EDITOR] Sem motor de som: {erro}')
+                motor = False
+            self._motor = motor
+        return motor or None
+
+    def _tocar_nota(self, corda, casa, tecnica='', duracao=0.3, volume=100):
+        """Chamado pelo player a cada nota. 'corda' vem da grade (1 = a mais grave);
+        o motor conta como no violao (1 = a mais aguda)."""
+        motor = self._motor_som()
+        if motor is None:
+            return
+        if getattr(motor, 'instrumento_atual', None) != self.instrumento:
+            motor.alternar_instrumento_synth(self.instrumento)
+        corda_motor = max(1, min(6, 6 - (corda - 1)))
+        try:
+            motor.reproduzir_nota(corda_motor, casa, tecnica, duracao, volume)
+        except Exception as erro:
+            print(f'[EDITOR] Nota nao tocou: {erro}')
 
     def atualizar_playhead(self):
         """A cabeca anda pelo relogio, nao pelo numero de quadros."""
@@ -214,28 +243,83 @@ class EditorMusical:
             self._avisar(f"{_t('Erro ao salvar')}: {e}")
             return False
 
-    def exportar(self):
+    def texto_tablatura(self):
+        """A tablatura do instrumento atual no formato classico de forum."""
+        afinacao = AFINACOES.get(self.instrumento, AFINACOES['Guitarra'])
+        linhas = []
+        for corda in range(self.num_cordas - 1, -1, -1):
+            nome = afinacao[corda][0] if corda < len(afinacao) else '?'
+            partes = [f'{nome}|']
+            for tempo in range(self.num_tempos):
+                valor = valor_da_celula(self.grade[corda][tempo])
+                partes.append(f'{valor}' if valor is not None else '-')
+                partes.append('-' if valor is None or valor < 10 else '')
+            linhas.append(''.join(partes))
+        return (f'{self.dados.nome_musica} — {self.dados.bpm} BPM\n'
+                f'{_t("Instrumento")}: {_t(self.instrumento)}\n\n' + '\n'.join(linhas) + '\n')
+
+    def exportar(self, caminho=None):
         """Escreve a tablatura em texto, no formato classico de forum."""
         try:
-            afinacao = AFINACOES.get(self.instrumento, AFINACOES['Guitarra'])
-            linhas = []
-            for corda in range(self.num_cordas - 1, -1, -1):
-                nome = afinacao[corda][0] if corda < len(afinacao) else '?'
-                partes = [f'{nome}|']
-                for tempo in range(self.num_tempos):
-                    valor = valor_da_celula(self.grade[corda][tempo])
-                    partes.append(f'{valor}' if valor is not None else '-')
-                    partes.append('-' if valor is None or valor < 10 else '')
-                linhas.append(''.join(partes))
-            caminho = f'{self.dados.nome_musica.replace(" ", "_")}.txt'
+            caminho = caminho or f'{self.dados.nome_musica.replace(" ", "_")}.txt'
             with open(caminho, 'w', encoding='utf-8') as arq:
-                arq.write(f'{self.dados.nome_musica} — {self.dados.bpm} BPM\n\n')
-                arq.write('\n'.join(linhas))
+                arq.write(self.texto_tablatura())
             self._avisar(f'{_t("Exportado")}: {caminho}')
             return caminho
         except Exception as e:
             self._avisar(f'{_t("Erro ao exportar")}: {e}')
             return None
+
+    # ------------------------------------------------------------ projeto --
+    def para_dict(self):
+        """Tudo o que e preciso para reabrir a peca exatamente como esta."""
+        return {'formato': 'eiguit-projeto', 'versao': 1,
+                'nome': self.dados.nome_musica, 'bpm': self.dados.bpm,
+                'instrumento': self.dados.instrumento_atual,
+                'trilhas': self.dados.trilhas}
+
+    def carregar_dict(self, dados):
+        """Aceita o formato de projeto e o JSON antigo ({'bpm', 'grade'})."""
+        if not isinstance(dados, dict):
+            raise ValueError('arquivo de projeto invalido')
+        trilhas = dados.get('trilhas')
+        if not trilhas and 'grade' in dados:
+            trilhas = {'Guitarra': dados['grade']}
+        if not isinstance(trilhas, dict) or not trilhas:
+            raise ValueError('o arquivo nao tem nenhuma trilha')
+        novo = GerenciadorDadosTablatura(int(dados.get('bpm', 120) or 120))
+        for nome, grade in trilhas.items():
+            if isinstance(grade, list) and grade and all(isinstance(c, list) for c in grade):
+                novo.trilhas[nome] = [[str(x) for x in corda] for corda in grade]
+        # Todas as trilhas com o mesmo comprimento, como o editor espera
+        maior = max(len(g[0]) for g in novo.trilhas.values() if g)
+        for grade in novo.trilhas.values():
+            for corda in grade:
+                corda.extend('-' for _ in range(maior - len(corda)))
+        novo.nome_musica = str(dados.get('nome') or novo.nome_musica)[:40]
+        instrumento = dados.get('instrumento')
+        if instrumento in novo.trilhas:
+            novo.instrumento_atual = instrumento
+        self.parar()
+        self.dados = novo
+        self.cursor = [0, 0]
+        self.scroll = 0
+
+    def parar(self):
+        if self.tocando:
+            self.tocando = False
+            try:
+                self.dados.stop()
+            except Exception:
+                pass
+
+    def assinatura(self):
+        """Muda sempre que o conteudo muda: serve para saber se ha algo sem salvar."""
+        return hash(json.dumps(self.para_dict(), sort_keys=True))
+
+    def tem_notas(self):
+        return any(valor_da_celula(c) is not None
+                   for grade in self.dados.trilhas.values() for corda in grade for c in corda)
 
     # ------------------------------------------------------------- desenho --
     def _toolbar(self, tela, rect, fontes):
@@ -543,10 +627,14 @@ class EditorMusical:
                     return True
             if self.rect_play.collidepoint(pos):
                 self.alternar_play(gravador); return True
+            # Salvar/Exportar usam o mesmo fluxo do menu Arquivo (arquivo
+            # .eiguit no computador + copia na nuvem; exportar com dialogo)
             if self.rect_salvar.collidepoint(pos):
-                self.salvar(estado); return True
+                import core.acoes_cabecalho as acoes
+                acoes.salvar_projeto(estado); return True
             if self.rect_exportar.collidepoint(pos):
-                self.exportar(); return True
+                import core.acoes_cabecalho as acoes
+                acoes.exportar_txt(estado); return True
             if self.rect_bpm_menos.collidepoint(pos):
                 self.dados.set_bpm(max(40, self.dados.bpm - 5)); return True
             if self.rect_bpm_mais.collidepoint(pos):

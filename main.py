@@ -13,6 +13,11 @@ from core.modulos.modulo_perfil import GerenciadorPerfil
 from ui import tela_login
 from config.design_system import TEMA, ds
 from core.sessao_estudo import SessaoEstudo
+from core import desempenho
+from config.ui_metrics import ALTURA_TOPBAR
+from ui.components import desenhar_painel_superior
+from ui.components.blocos_extras import registrar_nota_historico
+import math
 
 def main():
     """
@@ -70,6 +75,10 @@ def main():
     estado.motor_audio = motor_audio
     estado.gerenciador_perfil = GerenciadorPerfil()
     estado.gerenciador_perfil.carregar_ultimo_perfil(estado, minhas_configs, meu_campo_harmonico, meu_gravador)
+    # Desempenho (vem do perfil): FPS, efeitos, zoom, intervalo da analise
+    desempenho.aplicar(estado)
+    desempenho.pre_carregar_audio(estado)
+    medidor_fps = desempenho.MedidorFPS()
     dicionario_escalas = fabrica_escalas.gerar_modulos(estado, minhas_configs)
     nome_fonte = minhas_configs.get_fonte()
     TAMANHOS_BASE = {'ui': 18, 'pequena': 15, 'titulo': 22, 'notas': 20}
@@ -85,14 +94,19 @@ def main():
     memoria_botao_ia = False
     original_get_pos = pygame.mouse.get_pos
     relogio = pygame.time.Clock()
+    estado.em_tela_cheia = True
+    estado.modo_tela = 'cheia'
     while not estado.solicitou_saida:
-        relogio.tick(60)
+        medidor_fps.registrar(relogio.tick(getattr(estado, 'fps_alvo', 60)))
+        estado.fps_real = medidor_fps.valor
+        # O cabecalho pode trocar o modo de tela (tela cheia, janela, resolucao):
+        # a superficie antiga deixa de valer, entao pega a atual a cada quadro
+        tela = pygame.display.get_surface() or tela
         # O portao de ruido do painel de audio agora controla o motor
         motor_audio.atualizar_analise_ia(estado.afinador_threshold,
                                          gate_db=estado.afinador_noise_gate)
         estado.freq_detectada = motor_audio.freq_detectada
         estado.notas_detectadas_ia = motor_audio.notas_polifonicas
-        import math 
         agora = pygame.time.get_ticks()
         nota_instante = '--'
         try:
@@ -122,7 +136,6 @@ def main():
             else:
                 notas_validas = meu_campo_harmonico.notas_da_escala()
             estado.sessao.registrar(estado.nota_atual_detectada, notas_validas)
-        from ui.components.blocos_extras import registrar_nota_historico
         registrar_nota_historico(estado, estado.nota_atual_detectada)
         pos_mouse_real = original_get_pos()
         estado.pos_mouse_real = pos_mouse_real
@@ -151,29 +164,47 @@ def main():
         meu_processador.processar_logica_continua(motor_audio, estado)
         if estado.tela_jogo_ativa and meu_gerenciador_jogos.jogo_id_ativo == 'acerte_a_nota':
             pass
-        ds.fundo_app(minha_camera.tela_virtual)
-        renderizador_ui.desenhar_workspace(minha_camera.tela_virtual, estado, minhas_configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos)
-        tela.fill(ds.rgb(TEMA.fundo))
-        
-        from config.ui_metrics import ALTURA_TOPBAR
-        from ui.components import desenhar_painel_superior
-        
         altura_conteudo = max(1, tela.get_height() - ALTURA_TOPBAR)
         rect_viewport = pygame.Rect(0, ALTURA_TOPBAR, tela.get_width(), altura_conteudo)
-        
+        # Com uma tela cheia por cima (estudo, editor, jogo) a mesa nao aparece:
+        # nao precisa ser desenhada
+        if renderizador_ui.workspace_visivel(estado, meu_gerenciador_jogos):
+            # So o pedaco visivel da mesa virtual (4000x3000) e limpo e copiado
+            area_visivel = minha_camera.area_visivel(rect_viewport.width, rect_viewport.height)
+            ds.fundo_app(minha_camera.tela_virtual, area=area_visivel)
+            renderizador_ui.desenhar_workspace(minha_camera.tela_virtual, estado, minhas_configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos)
+            tela.fill(ds.rgb(TEMA.fundo))
+        else:
+            estado.campo_harmonico_ref = meu_campo_harmonico
         try:
             viewport = tela.subsurface(rect_viewport)
-            minha_camera.renderizar(viewport)
+            if renderizador_ui.workspace_visivel(estado, meu_gerenciador_jogos):
+                minha_camera.renderizar(viewport)
             renderizador_ui.desenhar_ui_fixa(viewport, estado, fontes, meu_gravador, minhas_configs, meu_gerenciador_jogos)
         except Exception:
             minha_camera.renderizar(tela)
             renderizador_ui.desenhar_ui_fixa(tela, estado, fontes, meu_gravador, minhas_configs, meu_gerenciador_jogos)
-            
+
         desenhar_painel_superior(tela, estado, fontes, minhas_configs)
-        
         pygame.display.flip()
+        # Tudo o que o usuario muda vai para o perfil sozinho
+        estado.gerenciador_perfil.tick_auto_salvar(estado, minhas_configs, meu_campo_harmonico, meu_gravador)
     pygame.mouse.get_pos = original_get_pos
+    # Ultima gravacao do perfil (arquivo e, se houver conta, nuvem)
+    try:
+        estado.gerenciador_perfil.salvar_automatico(estado, minhas_configs, meu_campo_harmonico, meu_gravador)
+        estado.gerenciador_perfil.sincronizar_nuvem(estado, minhas_configs, meu_campo_harmonico, meu_gravador)
+    except Exception as erro:
+        print(f'[PERFIL] Nao salvou ao sair: {erro}')
+    try:
+        motor_audio.parar()
+    except Exception:
+        pass
     pygame.quit()
+    if getattr(estado, 'reiniciar_apos_sair', False):
+        # "Trocar de conta": reabre o programa direto na tela de login
+        from core.acoes_cabecalho import reiniciar_programa
+        reiniciar_programa()
     sys.exit()
 if __name__ == '__main__':
-    main()
+    main()

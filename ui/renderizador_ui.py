@@ -25,6 +25,18 @@ render_tab_maker = None
 
 from DragDrop.gerenciador_snap import desenhar_guias_inteligentes
 
+def workspace_visivel(estado, gerenciador_jogos=None):
+    """False quando uma tela cheia cobre a mesa (nao vale a pena desenha-la)."""
+    if getattr(estado, 'tela_estudo_ativa', False) or getattr(estado, 'tela_criacao_tab_ativa', False):
+        return False
+    if getattr(estado, 'tab_tela_cheia_ativa', False) and hasattr(estado, 'tab_focada'):
+        return False
+    if getattr(estado, 'tela_jogo_ativa', False) and gerenciador_jogos is not None \
+            and getattr(gerenciador_jogos, 'jogo_instancia', None) is not None:
+        return False
+    return True
+
+
 def desenhar_workspace(tela, estado, configs, dicionario_escalas, fontes, meu_metronomo, meu_processador, meu_gravador, meu_campo_harmonico, meu_gerenciador_jogos):
     """
         Como funciona: Calcula a posição e renderiza os componentes dinâmicos (braço da guitarra, controles, campo harmônico) no espaço virtual.

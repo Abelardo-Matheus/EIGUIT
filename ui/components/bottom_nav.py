@@ -262,7 +262,16 @@ def _desenhar_aba_ia(tela, dx, y_start, estado, fontes, meu_processador,
 def _desenhar_aba_configuracao(tela, dx, y_start, largura_conteudo, estado,
                                fontes, configs, meu_metronomo, memoria_sub_aba,
                                scroll_y):
-    """Sub-abas de Configuracoes (aparencia e metronomo)."""
+    """Sub-abas de Configuracoes (aparencia, metronomo, teclas e desempenho).
+    Devolve a altura do conteudo quando a sub-aba rola (teclas/desempenho)."""
+    if memoria_sub_aba in (2, 3):
+        from ui.components.painel_preferencias import PAINEL
+        x = dx + BOTTOM_MARGIN_X
+        largura = largura_conteudo - BOTTOM_MARGIN_X * 2 - 16
+        mouse = pygame.mouse.get_pos()
+        if memoria_sub_aba == 2:
+            return PAINEL.desenhar_teclas(tela, x, y_start + ds.ESPACO_SM, largura, estado, mouse)
+        return PAINEL.desenhar_desempenho(tela, x, y_start + ds.ESPACO_SM, largura, estado, mouse)
     if memoria_sub_aba == 0:
         configs.y = y_start + CONFIG_OFFSET_Y_INTERNO
         configs.x = dx + BOTTOM_MARGIN_X
@@ -751,9 +760,10 @@ def desenhar_secoes_inferiores_expansiveis(tela, estado, configs, dicionario_esc
                              meu_gravador, meu_gerenciador_jogos,
                              secao['memoria_sub_aba'], configs, largura_conteudo)
         elif secao['conteudo'] == 'configuracao':
-            _desenhar_aba_configuracao(tela, dx, y_start, largura_conteudo, estado,
-                                       fontes, configs, meu_metronomo,
-                                       secao['memoria_sub_aba'], scroll_atual)
+            alto = _desenhar_aba_configuracao(tela, dx, y_start, largura_conteudo, estado,
+                                              fontes, configs, meu_metronomo,
+                                              secao['memoria_sub_aba'], scroll_atual)
+            estado.max_scroll[i] = max(0, alto - altura_util) if alto is not None else 0
         elif secao['conteudo'] == 'estudos':
             alto = _desenhar_aba_estudos(tela, dx, y_start, largura_conteudo,
                                          estado, fontes, secao['memoria_sub_aba'],

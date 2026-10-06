@@ -179,7 +179,7 @@ class GerenciadorDadosTablatura:
             start_time = time.time()
             
             # Dispara as notas de todas as cordas no tempo atual
-            for corda_idx in range(6):
+            for corda_idx in range(len(self.grade)):     # baixo tem 4 cordas
                 celula = self.grade[corda_idx][self.cursor_tempo]
                 if celula != "-":
                     self._processar_e_tocar(corda_idx + 1, celula)

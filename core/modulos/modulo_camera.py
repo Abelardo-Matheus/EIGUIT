@@ -62,16 +62,38 @@ class CameraWorkspace:
             return True
         return False
 
+    # Zoom suave (smoothscale) e mais bonito e mais caro; o modo leve usa o rapido
+    zoom_suave = False
+
+    def area_visivel(self, largura_monitor, altura_monitor, folga=2):
+        """Retangulo da mesa virtual que aparece no monitor agora."""
+        largura = int(largura_monitor / self.zoom) + folga
+        altura = int(altura_monitor / self.zoom) + folga
+        area = pygame.Rect(int(self.offset_x) - 1, int(self.offset_y) - 1, largura, altura)
+        return area.clip(self.tela_virtual.get_rect())
+
     def renderizar(self, tela_monitor):
         """
-            Como funciona: Executa o fluxo lógico necessário para a operação 'renderizar'.
-            Para que serve: Realiza as tarefas fundamentais de 'renderizar' dentro do contexto do módulo.
-            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'renderizar'.
+            Como funciona: Copia para o monitor so o pedaco visivel da mesa.
+            Com zoom, escala apenas esse pedaco (antes escalava a mesa inteira
+            de 4000x3000 a cada quadro, o que custava dezenas de ms).
         """
-        if self.zoom != 1.0:
-            w_zoom = int(self.largura_mesa * self.zoom)
-            h_zoom = int(self.altura_mesa * self.zoom)
-            tela_escala = pygame.transform.scale(self.tela_virtual, (w_zoom, h_zoom))
-            tela_monitor.blit(tela_escala, (-self.offset_x * self.zoom, -self.offset_y * self.zoom))
-        else:
+        w_mon, h_mon = tela_monitor.get_size()
+        if self.zoom == 1.0:
             tela_monitor.blit(self.tela_virtual, (-self.offset_x, -self.offset_y))
+            return
+        area = self.area_visivel(w_mon, h_mon)
+        if area.width <= 0 or area.height <= 0:
+            return
+        destino = (max(1, int(round(area.width * self.zoom))),
+                   max(1, int(round(area.height * self.zoom))))
+        pedaco = self.tela_virtual.subsurface(area)
+        if self.zoom_suave:
+            try:
+                escalado = pygame.transform.smoothscale(pedaco, destino)
+            except (ValueError, pygame.error):
+                escalado = pygame.transform.scale(pedaco, destino)
+        else:
+            escalado = pygame.transform.scale(pedaco, destino)
+        tela_monitor.blit(escalado, ((area.x - self.offset_x) * self.zoom,
+                                     (area.y - self.offset_y) * self.zoom))

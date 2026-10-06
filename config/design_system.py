@@ -186,6 +186,49 @@ TEMA = _Tema()
 
 
 # ---------------------------------------------------------------------------
+# DESEMPENHO: efeitos que podem ser desligados (core/desempenho.py) e caches
+# ---------------------------------------------------------------------------
+
+# Ajustados pelas Configuracoes > Desempenho (perfil do usuario)
+EFEITOS = {
+    'sombras': True,        # sombra suave sob paineis e menus
+    'transparencias': True, # paineis translucidos (False = cor solida, mais leve)
+    'animacoes': True,      # avisos deslizando, pontos pulsando
+}
+
+_LIMITE_CACHE = 512
+
+
+class _CacheLRU(dict):
+    """Dicionario com limite: descarta os mais antigos quando enche."""
+
+    def __init__(self, limite=_LIMITE_CACHE):
+        super().__init__()
+        self.limite = limite
+
+    def guardar(self, chave, valor):
+        if len(self) >= self.limite:
+            # remove o primeiro quarto inserido (dict preserva ordem)
+            for velha in list(self.keys())[: self.limite // 4]:
+                del self[velha]
+        self[chave] = valor
+        return valor
+
+
+_CACHE_SOMBRAS = _CacheLRU(256)
+_CACHE_TRANSLUCIDAS = _CacheLRU(512)
+_CACHE_TEXTOS = _CacheLRU(2048)
+
+
+def limpar_caches():
+    """Esvazia os caches de desenho (troca de tema, de fonte ou de escala)."""
+    _CACHE_SOMBRAS.clear()
+    _CACHE_TRANSLUCIDAS.clear()
+    _CACHE_TEXTOS.clear()
+    _CACHE_GRADIENTES.clear()
+
+
+# ---------------------------------------------------------------------------
 # UTILIDADES DE COR
 # ---------------------------------------------------------------------------
 
@@ -229,7 +272,7 @@ def contraste_texto(cor_fundo):
 _CACHE_GRADIENTES = {}
 
 
-def gradiente_vertical(tela, rect, cor_topo, cor_base, raio=0):
+def gradiente_vertical(tela, rect, cor_topo, cor_base, raio=0, area=None):
     """Preenche um retangulo com gradiente vertical suave.
     O resultado fica em cache por tamanho/cores: o fundo da aplicacao era
     recalculado a cada quadro (96 faixas numa superficie da tela inteira)."""
@@ -239,9 +282,12 @@ def gradiente_vertical(tela, rect, cor_topo, cor_base, raio=0):
     chave = (rect.width, rect.height, tuple(rgb(cor_topo)), tuple(rgb(cor_base)), raio)
     pronta = _CACHE_GRADIENTES.get(chave)
     if pronta is not None:
-        tela.blit(pronta, rect.topleft)
+        _blit_area(tela, pronta, rect, area)
         return
-    superficie = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+    # Sem cantos arredondados o gradiente e opaco: superficie sem alfa, que
+    # copia bem mais rapido (o fundo da mesa de trabalho tem 4000x3000)
+    superficie = pygame.Surface((rect.width, rect.height),
+                                pygame.SRCALPHA if raio else 0)
     passos = max(1, min(rect.height, 96))
     altura_passo = rect.height / passos
     for i in range(passos):
@@ -257,38 +303,78 @@ def gradiente_vertical(tela, rect, cor_topo, cor_base, raio=0):
         superficie.blit(mascara, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
     if len(_CACHE_GRADIENTES) > 96:
         _CACHE_GRADIENTES.clear()
+    if not raio and pygame.display.get_init() and pygame.display.get_surface() is not None:
+        try:
+            superficie = superficie.convert()
+        except pygame.error:
+            pass
     _CACHE_GRADIENTES[chave] = superficie
-    tela.blit(superficie, rect.topleft)
+    _blit_area(tela, superficie, rect, area)
+
+
+def _blit_area(tela, superficie, rect, area):
+    """Copia so o pedaco 'area' (coordenadas da tela) do gradiente."""
+    if area is None:
+        tela.blit(superficie, rect.topleft)
+        return
+    recorte = pygame.Rect(area).clip(rect)
+    if recorte.width <= 0 or recorte.height <= 0:
+        return
+    tela.blit(superficie, recorte.topleft,
+              recorte.move(-rect.x, -rect.y))
 
 
 def sombra(tela, rect, raio=RAIO_XL, forca=70, deslocamento=3, expansao=2):
-    """Sombra suave sob um painel. No tema claro fica mais discreta."""
+    """Sombra suave sob um painel. No tema claro fica mais discreta.
+    As tres camadas sao montadas uma vez por tamanho e reaproveitadas."""
+    if not EFEITOS['sombras']:
+        return
     rect = pygame.Rect(rect)
+    if rect.width <= 0 or rect.height <= 0:
+        return
     forca = forca if TEMA.escuro else int(forca * 0.45)
     camadas = 3
-    for i in range(camadas, 0, -1):
-        alpha = int(forca / (i * 1.9))
-        r = rect.inflate(expansao * i * 2, expansao * i * 2)
-        r.y += deslocamento
-        superficie = pygame.Surface((r.width, r.height), pygame.SRCALPHA)
-        pygame.draw.rect(superficie, com_alpha(TEMA.sombra, alpha),
-                         (0, 0, r.width, r.height), border_radius=raio + i * 2)
-        tela.blit(superficie, r.topleft)
+    margem = expansao * camadas
+    chave = (rect.width, rect.height, raio, forca, expansao, tuple(TEMA.sombra))
+    pronta = _CACHE_SOMBRAS.get(chave)
+    if pronta is None:
+        pronta = pygame.Surface((rect.width + margem * 2, rect.height + margem * 2), pygame.SRCALPHA)
+        for i in range(camadas, 0, -1):
+            alpha = int(forca / (i * 1.9))
+            camada = pygame.Surface((rect.width + expansao * i * 2, rect.height + expansao * i * 2),
+                                    pygame.SRCALPHA)
+            pygame.draw.rect(camada, com_alpha(TEMA.sombra, alpha), camada.get_rect(),
+                             border_radius=raio + i * 2)
+            pronta.blit(camada, (margem - expansao * i, margem - expansao * i))
+        _CACHE_SOMBRAS.guardar(chave, pronta)
+    tela.blit(pronta, (rect.x - margem, rect.y - margem + deslocamento))
 
 
 def superficie_translucida(tela, rect, cor, alpha=235, raio=RAIO_XL,
                            cor_borda=None, largura_borda=1):
-    """Retangulo arredondado semitransparente (o painel base do design)."""
+    """Retangulo arredondado semitransparente (o painel base do design).
+    A superficie pronta fica em cache por tamanho/cor; com as transparencias
+    desligadas o painel e desenhado solido, direto na tela (bem mais leve)."""
     rect = pygame.Rect(rect)
     if rect.width <= 0 or rect.height <= 0:
         return rect
-    superficie = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
-    pygame.draw.rect(superficie, com_alpha(cor, alpha),
-                     (0, 0, rect.width, rect.height), border_radius=raio)
-    if cor_borda is not None and largura_borda > 0:
-        pygame.draw.rect(superficie, com_alpha(cor_borda, min(255, alpha + 40)),
-                         (0, 0, rect.width, rect.height),
-                         width=largura_borda, border_radius=raio)
+    if not EFEITOS['transparencias'] and alpha >= 120:
+        pygame.draw.rect(tela, rgb(cor), rect, border_radius=raio)
+        if cor_borda is not None and largura_borda > 0:
+            pygame.draw.rect(tela, rgb(cor_borda), rect, width=largura_borda, border_radius=raio)
+        return rect
+    chave = (rect.width, rect.height, rgb(cor), alpha, raio,
+             rgb(cor_borda) if cor_borda is not None else None, largura_borda)
+    superficie = _CACHE_TRANSLUCIDAS.get(chave)
+    if superficie is None:
+        superficie = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(superficie, com_alpha(cor, alpha),
+                         (0, 0, rect.width, rect.height), border_radius=raio)
+        if cor_borda is not None and largura_borda > 0:
+            pygame.draw.rect(superficie, com_alpha(cor_borda, min(255, alpha + 40)),
+                             (0, 0, rect.width, rect.height),
+                             width=largura_borda, border_radius=raio)
+        _CACHE_TRANSLUCIDAS.guardar(chave, superficie)
     tela.blit(superficie, rect.topleft)
     return rect
 
@@ -308,7 +394,10 @@ def texto_em(tela, texto, fonte, pos, cor=None, ancora='topleft', largura_max=No
     cor = cor if cor is not None else TEMA.texto
     if largura_max:
         texto = truncar(texto, fonte, largura_max)
-    surf = fonte.render(texto, True, rgb(cor))
+    chave = (fonte, texto, rgb(cor))   # a fonte na chave a mantem viva (id nao se repete)
+    surf = _CACHE_TEXTOS.get(chave)
+    if surf is None:
+        surf = _CACHE_TEXTOS.guardar(chave, fonte.render(texto, True, rgb(cor)))
     rect = surf.get_rect(**{ancora: pos})
     tela.blit(surf, rect.topleft)
     return rect
@@ -589,10 +678,11 @@ def icone_tema(tela, centro, modo, cor=None, tamanho=8):
             pygame.draw.line(tela, cor, (x1, y1), (x2, y2), 2)
 
 
-def fundo_app(tela, rect=None):
-    """Fundo geral da aplicacao com gradiente vertical."""
+def fundo_app(tela, rect=None, area=None):
+    """Fundo geral da aplicacao com gradiente vertical.
+    'area' limita a pintura ao pedaco visivel (a mesa virtual e enorme)."""
     rect = pygame.Rect(rect) if rect else tela.get_rect()
-    gradiente_vertical(tela, rect, TEMA.fundo, TEMA.fundo_alt)
+    gradiente_vertical(tela, rect, TEMA.fundo, TEMA.fundo_alt, area=area)
 
 
 def caixa_selecao(tela, rect, marcado, cor=None, raio=RAIO_SM):

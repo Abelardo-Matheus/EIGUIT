@@ -100,7 +100,7 @@ data files.
   `audio/amp_guitarra.py`; `soundfont` = TinySoundFont; `sintetico` = numpy fallback).
   Assets in `assets/audio/guitarra_di/` (Karoryfer Emilyguitar, CC0, FLAC) and
   `assets/audio/soundfonts/` (GeneralUser GS; `padrao.txt` picks the default).
-  `audio/tab_synth.py → MotorAudioDual` (tablature screens) keeps its old API and adds the
+  `audio/tab_synth.py → MotorAudioDual` (plays the Criação Musical editor — `EditorMusical._tocar_nota`) keeps its old API and adds the
   `profissional` mode (default), per-note cache + background HQ render, `preparar_grade()`,
   `ler_celula()` and `proximo_som()` for the "Som:" button.
 - **Database URL** — never in code: `BD/gerenciador_remoto_db.py → ler_url_conexao()` reads
@@ -124,6 +124,36 @@ data files.
   `audio/referencia.py` (library, optional yt-dlp/Demucs), `audio/cadeia_pedais.py` (phase 2,
   analysis by synthesis) and `audio/treinar_detector.py` (phase 3, local scikit-learn model).
   No API keys. Details in `Analisador/README.md`; suite `_validacao/teste_analisador.py`.
+- **Header (top bar)** — `ui/components/top_bar.py` draws it (brand, menus, screen context +
+  Voltar, AI status, input meter, account chip, fullscreen/theme/edit buttons, tooltips) and
+  registers every clickable rect in `estado.botoes_cabecalho`. `core/modulos/modulo_menu_superior.py`
+  holds the menu model (`MENUS`, `ATALHOS`), keyboard navigation and the generic modals (confirm,
+  option list, info) centred on the real screen; `core/acoes_cabecalho.py` implements every action
+  (projects as `.eiguit` JSON in Documents/EIGUIT, txt/MIDI export, PNG capture, zoom, screen mode,
+  profile/account). User feedback goes through `ui/components/notificacoes.py → notificar()`.
+  The Perfil menu is not in the menu bar: it opens from the account chip (top right).
+  Suite: `_validacao/teste_cabecalho.py`.
+- **Key bindings** — `core/atalhos.py` (`ACOES` = every bindable function with defaults; combos
+  stored as `'ctrl+shift+s'` from `pygame.key.name`). `estado.atalhos` is the live table; the menu
+  resolves keys with `atalhos.acao_do_evento()`. Editing UI: CONFIGURAÇÃO > "Teclas de Atalho"
+  (`ui/components/painel_preferencias.py`); capture mode is `estado.capturando_atalho`, handled
+  first in `MenuSuperior.tratar_eventos`.
+- **Performance** — `core/desempenho.py` (presets leve/equilibrado/maximo + per-option: FPS cap,
+  shadows, translucency, animations, smooth zoom, audio-analysis interval, librosa preload, FPS
+  counter). `aplicar()` pushes them to `ds.EFEITOS`, the camera and the audio engine. UI:
+  CONFIGURAÇÃO > "Desempenho". Render hot paths: `ds.sombra`/`superficie_translucida`/`texto_em`
+  are LRU-cached; `main.py` clears only the visible part of the 4000x3000 virtual desk
+  (`camera.area_visivel`), the camera scales only the visible crop, and the desk is not drawn at
+  all while a full-screen study/editor/game covers it (`renderizador_ui.workspace_visivel`).
+- **Profiles & auto-save** — `GerenciadorPerfil.montar_dados()` holds everything (layout, neck,
+  colors, theme, key bindings, performance). `tick_auto_salvar()` (every frame from `main.py`)
+  writes the current profile — or `Perfis/Padrão.json` when none — 1 s after a change
+  (`estado.perfil_alterado`) and every 20 s if anything differs; on exit it saves and syncs the
+  cloud copy. `config_eiguit.json` is merged, never overwritten (the theme lives there).
+  Suite: `_validacao/teste_preferencias.py`.
+- **Disk cleanup** — `OTIMIZAR_ESPACO.bat` / `otimizar_espaco.ps1` sends unused local stuff
+  (PyInstaller build/dist, `venv_novo`, caches, applied update bundle, leftovers) to the Recycle Bin,
+  asking group by group; `-Dependencias` trims `pyproject.toml` via uv.
 - **`audio/global_audio.py → GlobalAudioEngine`** — mic capture + continuous polyphonic pitch
   analysis; `main.py` reads `freq_detectada` / `notas_polifonicas` from it every frame.
 - **`Jogos/`** — gamification (`Jogos_interativos.py` manager + `acerte_a_nota.py` etc.).

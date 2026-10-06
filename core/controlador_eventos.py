@@ -77,45 +77,17 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
     estado.guias_x = []
     estado.guias_y = []
 
-    # 1. PRIORIDADE MÁXIMA: BARRA SUPERIOR E MENUS DE SISTEMA (Usam pos_real)
-    # Isso garante que Pin, Arquivo, Perfil, etc funcionem SEMPRE no topo fixo.
+    # 1. PRIORIDADE MÁXIMA: CABEÇALHO (menus, atalhos, modais e botões da barra)
+    # Usa o mouse real: a barra é fixa e não passa pela câmera do workspace.
+    estado.gerenciador_jogos = meu_gerenciador_jogos
+    estado.metronomo = meu_metronomo
     for evento in eventos:
         if evento.type == pygame.QUIT:
             estado.solicitou_saida = True
-            
-        # Tratar Menu Superior
         if estado.menu_superior.tratar_eventos(evento, pos_real, estado, configs, meu_campo_harmonico, meu_gravador):
-            dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
-            return # Bloqueia propagação
-
-        if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-            # Tratar Botao de Tema (Claro/Escuro) - troca ao vivo
-            if hasattr(estado, 'rect_btn_tema') and estado.rect_btn_tema.collidepoint(pos_real):
-                from config.design_system import TEMA
-                import config.theme as _tema_legado
-                TEMA.alternar()
-                _tema_legado.sincronizar_tema()
-                return  # Bloqueia propagacao
-
-            # Tratar Botão PIN (Edit Mode)
-            if hasattr(estado, 'rect_btn_pin') and estado.rect_btn_pin.collidepoint(pos_real):
-                estado.drag_ativado = not estado.drag_ativado
-                if not estado.drag_ativado:
-                    for dragger in obter_draggers_ativos(estado):
-                        dragger.arrastando = False
-                return # Bloqueia propagação
-
-            # Tratar Botão SAIR Global
-            if hasattr(estado, 'rect_btn_voltar_global') and estado.rect_btn_voltar_global.collidepoint(pos_real):
-                estado.tela_criacao_tab_ativa = False
-                estado.tab_tela_cheia_ativa = False
-                estado.tela_estudo_ativa = False
-                estado.tela_jogo_ativa = False
-                if meu_gerenciador_jogos:
-                    meu_gerenciador_jogos.jogo_instancia = None
-                if hasattr(estado, 'gerenciador_estudos'):
-                    estado.gerenciador_estudos._limpar_modulos()
-                return # Bloqueia propagação
+            if estado.menu_superior.consumir_regeneracao():
+                dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
+            return  # Bloqueia propagação
 
     # Criar uma lista de eventos com posições ajustadas para o Viewport de Conteúdo
     # Isso faz com que todo o resto do programa pense que (0,0) é logo abaixo da Top Bar
@@ -194,9 +166,6 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
     for evento in eventos_viewport:
         if evento.type == pygame.QUIT:
             estado.solicitou_saida = True
-        if estado.menu_superior.tratar_eventos(evento, pos_real, estado, configs, meu_campo_harmonico, meu_gravador):
-            dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
-            continue
         if not hasattr(estado, 'lista_guitarras'):
             estado.lista_guitarras = [estado.dragger_guitarra] if hasattr(estado, 'dragger_guitarra') else []
         acao_contexto = estado.menu_contexto.tratar_eventos(evento, pos_viewport, estado)
@@ -392,21 +361,6 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                  dicionario_escalas.update(fabrica_escalas.gerar_modulos(estado, configs))
 
         if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-            # Tratar Botao de Tema (Claro/Escuro) - troca ao vivo
-            if hasattr(estado, 'rect_btn_tema') and estado.rect_btn_tema.collidepoint(pos_real):
-                from config.design_system import TEMA
-                import config.theme as _tema_legado
-                TEMA.alternar()
-                _tema_legado.sincronizar_tema()
-                continue
-
-            if hasattr(estado, 'rect_btn_pin') and estado.rect_btn_pin.collidepoint(pos_real):
-                estado.drag_ativado = not estado.drag_ativado
-                if not estado.drag_ativado:
-                    for dragger in obter_draggers_ativos(estado):
-                        dragger.arrastando = False
-                continue
-            
             # Blocos extras do workspace.
             # Todo o teste e feito contra os retangulos que os blocos
             # guardaram durante o desenho; nada de geometria recalculada aqui.
@@ -578,6 +532,12 @@ def processar(eventos, estado, configs, dicionario_escalas, meu_metronomo, meu_p
                                 estado.estudo_ativo = 'Analisador IA'
                                 clicou_conteudo = True
                                 break
+                    elif secao['conteudo'] == 'configuracao' and secao['memoria_sub_aba'] in (2, 3):
+                        # Teclas de atalho / Desempenho: alvos guardados no desenho
+                        from ui.components.painel_preferencias import PAINEL
+                        if PAINEL.tratar_clique(evento.pos, estado):
+                            clicou_conteudo = True
+                            break
                     elif secao['conteudo'] == 'configuracao':
                         configs.y = y_start
                         configs.x = dx_inf + 20

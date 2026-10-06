@@ -3,6 +3,23 @@ import os
 import json
 from core.modulos.modulos_config import *
 
+
+def _mouse_no_viewport(estado):
+    """Posicao real do mouse descontando a barra superior."""
+    from config.ui_metrics import ALTURA_TOPBAR
+    x, y = getattr(estado, 'pos_mouse_real', None) or pygame.mouse.get_pos()
+    return (x, y - ALTURA_TOPBAR)
+
+
+def _avisar(estado, texto, tipo='info'):
+    try:
+        from ui.components.notificacoes import notificar
+        from core.i18n import _t
+        notificar(estado, _t(texto) if ':' not in texto else
+                  _t(texto.split(':', 1)[0]) + ':' + texto.split(':', 1)[1], tipo)
+    except Exception:
+        print(texto)
+
 class GerenciadorPerfil:
     """
         Como funciona: Mantém instâncias ativas e delega tarefas aos submódulos de 'GerenciadorPerfil'.
@@ -40,7 +57,7 @@ class GerenciadorPerfil:
         """
         self.ativo = True
         self.modo = 'salvar'
-        self.texto_input = 'Meu_Setup'
+        self.texto_input = self.nome_perfil_atual() or 'Meu_Setup'
 
     def abrir_modal_carregar(self):
         """
@@ -73,14 +90,8 @@ class GerenciadorPerfil:
         self.modo = None
         self.texto_input = ''
 
-    def restaurar_padrao(self, estado, configs=None, campo=None):
-        """
-            Como funciona: Executa o fluxo lógico necessário para a operação 'restaurar padrao'.
-            Para que serve: Realiza as tarefas fundamentais de 'restaurar padrao' dentro do contexto do módulo.
-            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'restaurar padrao'.
-        """
-        import json
-        
+    def restaurar_layout(self, estado):
+        """Devolve so a posicao e o tamanho dos blocos ao layout padrao."""
         # Layout padrao vem do canvas de design (config/layout_padrao.py),
         # ja proporcional a resolucao atual.
         from config.ui_metrics import ALTURA_TOPBAR
@@ -109,7 +120,17 @@ class GerenciadorPerfil:
                     obj.rect_caixa.y = obj.y
                     obj.rect_caixa.width = obj.largura
                     obj.rect_caixa.height = obj.altura
-        
+        if hasattr(estado, 'atualizar_medidas'):
+            estado.atualizar_medidas()
+
+    def restaurar_padrao(self, estado, configs=None, campo=None):
+        """
+            Como funciona: Volta layout, instrumento, tom, cores e afinador ao
+            padrao de fabrica e esquece o ultimo perfil carregado.
+            Para que serve: Opcao "Voltar para o Padrão" do menu Perfil.
+            Onde é usada: Menu superior (core/acoes_cabecalho.py).
+        """
+        self.restaurar_layout(estado)
         # Resetar variáveis de escala do braço no estado
         if estado:
             estado.LARGURA_BRACO = 1713
@@ -131,18 +152,41 @@ class GerenciadorPerfil:
             campo.tonica = 'C'
             campo.tipo_escala = 'Maior (Jônio)'
             campo.indice_acorde_selecionado = -1
-        try:
-            with open(self.arquivo_config_global, 'w', encoding='utf-8') as f:
-                json.dump({'ultimo_perfil': ''}, f)
-        except:
-            pass
+        self._gravar_config_global(ultimo_perfil='')
         print('[PERFIL] Layout restaurado para o padrão centralizado!')
+
+    # Atributos extras das Configuracoes que tambem vao para o perfil
+    CAMPOS_CONFIGS_EXTRAS = ('indice_tema', 'cor_customizada', 'hex_texto', 'velocidade_jogo',
+                             'volume_fx', 'particulas_habilitadas', 'tamanho_notas',
+                             'indice_tamanho_fonte')
+
+    def montar_dados(self, estado, configs, campo, gravador):
+        """Tudo o que o perfil guarda: layout, braco, cores, teclas e desempenho."""
+        dados = {'posicoes_draggers': {}, 'estado': {'instrumento': getattr(estado, 'instrumento', 'guitarra'), 'NUM_CASAS': getattr(estado, 'NUM_CASAS', 18), 'tom_atual': getattr(estado, 'tom_atual', 'C'), 'indice_afinacao': getattr(estado, 'indice_afinacao', 0), 'indice_cor_tonica': getattr(estado, 'indice_cor_tonica', 0), 'indice_cor_terca': getattr(estado, 'indice_cor_terca', 0), 'indice_cor_quinta': getattr(estado, 'indice_cor_quinta', 0), 'afinador_suavizacao': getattr(estado, 'afinador_suavizacao', 5), 'afinador_sensibilidade': getattr(estado, 'afinador_sensibilidade', 0.5), 'capo_casa': getattr(estado, 'capo_casa', 0), 'drone_nota': getattr(estado, 'drone_nota', 'C'), 'blocos_guardados': sorted(getattr(estado, 'blocos_guardados', []) or [])}, 'configs': {'transparencia': getattr(configs, 'transparencia', 100), 'cor_braco': getattr(configs, 'cor_braco', (80, 40, 15)), 'cor_notas': getattr(configs, 'cor_notas', (255, 255, 255)), 'indice_modo': getattr(configs, 'indice_modo', 0), 'indice_fonte': getattr(configs, 'indice_fonte', 0), 'indice_idioma': getattr(configs, 'indice_idioma', 0)}, 'campo_harmonico': {'tonica_campo': getattr(campo, 'tonica_campo', 'C'), 'indice_escala_campo': getattr(campo, 'indice_escala_campo', 0)}, 'gravador': {'device_id': getattr(gravador, 'device_id', None)}}
+        if configs is not None:
+            for nome in self.CAMPOS_CONFIGS_EXTRAS:
+                if hasattr(configs, nome):
+                    valor = getattr(configs, nome)
+                    dados['configs'][nome] = list(valor) if isinstance(valor, tuple) else valor
+        from config.design_system import TEMA
+        import core.atalhos as atalhos
+        import core.desempenho as desempenho
+        dados['interface'] = {'tema': TEMA.modo}
+        dados['atalhos'] = atalhos.diferentes_do_padrao(estado)
+        dados['desempenho'] = dict(desempenho.obter(estado))
+        lista_draggers = ['dragger_guitarra', 'dragger_acordes', 'dragger_controles_topo', 'dragger_painel_inferior', 'dragger_metronomo', 'dragger_cores', 'dragger_nota_atual', 'dragger_sessao', 'dragger_circulo', 'dragger_historico', 'dragger_ideias', 'dragger_drone', 'dragger_progressoes', 'dragger_graus', 'dragger_cordas', 'dragger_capo']
+        for nome in lista_draggers:
+            if hasattr(estado, nome):
+                obj = getattr(estado, nome)
+                dados['posicoes_draggers'][nome] = {'x': obj.x, 'y': obj.y, 'w': obj.largura, 'h': obj.altura}
+        return dados
 
     def salvar_perfil(self, estado, configs, campo, gravador):
         """
-            Como funciona: Serializa os dados em memória e envia para o armazenamento.
-            Para que serve: Persiste as alterações feitas pelo usuário no banco ou sistema de arquivos.
-            Onde é usada: Chamado a partir do módulo ou classe base de 'modulo_perfil'.
+            Como funciona: Grava o perfil com o nome digitado no modal (arquivo
+            em Perfis/ + copia na nuvem quando ha conta).
+            Para que serve: Opcao "Salvar perfil..." do botao da conta.
+            Onde é usada: Modal de perfil (tratar_eventos).
         """
         nome_arquivo = self.texto_input.strip()
         if not nome_arquivo:
@@ -150,12 +194,7 @@ class GerenciadorPerfil:
         if not nome_arquivo.endswith('.json'):
             nome_arquivo += '.json'
         caminho = os.path.join(self.pasta_padrao, nome_arquivo)
-        dados = {'posicoes_draggers': {}, 'estado': {'instrumento': getattr(estado, 'instrumento', 'guitarra'), 'NUM_CASAS': getattr(estado, 'NUM_CASAS', 18), 'tom_atual': getattr(estado, 'tom_atual', 'C'), 'indice_afinacao': getattr(estado, 'indice_afinacao', 0), 'indice_cor_tonica': getattr(estado, 'indice_cor_tonica', 0), 'indice_cor_terca': getattr(estado, 'indice_cor_terca', 0), 'indice_cor_quinta': getattr(estado, 'indice_cor_quinta', 0), 'afinador_suavizacao': getattr(estado, 'afinador_suavizacao', 5), 'afinador_sensibilidade': getattr(estado, 'afinador_sensibilidade', 0.5), 'capo_casa': getattr(estado, 'capo_casa', 0), 'drone_nota': getattr(estado, 'drone_nota', 'C'), 'blocos_guardados': sorted(getattr(estado, 'blocos_guardados', []) or [])}, 'configs': {'transparencia': getattr(configs, 'transparencia', 100), 'cor_braco': getattr(configs, 'cor_braco', (80, 40, 15)), 'cor_notas': getattr(configs, 'cor_notas', (255, 255, 255)), 'indice_modo': getattr(configs, 'indice_modo', 0), 'indice_fonte': getattr(configs, 'indice_fonte', 0), 'indice_idioma': getattr(configs, 'indice_idioma', 0)}, 'campo_harmonico': {'tonica_campo': getattr(campo, 'tonica_campo', 'C'), 'indice_escala_campo': getattr(campo, 'indice_escala_campo', 0)}, 'gravador': {'device_id': getattr(gravador, 'device_id', None)}}
-        lista_draggers = ['dragger_guitarra', 'dragger_acordes', 'dragger_controles_topo', 'dragger_painel_inferior', 'dragger_metronomo', 'dragger_cores', 'dragger_nota_atual', 'dragger_sessao', 'dragger_circulo', 'dragger_historico', 'dragger_ideias', 'dragger_drone', 'dragger_progressoes', 'dragger_graus', 'dragger_cordas', 'dragger_capo']
-        for nome in lista_draggers:
-            if hasattr(estado, nome):
-                obj = getattr(estado, nome)
-                dados['posicoes_draggers'][nome] = {'x': obj.x, 'y': obj.y, 'w': obj.largura, 'h': obj.altura}
+        dados = self.montar_dados(estado, configs, campo, gravador)
         with open(caminho, 'w', encoding='utf-8') as f:
             json.dump(dados, f, indent=4)
         if hasattr(estado, 'usuario_id_logado') and estado.usuario_id_logado:
@@ -171,6 +210,7 @@ class GerenciadorPerfil:
                 print(f'[CLOUD] Falha na conexão com o banco: {e}')
         self.salvar_ultimo_perfil_config(caminho)
         print(f'[PERFIL] Perfil completo salvo em: {caminho}')
+        _avisar(estado, f"Perfil salvo: {nome_arquivo.replace('.json', '')}", 'sucesso')
         self.fechar_modal()
 
     def carregar_perfil(self, caminho, estado, configs, campo, gravador):
@@ -235,6 +275,26 @@ class GerenciadorPerfil:
                     from core.i18n import sistema_traducao
                     sistema_traducao.atualizar_configuracao(codigo)
                     estado.idioma = codigo
+            if 'configs' in dados and configs is not None:
+                for nome in self.CAMPOS_CONFIGS_EXTRAS:
+                    if nome in dados['configs'] and hasattr(configs, nome):
+                        valor = dados['configs'][nome]
+                        if isinstance(getattr(configs, nome), tuple) and isinstance(valor, list):
+                            valor = tuple(valor)
+                        setattr(configs, nome, valor)
+            import core.atalhos as atalhos
+            import core.desempenho as desempenho
+            estado.atalhos = atalhos.normalizar(dados.get('atalhos'))
+            estado._indice_atalhos = None
+            estado.desempenho = desempenho.normalizar(dados.get('desempenho'))
+            desempenho.aplicar(estado)
+            tema = (dados.get('interface') or {}).get('tema')
+            if tema:
+                from config.design_system import TEMA
+                import config.theme as tema_legado
+                if TEMA.modo != tema:
+                    TEMA.definir_modo(tema)
+                    tema_legado.sincronizar_tema()
             if 'campo_harmonico' in dados:
                 d_ch = dados['campo_harmonico']
                 campo.tonica_campo = d_ch.get('tonica_campo', 'C')
@@ -254,37 +314,140 @@ class GerenciadorPerfil:
                 estado.atualizar_medidas()
             print(f'[PERFIL] Setup global carregado: {caminho}')
             self.salvar_ultimo_perfil_config(caminho)
+            if self.ativo:
+                _avisar(estado, 'Perfil carregado: '
+                        + os.path.splitext(os.path.basename(caminho))[0], 'sucesso')
         except Exception as e:
             print(f'[PERFIL] Erro ao carregar perfil: {e}')
+            _avisar(estado, f'Erro ao carregar perfil: {e}', 'erro')
+
+    def caminho_perfil_atual(self):
+        """Arquivo do ultimo perfil salvo/carregado, ou '' se nao houver."""
+        try:
+            with open(self.arquivo_config_global, 'r', encoding='utf-8') as f:
+                ultimo = json.load(f).get('ultimo_perfil', '')
+        except Exception:
+            return ''
+        return ultimo if ultimo and os.path.exists(ultimo) else ''
+
+    def nome_perfil_atual(self):
+        caminho = self.caminho_perfil_atual()
+        return os.path.splitext(os.path.basename(caminho))[0] if caminho else ''
 
     def deletar_perfil_atual(self):
         """
-            Como funciona: Executa o fluxo lógico necessário para a operação 'deletar perfil atual'.
-            Para que serve: Realiza as tarefas fundamentais de 'deletar perfil atual' dentro do contexto do módulo.
-            Onde é usada: Utilizado internamente para gerenciar comportamentos de 'deletar perfil atual'.
+            Como funciona: Apaga o arquivo do perfil atual e esquece a referencia.
+            Para que serve: Opcao "Excluir perfil atual" do menu Perfil.
+            Onde é usada: core/acoes_cabecalho.py (com confirmacao antes).
+            Devolve o nome do perfil apagado, ou '' se nao havia perfil.
         """
-        if os.path.exists(self.arquivo_config_global):
-            try:
-                with open(self.arquivo_config_global, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                ultimo = config.get('ultimo_perfil', '')
-                if ultimo and os.path.exists(ultimo):
-                    os.remove(ultimo)
-                    print(f'[PERFIL] Perfil deletado: {ultimo}')
-                    with open(self.arquivo_config_global, 'w', encoding='utf-8') as f:
-                        json.dump({'ultimo_perfil': ''}, f)
-            except:
-                pass
+        caminho = self.caminho_perfil_atual()
+        if not caminho:
+            return ''
+        try:
+            os.remove(caminho)
+            print(f'[PERFIL] Perfil deletado: {caminho}')
+            self._gravar_config_global(ultimo_perfil='')
+        except OSError:
+            return ''
+        return os.path.splitext(os.path.basename(caminho))[0]
+
+    def _gravar_config_global(self, **valores):
+        """Atualiza config_eiguit.json sem apagar o resto (o tema mora la)."""
+        dados = {}
+        try:
+            with open(self.arquivo_config_global, 'r', encoding='utf-8') as f:
+                dados = json.load(f)
+        except Exception:
+            dados = {}
+        dados.update(valores)
+        try:
+            with open(self.arquivo_config_global, 'w', encoding='utf-8') as f:
+                json.dump(dados, f, ensure_ascii=False)
+        except OSError:
+            pass
 
     def salvar_ultimo_perfil_config(self, caminho):
+        """Lembra qual perfil abrir na proxima vez."""
+        self._gravar_config_global(ultimo_perfil=caminho)
+
+    # ------------------------------------------------------ auto-salvar ----
+    INTERVALO_AUTO_SALVAR = 20.0      # segundos entre conferencias
+    ESPERA_APOS_MUDANCA = 1.0         # agrupa varias mudancas seguidas
+    NOME_PERFIL_PADRAO = 'Padrão'
+
+    def caminho_auto_salvar(self):
+        """Perfil atual; se nao houver, o perfil 'Padrão' (criado na hora)."""
+        return self.caminho_perfil_atual() or os.path.join(self.pasta_padrao,
+                                                           self.NOME_PERFIL_PADRAO + '.json')
+
+    def salvar_automatico(self, estado, configs, campo, gravador, forcar=False):
         """
-            Como funciona: Serializa os dados em memória e envia para o armazenamento.
-            Para que serve: Persiste as alterações feitas pelo usuário no banco ou sistema de arquivos.
-            Onde é usada: Chamado a partir do módulo ou classe base de 'modulo_perfil'.
+            Grava o estado atual no perfil, so se algo mudou desde a ultima vez.
+            Devolve True quando gravou.
         """
-        config = {'ultimo_perfil': caminho}
-        with open(self.arquivo_config_global, 'w', encoding='utf-8') as f:
-            json.dump(config, f)
+        try:
+            dados = self.montar_dados(estado, configs, campo, gravador)
+            texto = json.dumps(dados, indent=4, ensure_ascii=False, default=str)
+        except Exception as erro:
+            print(f'[PERFIL] Auto-salvar falhou ao montar os dados: {erro}')
+            return False
+        caminho = self.caminho_auto_salvar()
+        if not forcar and texto == getattr(self, '_ultimo_auto_salvo', None) \
+                and os.path.exists(caminho):
+            return False
+        try:
+            os.makedirs(os.path.dirname(caminho) or '.', exist_ok=True)
+            temporario = caminho + '.tmp'
+            with open(temporario, 'w', encoding='utf-8') as f:
+                f.write(texto)
+            os.replace(temporario, caminho)       # nunca deixa o perfil pela metade
+        except OSError as erro:
+            print(f'[PERFIL] Auto-salvar falhou: {erro}')
+            return False
+        self._ultimo_auto_salvo = texto
+        if not self.caminho_perfil_atual():
+            self.salvar_ultimo_perfil_config(caminho)
+        return True
+
+    def tick_auto_salvar(self, estado, configs, campo, gravador, agora=None):
+        """Chamado a cada quadro: barato, so olha o relogio."""
+        import time as _time
+        agora = agora if agora is not None else _time.time()
+        if getattr(estado, 'perfil_alterado', False):
+            if not getattr(self, '_mudanca_desde', 0):
+                self._mudanca_desde = agora
+            if agora - self._mudanca_desde >= self.ESPERA_APOS_MUDANCA:
+                estado.perfil_alterado = False
+                self._mudanca_desde = 0
+                self.salvar_automatico(estado, configs, campo, gravador)
+                self._ultima_conferencia = agora
+            return
+        if agora - getattr(self, '_ultima_conferencia', 0) >= self.INTERVALO_AUTO_SALVAR:
+            self._ultima_conferencia = agora
+            if self.ativo:
+                return            # modal aberto: espera terminar
+            self.salvar_automatico(estado, configs, campo, gravador)
+
+    def sincronizar_nuvem(self, estado, configs, campo, gravador, espera=4.0):
+        """Ao sair: manda o perfil atual para a conta, sem travar mais que 'espera'."""
+        usuario = getattr(estado, 'usuario_id_logado', None)
+        if not usuario:
+            return
+        import threading
+        nome = os.path.splitext(os.path.basename(self.caminho_auto_salvar()))[0]
+        dados = self.montar_dados(estado, configs, campo, gravador)
+
+        def _enviar():
+            try:
+                from BD.gerenciador_remoto_db import GerenciadorDB
+                GerenciadorDB().salvar_perfil(usuario, nome, dados)
+            except Exception as erro:
+                print(f'[CLOUD] Perfil nao sincronizado: {erro}')
+
+        t = threading.Thread(target=_enviar, daemon=True)
+        t.start()
+        t.join(espera)
 
     def carregar_ultimo_perfil(self, estado, configs, campo, gravador):
         """
@@ -299,8 +462,12 @@ class GerenciadorPerfil:
                     ultimo = config.get('ultimo_perfil', '')
                     if ultimo and os.path.exists(ultimo):
                         self.carregar_perfil(ultimo, estado, configs, campo, gravador)
-            except:
+                        return
+            except Exception:
                 pass
+        padrao = os.path.join(self.pasta_padrao, self.NOME_PERFIL_PADRAO + '.json')
+        if os.path.exists(padrao):
+            self.carregar_perfil(padrao, estado, configs, campo, gravador)
 
     def tratar_eventos(self, eventos, estado, configs, campo, gravador):
         """
@@ -314,8 +481,9 @@ class GerenciadorPerfil:
             if evento.type == pygame.QUIT:
                 estado.solicitou_saida = True
             if evento.type == pygame.KEYDOWN:
-                if evento.key == pygame.K_ESCAPE:
+                if evento.key == pygame.K_ESCAPE or (self.modo == 'conta' and evento.key == pygame.K_RETURN):
                     self.fechar_modal()
+                    return True
                 elif self.modo == 'salvar':
                     if evento.key == pygame.K_RETURN:
                         self.salvar_perfil(estado, configs, campo, gravador)
@@ -329,9 +497,12 @@ class GerenciadorPerfil:
                         self.carregar_perfil(caminho, estado, configs, campo, gravador)
                         self.fechar_modal()
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-                pos_mouse = pygame.mouse.get_pos()
+                # O modal e desenhado no viewport fixo (abaixo da barra), fora da
+                # camera: o clique tem de usar o mouse real, nao o virtual.
+                pos_mouse = _mouse_no_viewport(estado)
                 if hasattr(self, 'btn_cancelar') and self.btn_cancelar.collidepoint(pos_mouse):
                     self.fechar_modal()
+                    return True
                 if self.modo == 'salvar':
                     if hasattr(self, 'btn_acao') and self.btn_acao.collidepoint(pos_mouse):
                         self.salvar_perfil(estado, configs, campo, gravador)
@@ -345,7 +516,9 @@ class GerenciadorPerfil:
                         self.carregar_perfil(caminho, estado, configs, campo, gravador)
                         self.fechar_modal()
                 elif self.modo == 'conta':
-                    if hasattr(self, 'btn_deletar_conta') and self.btn_deletar_conta.collidepoint(pos_mouse):
+                    if hasattr(self, 'btn_acao') and self.btn_acao.collidepoint(pos_mouse):
+                        self.fechar_modal()
+                    elif hasattr(self, 'btn_deletar_conta') and self.btn_deletar_conta.collidepoint(pos_mouse):
                         from tkinter import messagebox, Tk
                         root = Tk()
                         root.withdraw()
@@ -437,4 +610,4 @@ class GerenciadorPerfil:
         tela.blit(txt_canc, (self.btn_cancelar.centerx - txt_canc.get_width() // 2, self.btn_cancelar.centery - txt_canc.get_height() // 2))
         pygame.draw.rect(tela, cor_acao, self.btn_acao, border_radius=5)
         txt_acao_render = fonte_ui.render(texto_btn_acao, True, self.BRANCO)
-        tela.blit(txt_acao_render, (self.btn_acao.centerx - txt_acao_render.get_width() // 2, self.btn_acao.centery - txt_acao_render.get_height() // 2))
+        tela.blit(txt_acao_render, (self.btn_acao.centerx - txt_acao_render.get_width() // 2, self.btn_acao.centery - txt_acao_render.get_height() // 2))
