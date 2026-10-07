@@ -50,8 +50,7 @@ cd web_frontend && npm install && npm start   # dev server, talks to the API on 
 
 ### Tests / lint
 The suites live in `_validacao/` (run each with `python3 _validacao/<suite>.py`; see its
-README). There is no linter/formatter configured. `robo_testes_ui.py` is an
-ad-hoc `pyautogui` UI-clicking robot, not an automated test. The `.github/workflows/deploy.yml`
+README). There is no linter/formatter configured. The `.github/workflows/deploy.yml`
 pygbag→WASM→GitHub Pages job is experimental and does not reflect how the app is normally run.
 
 ## Architecture
@@ -154,6 +153,13 @@ data files.
 - **Disk cleanup** — `OTIMIZAR_ESPACO.bat` / `otimizar_espaco.ps1` sends unused local stuff
   (PyInstaller build/dist, `venv_novo`, caches, applied update bundle, leftovers) to the Recycle Bin,
   asking group by group; `-Dependencias` trims `pyproject.toml` via uv.
+- **Chord palette** — `ui/components/paleta_acordes.py` (drawer block `dragger_paleta_acordes`,
+  title "Acordes"). Click a chord card = whole neck; drag to the neck = a 5-fret region snapped to
+  the nearest CAGED shape. Owns every chord drag (palette, its chips, and the ACORDES tab cards /
+  mini-neck), via `tratar_evento` hooked in `controlador_eventos` before the gaveteiro. All chords
+  live in `estado.acordes_fixados` (max 6, one color each); `guitar_neck` reads them through
+  `acordes_para_desenhar()` (adds drag preview + hover focus). Saved in the profile. Not part of
+  `BLOCOS_EXTRAS` (own event handler). Suite `_validacao/teste_paleta_acordes.py`.
 - **`audio/global_audio.py → GlobalAudioEngine`** — mic capture + continuous polyphonic pitch
   analysis; `main.py` reads `freq_detectada` / `notas_polifonicas` from it every frame.
 - **`Jogos/`** — gamification (`Jogos_interativos.py` manager + `acerte_a_nota.py` etc.).
@@ -186,7 +192,7 @@ MIDI→JSON, plus `librosa` BPM detection, and returns notes + BPM. The desktop 
 ## Repo noise to ignore
 
 Root-level one-off scripts left over from the refactor: `fix_imports*.py`,
-`refactor_clean_arch.py`, `docstring_generator.py`, `robo_testes_ui.py`, plus `utils/*.py`
+`refactor_clean_arch.py`, `docstring_generator.py`, plus `utils/*.py`
 analysis scripts, `1.png`, `rec_*.wav`, `*_cache.json`, `tasks_docstrings.json`. `build/`,
 `dist/`, `venv*/`, `.venv/`, `TranscriptionService/`, and `services/transcription/temp_audio/`
 are generated/local.
