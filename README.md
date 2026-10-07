@@ -28,8 +28,6 @@
   </p>
 </div>
 
-> 📸 **Sobre os prints deste README:** as imagens acima e as da galeria mais abaixo são placeholders — os arquivos ainda não existem em `docs/screenshots/`. Basta salvar os prints do programa **com esses mesmos nomes de arquivo** nessa pasta (veja a lista completa na seção [Capturas de tela](#-capturas-de-tela--screenshots)) que eles aparecem automaticamente aqui e no GitHub, sem precisar editar este arquivo.
-
 ---
 
 ## 🇧🇷 Português
@@ -191,20 +189,7 @@ Também existe um executável standalone gerado com PyInstaller (`build/GuitarSt
 
 ### 📸 Capturas de tela / Screenshots
 
-As imagens abaixo ainda são placeholders. Salve os prints do programa em `docs/screenshots/` **usando exatamente estes nomes de arquivo** para que apareçam automaticamente neste README (no GitHub e no editor local):
-
-| Arquivo | O que deve mostrar |
-|---|---|
-| `docs/screenshots/login.png` | Tela de login/autenticação |
-| `docs/screenshots/braco_guitarra.png` | Braço interativo com uma escala ativa |
-| `docs/screenshots/campo_harmonico.png` | Painel de campo harmônico / filtro de acordes |
-| `docs/screenshots/estudos.png` | Uma das trilhas do Estúdio de Estudos |
-| `docs/screenshots/editor_tablatura.png` | Editor/tocador de tablatura |
-| `docs/screenshots/jogo_acerte_a_nota.png` | Mini-jogo Acerte a Nota |
-| `docs/screenshots/jogo_rhythm_hero.png` | Mini-jogo Rhythm Hero |
-| `docs/screenshots/afinador_ia.png` | Painel de afinador / análise de IA |
-| `docs/screenshots/musicas_busca.png` | Busca de músicas (Songsterr) |
-| `docs/screenshots/configuracoes.png` | Painel de configurações / temas |
+Prints do programa rodando (tema escuro, 1920×1080):
 
 <p align="center">
   <img src="docs/screenshots/campo_harmonico.png" width="410" alt="Campo harmônico / filtro de acordes">
@@ -213,6 +198,13 @@ As imagens abaixo ainda são placeholders. Salve os prints do programa em `docs/
 <p align="center">
   <img src="docs/screenshots/musicas_busca.png" width="410" alt="Busca de músicas Songsterr">
   <img src="docs/screenshots/configuracoes.png" width="410" alt="Painel de configurações">
+</p>
+<p align="center">
+  <img src="docs/screenshots/afinador_ia.png" width="410" alt="Afinador e detecção em tempo real">
+  <img src="docs/screenshots/estudos.png" width="410" alt="Estudo Acerte a Escala">
+</p>
+<p align="center">
+  <img src="docs/screenshots/login.png" width="260" alt="Tela de login">
 </p>
 
 ---
@@ -376,7 +368,7 @@ A standalone PyInstaller-built executable also exists (`build/GuitarStudioIA/Gui
 
 ### 📸 Screenshots
 
-The images below are still placeholders. Save the program's screenshots into `docs/screenshots/` **using these exact file names** so they show up automatically here (on GitHub and in your local editor) — see the table in the [Capturas de tela](#-capturas-de-tela--screenshots) section above for the full list and what each one should show.
+Screenshots of the running program are in the [Capturas de tela](#-capturas-de-tela--screenshots) section above.
 
 ---
 

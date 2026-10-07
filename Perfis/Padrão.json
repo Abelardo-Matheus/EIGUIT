@@ -141,8 +141,12 @@
         "indice_fonte": 0,
         "indice_idioma": 0,
         "indice_tema": 0,
-        "cor_customizada": null,
-        "hex_texto": "0078D7",
+        "cor_customizada": [
+            155,
+            122,
+            255
+        ],
+        "hex_texto": "9B7AFF",
         "velocidade_jogo": 1.0,
         "volume_fx": 80,
         "particulas_habilitadas": true,
