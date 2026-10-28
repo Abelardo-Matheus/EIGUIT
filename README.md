@@ -125,6 +125,8 @@ A base de código foi refatorada em camadas. A estrutura abaixo reflete o reposi
 EIGUIT/
 ├── main.py                       # Entry point / loop principal do motor (60 FPS)
 ├── studio_cli.py                 # CLI de teoria musical (TUI com "rich")
+├── INSTALAR.bat / instalar.ps1   # Instalador do Windows (dependências, banco e atalhos)
+├── instalar.sh                   # Instalador do Linux (pacotes, dependências, banco e menu)
 ├── core/
 │   ├── estado_app.py             # EstadoGlobal: fonte única de verdade do app
 │   ├── controlador_eventos.py    # Único ponto de tratamento de mouse/teclado
@@ -153,29 +155,134 @@ EIGUIT/
 └── _validacao/                    # Suítes de teste sem janela (python _validacao/<suite>.py)
 ```
 
-### 🛠️ Como Executar o Projeto
+### 🛠️ Instalação
 
-O projeto usa **Python 3.12** e é gerenciado com **[uv](https://docs.astral.sh/uv/)** (o `pyproject.toml`/`uv.lock` já fixam as versões das dependências).
+O EIGUIT roda em **Windows 10/11** e **Linux** (Ubuntu/Debian, Fedora, Arch, openSUSE e derivados). Ele usa **Python 3.12**, gerenciado pelo **[uv](https://docs.astral.sh/uv/)**. O `pyproject.toml` e o `uv.lock` fixam todas as versões, então todo mundo instala exatamente o mesmo ambiente. Você **não precisa instalar o Python antes**: o uv baixa o Python 3.12 sozinho quando ele não existe na máquina.
 
-1. **Pré-requisitos:** Python 3.12, `git` e `uv` instalados.
-2. **Clone o repositório:**
+#### 1. Baixe o projeto
+
+Escolha um dos jeitos:
+
+* **Com git:**
+  ```bash
+  git clone https://github.com/Abelardo-Matheus/EIGUIT.git
+  cd EIGUIT
+  ```
+* **Sem git:** no GitHub, clique em **Code → Download ZIP** e extraia a pasta onde quiser deixar o programa (por exemplo, em Documentos). Não extraia dentro de uma pasta temporária: os atalhos apontam para esse lugar.
+
+#### 2. Instalação automática (recomendada)
+
+Os instaladores fazem tudo: instalam o que faltar no sistema, criam o ambiente Python com as dependências, perguntam a URL do banco de login e criam o atalho do programa. Nenhum deles precisa ser rodado como administrador/root.
+
+**🪟 Windows**
+
+1. Abra a pasta do EIGUIT e dê dois cliques em **`INSTALAR.bat`**.
+2. Na primeira vez, o download das dependências leva alguns minutos.
+3. Quando ele perguntar, cole a URL do banco (veja o [passo 4](#4-banco-de-dados-do-login)) ou aperte Enter para configurar depois.
+4. Pronto: abra pelo atalho **EIGUIT** na Área de Trabalho ou no Menu Iniciar.
+
+> Se o Windows mostrar "O Windows protegeu o computador" (SmartScreen), clique em **Mais informações → Executar assim mesmo**. O aviso aparece porque o `.bat` não tem assinatura digital.
+
+**🐧 Linux**
+
+1. Abra um terminal na pasta do EIGUIT e rode:
    ```bash
-   git clone https://github.com/Abelardo-Matheus/EIGUIT.git
-   cd EIGUIT
+   bash instalar.sh
    ```
-3. **Instale as dependências:**
-   ```bash
+2. O script pede sua senha **só** para instalar os pacotes do sistema (via `apt`, `dnf`, `pacman` ou `zypper`, conforme a distribuição).
+3. Quando ele perguntar, cole a URL do banco ou aperte Enter para configurar depois.
+4. Pronto: abra pelo menu de aplicativos (**EIGUIT**) ou digite `eiguit` no terminal.
+
+Opções do script: `bash instalar.sh --sem-sistema` pula os pacotes do sistema (útil sem sudo, se eles já estiverem instalados); `bash instalar.sh --desinstalar` remove o atalho e o ambiente.
+
+#### 3. Instalação manual (passo a passo)
+
+Use este caminho se preferir saber exatamente o que entra na sua máquina, ou se o instalador automático falhar.
+
+**🪟 Windows**
+
+1. Instale o **uv** (e, se for usar, o git). No PowerShell:
+   ```powershell
+   winget install astral-sh.uv
+   winget install Git.Git
+   ```
+   Sem o winget, instale o uv com: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`. Feche e abra o terminal depois de instalar.
+2. Na pasta do EIGUIT, instale as dependências:
+   ```powershell
    uv sync
    ```
-4. **Execute a aplicação:**
-   ```bash
+   No Windows todas as dependências têm pacotes prontos (não é preciso compilador). Os DLLs do FluidSynth e os SoundFonts já vêm em `assets\`.
+3. Execute:
+   ```powershell
    uv run python main.py
    ```
-   *(ou ative o ambiente virtual criado pelo `uv` e rode `python main.py` normalmente).*
 
-⚠️ **Importante:** o app abre primeiro uma **tela de login** e só continua depois de autenticar contra um banco PostgreSQL na nuvem — a URL de conexão não fica no código: o programa lê a variável de ambiente `EIGUIT_DB_URL` ou o arquivo `%APPDATA%/EIGUIT/banco.txt`. Sem isso o login não conecta.
+**🐧 Linux**
 
-Também existe um executável standalone gerado com PyInstaller (`build/GuitarStudioIA/GuitarStudioIA.exe`); se preferir testar sem configurar o ambiente Python, gere ou baixe o `.zip` da build mais recente e mantenha a pasta `assets/` no mesmo diretório do `.exe`. Por não ter assinatura digital, o Windows SmartScreen pode alertar — clique em "Mais informações" → "Executar assim mesmo".
+1. Instale os pacotes do sistema. Eles são necessários porque o `pyaudio` (exigido pelo `tinysoundfont`) não tem pacote pronto para Linux e é compilado na instalação, e porque o OpenCV, o Tk e o áudio usam bibliotecas nativas:
+
+   | Distribuição | Comando |
+   |---|---|
+   | Ubuntu, Debian, Mint, Pop!_OS | `sudo apt install build-essential python3-dev portaudio19-dev libportaudio2 libsndfile1 python3-tk libgl1 libglib2.0-0 ffmpeg curl git` |
+   | Fedora | `sudo dnf install gcc gcc-c++ make python3-devel portaudio-devel libsndfile python3-tkinter mesa-libGL glib2 ffmpeg-free curl git` |
+   | Arch, Manjaro | `sudo pacman -S --needed base-devel portaudio libsndfile tk mesa glib2 ffmpeg curl git` |
+   | openSUSE | `sudo zypper install gcc gcc-c++ make python3-devel portaudio-devel libsndfile1 python3-tk Mesa-libGL1 glib2 curl git` (ffmpeg opcional: `ffmpeg` ou `ffmpeg-7`, conforme a versão) |
+
+2. Instale o **uv**:
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+   Depois abra um terminal novo (ou rode `source ~/.local/bin/env`).
+3. Na pasta do EIGUIT, instale as dependências e execute:
+   ```bash
+   uv sync
+   uv run python main.py
+   ```
+
+> Rode o programa sempre **a partir da pasta do EIGUIT**: ele procura `assets/`, perfis e SoundFonts em caminhos relativos a ela. Os atalhos criados pelos instaladores já fazem isso.
+
+#### 4. Banco de dados do login
+
+O app abre primeiro uma **tela de login** e só continua depois de autenticar num banco PostgreSQL na nuvem. A URL de conexão **não fica no código**. O programa procura, nesta ordem:
+
+1. a variável de ambiente `EIGUIT_DB_URL`;
+2. o arquivo `banco.txt` na pasta de configuração do usuário:
+   * Windows: `%APPDATA%\EIGUIT\banco.txt`
+   * Linux: `~/.config/EIGUIT/banco.txt`
+3. o arquivo `banco.local.txt` na pasta do projeto (ignorado pelo git).
+
+O arquivo deve ter só a URL, numa linha (`postgresql://usuario:senha@servidor/banco?sslmode=require`). Os instaladores criam o `banco.txt` por você. Sem a URL, a tela de login abre, mas não conecta.
+
+#### 5. Recursos opcionais
+
+Nada disto é necessário para o programa abrir:
+
+* **Ler PDF de partitura no estudo "Tempo"** e **baixar músicas de referência no Analisador IA:**
+  ```bash
+  uv pip install pypdf yt-dlp
+  ```
+  Para o Analisador converter o áudio baixado também é preciso o **ffmpeg**: no Linux ele já entra com os pacotes acima; no Windows, `winget install Gyan.FFmpeg`. Como o `uv sync` deixa o ambiente igual ao `uv.lock`, rode esse `uv pip install` de novo depois de cada `uv sync`.
+* **Serviço de transcrição por IA e frontend web** (`services/`, `web_frontend/`): são programas separados, com instalação própria (Docker/Redis, um Python 3.11 e Node.js). O `Ligar_GuitarStudio.bat` liga os quatro serviços no Windows.
+
+#### 6. Atualizar e desinstalar
+
+* **Atualizar:** na pasta do EIGUIT, rode `git pull` (ou baixe o ZIP novo por cima) e depois `uv sync`. Rodar o instalador de novo também funciona.
+* **Desinstalar:** Windows, `powershell -ExecutionPolicy Bypass -File instalar.ps1 -Desinstalar`; Linux, `bash instalar.sh --desinstalar`. Isso remove atalhos e o ambiente `.venv`. Depois é só apagar a pasta do EIGUIT. Seus perfis locais e a URL do banco ficam em `%APPDATA%\EIGUIT` / `~/.config/EIGUIT`, caso queira apagar também.
+
+#### 7. Problemas comuns
+
+| Sintoma | Causa e solução |
+|---|---|
+| `uv sync` falha com **`portaudio.h`** (Linux) | Faltam os pacotes de compilação. Instale os da tabela do passo 3 e rode `uv sync` de novo. |
+| **`libGL.so.1: cannot open shared object file`** (Linux) | Falta a biblioteca OpenGL usada pelo OpenCV: `libgl1` (Debian/Ubuntu) ou `mesa-libGL` (Fedora). |
+| **`No module named '_tkinter'`** (Linux) | Falta o Tk do sistema: `python3-tk` (Debian/Ubuntu), `python3-tkinter` (Fedora) ou `tk` (Arch). |
+| **`uv` não é reconhecido** depois de instalar | O terminal não recarregou o PATH. Feche e abra o terminal (ou reinicie a sessão). |
+| PowerShell diz que **a execução de scripts foi desabilitada** | Use o `INSTALAR.bat`, que já chama o script com `-ExecutionPolicy Bypass` só para essa execução. |
+| Login **não conecta** | A URL do banco não foi configurada ou está errada. Veja o [passo 4](#4-banco-de-dados-do-login). |
+| O app abre, mas **sem som ou sem microfone** | Confira o dispositivo de entrada/saída padrão do sistema. No Linux, o usuário precisa ter acesso ao áudio (PipeWire/PulseAudio rodando). |
+| O atalho abre e **fecha na hora** | Rode no terminal para ver o erro: `.venv\Scripts\python main.py` (Windows) ou `.venv/bin/python main.py` (Linux), sempre de dentro da pasta do EIGUIT. |
+
+Também existe um executável standalone gerado com PyInstaller (`build/GuitarStudioIA/GuitarStudioIA.exe`); se preferir testar sem configurar o ambiente Python, gere ou baixe o `.zip` da build mais recente e mantenha a pasta `assets/` no mesmo diretório do `.exe`.
 
 ### 🎮 Guia de Uso Rápido
 
@@ -307,6 +414,8 @@ The codebase was refactored into layers. The tree below reflects the current rep
 EIGUIT/
 ├── main.py                       # Entry point / main engine loop (60 FPS)
 ├── studio_cli.py                 # Music-theory CLI (rich TUI)
+├── INSTALAR.bat / instalar.ps1   # Windows installer (dependencies, database, shortcuts)
+├── instalar.sh                   # Linux installer (packages, dependencies, database, menu)
 ├── core/
 │   ├── estado_app.py             # EstadoGlobal: the single source of truth
 │   ├── controlador_eventos.py    # The only mouse/keyboard input handler
@@ -335,29 +444,132 @@ EIGUIT/
 └── _validacao/                    # Headless test suites (python _validacao/<suite>.py)
 ```
 
-### 🛠️ How to Run the Project
+### 🛠️ Installation
 
-The project targets **Python 3.12** and is managed with **[uv](https://docs.astral.sh/uv/)** (`pyproject.toml`/`uv.lock` pin the dependency versions).
+EIGUIT runs on **Windows 10/11** and **Linux** (Ubuntu/Debian, Fedora, Arch, openSUSE and derivatives). It uses **Python 3.12**, managed by **[uv](https://docs.astral.sh/uv/)**; `pyproject.toml` and `uv.lock` pin every version, so everyone gets exactly the same environment. You **don't need to install Python first**: uv downloads Python 3.12 by itself when the machine doesn't have it.
 
-1. **Prerequisites:** Python 3.12, `git` and `uv` installed.
-2. **Clone the repository:**
+#### 1. Get the project
+
+* **With git:**
+  ```bash
+  git clone https://github.com/Abelardo-Matheus/EIGUIT.git
+  cd EIGUIT
+  ```
+* **Without git:** on GitHub, click **Code → Download ZIP** and extract the folder where you want the program to live (e.g. Documents). Don't run it from a temporary folder: the shortcuts point to this location.
+
+#### 2. Automatic install (recommended)
+
+The installers do everything: install whatever the system is missing, create the Python environment with all dependencies, ask for the login database URL and create the app shortcut. Neither needs to run as administrator/root.
+
+**🪟 Windows**
+
+1. Open the EIGUIT folder and double-click **`INSTALAR.bat`**.
+2. The first time, downloading the dependencies takes a few minutes.
+3. When asked, paste the database URL (see [step 4](#4-login-database)) or press Enter to set it up later.
+4. Done: open it from the **EIGUIT** shortcut on the Desktop or in the Start Menu.
+
+> If Windows shows "Windows protected your PC" (SmartScreen), click **More info → Run anyway**. The warning appears because the `.bat` is not digitally signed.
+
+**🐧 Linux**
+
+1. Open a terminal in the EIGUIT folder and run:
    ```bash
-   git clone https://github.com/Abelardo-Matheus/EIGUIT.git
-   cd EIGUIT
+   bash instalar.sh
    ```
-3. **Install dependencies:**
-   ```bash
+2. The script asks for your password **only** to install system packages (via `apt`, `dnf`, `pacman` or `zypper`, depending on the distro).
+3. When asked, paste the database URL or press Enter to set it up later.
+4. Done: open it from the applications menu (**EIGUIT**) or type `eiguit` in a terminal.
+
+Script options: `bash instalar.sh --sem-sistema` skips the system packages (useful without sudo, if they're already installed); `bash instalar.sh --desinstalar` removes the shortcut and the environment.
+
+#### 3. Manual install (step by step)
+
+Use this path if you'd rather know exactly what goes on your machine, or if the automatic installer fails.
+
+**🪟 Windows**
+
+1. Install **uv** (and git, if you'll use it). In PowerShell:
+   ```powershell
+   winget install astral-sh.uv
+   winget install Git.Git
+   ```
+   Without winget, install uv with: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`. Close and reopen the terminal afterwards.
+2. In the EIGUIT folder, install the dependencies:
+   ```powershell
    uv sync
    ```
-4. **Run the app:**
-   ```bash
+   On Windows every dependency ships as a prebuilt package (no compiler needed). The FluidSynth DLLs and the SoundFonts already come in `assets\`.
+3. Run:
+   ```powershell
    uv run python main.py
    ```
-   *(or activate the venv `uv` created and run `python main.py` directly).*
 
-⚠️ **Important:** the app opens a **login screen** first and only continues after authenticating against a cloud PostgreSQL database — the connection URL is not in the code: the app reads the `EIGUIT_DB_URL` environment variable or the `%APPDATA%/EIGUIT/banco.txt` file. Without it, login can't connect.
+**🐧 Linux**
 
-A standalone PyInstaller-built executable also exists (`build/GuitarStudioIA/GuitarStudioIA.exe`); if you'd rather test it without a Python setup, build or download the latest `.zip` and keep the `assets/` folder next to the `.exe`. Since it isn't digitally signed, Windows SmartScreen may warn you — click "More info" → "Run anyway".
+1. Install the system packages. They're required because `pyaudio` (pulled in by `tinysoundfont`) has no prebuilt Linux package and is compiled during install, and because OpenCV, Tk and audio rely on native libraries:
+
+   | Distribution | Command |
+   |---|---|
+   | Ubuntu, Debian, Mint, Pop!_OS | `sudo apt install build-essential python3-dev portaudio19-dev libportaudio2 libsndfile1 python3-tk libgl1 libglib2.0-0 ffmpeg curl git` |
+   | Fedora | `sudo dnf install gcc gcc-c++ make python3-devel portaudio-devel libsndfile python3-tkinter mesa-libGL glib2 ffmpeg-free curl git` |
+   | Arch, Manjaro | `sudo pacman -S --needed base-devel portaudio libsndfile tk mesa glib2 ffmpeg curl git` |
+   | openSUSE | `sudo zypper install gcc gcc-c++ make python3-devel portaudio-devel libsndfile1 python3-tk Mesa-libGL1 glib2 curl git` (optional ffmpeg: `ffmpeg` or `ffmpeg-7`, depending on the release) |
+
+2. Install **uv**:
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+   Then open a new terminal (or run `source ~/.local/bin/env`).
+3. In the EIGUIT folder, install the dependencies and run:
+   ```bash
+   uv sync
+   uv run python main.py
+   ```
+
+> Always run the program **from the EIGUIT folder**: it looks up `assets/`, profiles and SoundFonts relative to it. The shortcuts created by the installers already do this.
+
+#### 4. Login database
+
+The app first opens a **login screen** and only continues after authenticating against a cloud PostgreSQL database. The connection URL is **not in the code**; the program looks, in this order, for:
+
+1. the `EIGUIT_DB_URL` environment variable;
+2. a `banco.txt` file in the user's config folder:
+   * Windows: `%APPDATA%\EIGUIT\banco.txt`
+   * Linux: `~/.config/EIGUIT/banco.txt`
+3. a `banco.local.txt` file in the project folder (ignored by git).
+
+The file must contain only the URL, on one line (`postgresql://user:password@host/database?sslmode=require`). The installers create `banco.txt` for you. Without the URL, the login screen opens but can't connect.
+
+#### 5. Optional features
+
+None of this is needed for the program to start:
+
+* **Reading score PDFs in the "Timing" study** and **downloading reference songs in the AI Analyzer:**
+  ```bash
+  uv pip install pypdf yt-dlp
+  ```
+  The Analyzer also needs **ffmpeg** to convert the downloaded audio: on Linux it comes with the packages above; on Windows, `winget install Gyan.FFmpeg`. Since `uv sync` resets the environment to match `uv.lock`, run that `uv pip install` again after each `uv sync`.
+* **AI transcription service and web frontend** (`services/`, `web_frontend/`): separate programs with their own setup (Docker/Redis, a Python 3.11 and Node.js). `Ligar_GuitarStudio.bat` starts all four services on Windows.
+
+#### 6. Update and uninstall
+
+* **Update:** in the EIGUIT folder, run `git pull` (or extract the new ZIP over it) and then `uv sync`. Running the installer again also works.
+* **Uninstall:** Windows, `powershell -ExecutionPolicy Bypass -File instalar.ps1 -Desinstalar`; Linux, `bash instalar.sh --desinstalar`. This removes the shortcuts and the `.venv` environment; then just delete the EIGUIT folder. Your local profiles and the database URL live in `%APPDATA%\EIGUIT` / `~/.config/EIGUIT`, in case you want to delete them too.
+
+#### 7. Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| `uv sync` fails with **`portaudio.h`** (Linux) | Build packages are missing. Install the ones from the step 3 table and run `uv sync` again. |
+| **`libGL.so.1: cannot open shared object file`** (Linux) | The OpenGL library used by OpenCV is missing: `libgl1` (Debian/Ubuntu) or `mesa-libGL` (Fedora). |
+| **`No module named '_tkinter'`** (Linux) | System Tk is missing: `python3-tk` (Debian/Ubuntu), `python3-tkinter` (Fedora) or `tk` (Arch). |
+| **`uv` is not recognized** after installing | The terminal didn't reload PATH. Close and reopen it (or log out and back in). |
+| PowerShell says **running scripts is disabled** | Use `INSTALAR.bat`, which already calls the script with `-ExecutionPolicy Bypass` for that run only. |
+| Login **won't connect** | The database URL isn't set or is wrong. See [step 4](#4-login-database). |
+| The app opens but has **no sound or microphone** | Check the system's default input/output device. On Linux, your user needs audio access (PipeWire/PulseAudio running). |
+| The shortcut opens and **closes immediately** | Run it in a terminal to see the error: `.venv\Scripts\python main.py` (Windows) or `.venv/bin/python main.py` (Linux), always from inside the EIGUIT folder. |
+
+A standalone PyInstaller-built executable also exists (`build/GuitarStudioIA/GuitarStudioIA.exe`); if you'd rather test it without a Python setup, build or download the latest `.zip` and keep the `assets/` folder next to the `.exe`.
 
 ### 🎮 Quick Start Guide
 
